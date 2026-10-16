@@ -34,6 +34,8 @@ import io.github.xingyingyuzhui.modbusmobile.ui.LocalPanelRuntime
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalProjectRepository
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
+import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
+import io.github.xingyingyuzhui.modbusmobile.ui.components.PencilIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusCard
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PageHeader
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
@@ -61,21 +63,43 @@ fun PanelScreen() {
         model.setActive(true)
         onStopOrDispose { model.setActive(false) }
     }
-    PanelContent(
-        state = state,
-        snapshots = snapshots,
-        stats = stats,
-        paused = paused,
-        selectedPanelId = selected,
-        onSelectPanel = model::selectPanel,
-        onTogglePause = model::togglePause,
-    )
+    val edit by model.edit.collectAsStateWithLifecycle()
+    val editing = edit
+    if (editing != null) {
+        PanelEditor(
+            edit = editing,
+            snapshots = snapshots,
+            actions = EditActions(
+                onRename = model::rename,
+                onColumns = model::setColumns,
+                onMove = model::moveWidget,
+                onSpan = model::setSpan,
+                onDelete = model::deleteWidget,
+                onSelectPanel = model::selectEditPanel,
+                onAddPanel = model::addPanel,
+                onDeletePanel = model::deletePanel,
+                onDone = model::save,
+                onCancel = model::cancelEdit,
+            ),
+        )
+    } else {
+        PanelContent(
+            state = state,
+            snapshots = snapshots,
+            stats = stats,
+            paused = paused,
+            selectedPanelId = selected,
+            onSelectPanel = model::selectPanel,
+            onTogglePause = model::togglePause,
+            onEdit = if (model.canEdit) ({ model.startEdit(selected) }) else null,
+        )
+    }
 }
 
 /**
  * 面板页（稿面 b2-1 / b4-3）。竖屏：页头 + 会话条（主站 · 轮询中 / 设定 · 实际 + 暂停）+ 面板 chip + 2 列网格；
  * 横屏：一行页头（面板 16/700 + chip xs + 轮询 badge + 暂停）+ 4 列网格，无会话条。
- * 没有 ✎ / ⤢ / ＋：编辑、全屏曲线、新建面板在后续 PR，没有功能的入口不画。
+ * ✎ 进入编辑模式（P5，见 PanelEditScreen）；⤢ 全屏曲线、＋ 添加组件在后续 PR，没有功能的入口不画。
  */
 @Composable
 fun PanelContent(
@@ -86,6 +110,8 @@ fun PanelContent(
     selectedPanelId: String? = null,
     onSelectPanel: (String) -> Unit = {},
     onTogglePause: () -> Unit = {},
+    /** 为 null 时不画 ✎（没有仓库 / 工程文件只读 / 还没有面板）。 */
+    onEdit: (() -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
@@ -100,13 +126,16 @@ fun PanelContent(
     val widgets = current?.widgets?.filter { it.isUsable }.orEmpty()
     val anyWidgets = panels.any { p -> p.widgets.any { it.isUsable } }
     val columns = if (landscape) 4 else (current?.columns ?: 2)
+    val editEntry: (() -> Unit)? = if (ready != null && !ready.readOnly && panels.isNotEmpty()) onEdit else null
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Column(Modifier.padding(start = pageStart(), end = spacing.page)) {
             if (landscape) {
-                LandscapeHeader(panels, current, stats, paused, masterRunning && anyWidgets, onSelectPanel, onTogglePause)
+                LandscapeHeader(panels, current, stats, paused, masterRunning && anyWidgets, onSelectPanel, onTogglePause, editEntry)
             } else {
-                PageHeader(stringResource(R.string.title_panel))
+                PageHeader(stringResource(R.string.title_panel)) {
+                    if (editEntry != null) EditEntryButton(editEntry)
+                }
                 val polling = masterRunning && anyWidgets && stats != null && !paused
                 val title = when {
                     masterRunning && anyWidgets && paused -> stringResource(R.string.panel_strip_paused)
@@ -228,6 +257,7 @@ private fun LandscapeHeader(
     canPause: Boolean,
     onSelect: (String) -> Unit,
     onTogglePause: () -> Unit,
+    onEdit: (() -> Unit)?,
 ) {
     val colors = LocalModbusColors.current
     Row(
@@ -256,6 +286,14 @@ private fun LandscapeHeader(
             canPause -> ToneBadge(stringResource(R.string.panel_land_idle), colors.dropped, Modifier.testTag("panel-badge"))
         }
         if (canPause) PauseButton(paused, onTogglePause)
+        if (onEdit != null) EditEntryButton(onEdit)
+    }
+}
+
+@Composable
+private fun EditEntryButton(onEdit: () -> Unit) {
+    HeaderIconButton(stringResource(R.string.panel_edit_open), onEdit, Modifier.testTag("panel-edit")) {
+        PencilIcon(LocalModbusColors.current.muted, size = 16.dp)
     }
 }
 

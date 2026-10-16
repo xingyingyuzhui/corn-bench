@@ -1,0 +1,91 @@
+package io.github.xingyingyuzhui.modbusmobile.application.panel
+
+import java.util.UUID
+import kotlin.math.roundToInt
+
+/**
+ * 面板编辑的纯函数：都返回新的 [Project]，不动原来的；找不到目标就原样返回。
+ * 读不懂的组件（[Widget.raw]）也在列表里，排序 / 保存都原样保留，只是界面不显示它们。
+ */
+object ProjectEdits {
+    const val MAX_NAME = 24
+    const val MIN_COLUMNS = 2
+    const val MAX_COLUMNS = 4
+
+    fun cleanName(input: String): String = input.take(MAX_NAME)
+
+    fun isValidName(name: String): Boolean = name.isNotBlank()
+
+    private inline fun Project.mapPanel(panelId: String, transform: (Panel) -> Panel): Project {
+        if (panels.none { it.id == panelId }) return this
+        return copy(panels = panels.map { if (it.id == panelId) transform(it) else it })
+    }
+
+    fun renamePanel(project: Project, panelId: String, name: String): Project =
+        project.mapPanel(panelId) { it.copy(name = cleanName(name)) }
+
+    fun setColumns(project: Project, panelId: String, columns: Int): Project =
+        project.mapPanel(panelId) { it.copy(columns = columns.coerceIn(MIN_COLUMNS, MAX_COLUMNS)) }
+
+    /** 把 [widgetId] 挪到 [targetWidgetId] 当前的位置（拖到谁身上就占谁的位置）。 */
+    fun moveWidget(project: Project, panelId: String, widgetId: String, targetWidgetId: String): Project =
+        project.mapPanel(panelId) { panel ->
+            val list = panel.widgets.toMutableList()
+            val from = list.indexOfFirst { it.id == widgetId }
+            val to = list.indexOfFirst { it.id == targetWidgetId }
+            if (from < 0 || to < 0 || from == to) return@mapPanel panel
+            list.add(to, list.removeAt(from))
+            panel.copy(widgets = list)
+        }
+
+    fun setSpan(project: Project, panelId: String, widgetId: String, columns: Int, rows: Int): Project =
+        project.mapPanel(panelId) { panel ->
+            panel.copy(
+                widgets = panel.widgets.map {
+                    if (it.id == widgetId && it.raw == null) it.copy(spanColumns = columns.coerceIn(1, 2), spanRows = rows.coerceIn(1, 2)) else it
+                },
+            )
+        }
+
+    fun deleteWidget(project: Project, panelId: String, widgetId: String): Project =
+        project.mapPanel(panelId) { panel -> panel.copy(widgets = panel.widgets.filterNot { it.id == widgetId && it.raw == null }) }
+
+    /** 新面板叫“面板 N”（N 取没被占用的最小正整数），加在最后。返回新工程和新面板 id。 */
+    fun addPanel(project: Project, newId: () -> String = { UUID.randomUUID().toString().take(8) }): Pair<Project, String> {
+        var n = 1
+        while (project.panels.any { it.name == "面板 $n" }) n++
+        var id = newId()
+        while (project.panels.any { it.id == id }) id = newId()
+        return project.copy(panels = project.panels + Panel(id, "面板 $n")) to id
+    }
+
+    /** 至少留一个面板：只剩一个时拒绝（原样返回）。 */
+    fun deletePanel(project: Project, panelId: String): Project =
+        if (project.panels.size <= 1 || project.panels.none { it.id == panelId }) project else project.copy(panels = project.panels.filterNot { it.id == panelId })
+
+    /** 点一下右下角把手：1×1 → 2×1 → 2×2 → 1×2 → 1×1；只有 1 列（不可能）或列数不够 2 时跳过跨列的项。 */
+    fun nextSize(columns: Int, rows: Int, panelColumns: Int): Pair<Int, Int> {
+        val cycle = listOf(1 to 1, 2 to 1, 2 to 2, 1 to 2).filter { it.first <= panelColumns }
+        val index = cycle.indexOf(columns to rows)
+        return cycle[(if (index < 0) 0 else index + 1) % cycle.size]
+    }
+
+    /**
+     * 拖把手改尺寸：按手指拖到的位置换算成跨几列 / 几行（四舍五入到最近的格数，夹在 1..2 和面板列数内）。
+     * [cellWidth] 一列的宽，[rowHeight] 一行（单行卡）的高，[gap] 间距；[width]/[height] 是卡片当前尺寸，[dx]/[dy] 是拖动量（像素）。
+     */
+    fun resizedSpan(
+        width: Float,
+        height: Float,
+        dx: Float,
+        dy: Float,
+        cellWidth: Float,
+        rowHeight: Float,
+        gap: Float,
+        panelColumns: Int,
+    ): Pair<Int, Int> {
+        val cols = (((width + dx + gap) / (cellWidth + gap)).roundToInt()).coerceIn(1, minOf(2, panelColumns))
+        val rows = (((height + dy + gap) / (rowHeight + gap)).roundToInt()).coerceIn(1, 2)
+        return cols to rows
+    }
+}
