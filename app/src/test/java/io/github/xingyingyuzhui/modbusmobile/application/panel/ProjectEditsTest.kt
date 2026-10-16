@@ -136,5 +136,39 @@ class ProjectEditsTest {
         val seq2 = ArrayDeque(listOf("aa", "bb"))
         assertEquals("w-bb", ProjectEdits.newIds(clash) { seq2.removeFirst() }.first)
     }
-}
 
+    private fun curveWidget(id: String = "c1", vararg pointIds: String) = Widget(
+        id, WidgetKinds.CURVE, curve = CurveConfig(
+            pointIds.map { CurveSeries(PointDefinition(it, it, 1, RegisterArea.HOLDING_REGISTER, 0, DataType.U16)) },
+        ),
+        spanColumns = 2,
+    )
+
+    @Test fun curveWidgetsNeverShrinkBelowTwoColumns() {
+        val p = Project("default", "x", listOf(Panel("a", "A", 3, listOf(curveWidget("c1", "s1")))))
+        val one = ProjectEdits.setSpan(p, "a", "c1", 1, 2)
+        assertEquals(2, one.panels[0].widgets[0].spanColumns)
+        assertEquals(2, one.panels[0].widgets[0].spanRows)
+        assertEquals(2 to 2, ProjectEdits.nextSize(2, 1, 3, minColumns = 2))
+        assertEquals(2 to 1, ProjectEdits.nextSize(2, 2, 3, minColumns = 2))
+        assertEquals(2, ProjectEdits.resizedSpan(100f, 100f, -80f, 0f, 100f, 100f, 8f, 3, minColumns = 2).first)
+    }
+
+    @Test fun idsStayUniqueAgainstCurveSeriesPointIds() {
+        val p = Project("default", "x", listOf(Panel("a", "A", 2, listOf(curveWidget("w-aa", "p-aa", "p-bb")))))
+        val seq = sequenceOf("aa", "bb", "cc").iterator()
+        val (wid, pid) = ProjectEdits.newIds(p) { seq.next() }
+        assertEquals("w-cc" to "p-cc", wid to pid)
+        val seq2 = sequenceOf("aa", "dd").iterator()
+        assertEquals("p-dd", ProjectEdits.newPointId(p, setOf("p-xx")) { seq2.next() })
+        val seq3 = sequenceOf("xx", "ee").iterator()
+        assertEquals("extraUsed 也要避开", "p-ee", ProjectEdits.newPointId(p, setOf("p-xx")) { seq3.next() })
+    }
+
+    @Test fun usablePointsIncludeEverySeriesAndSkipUnusableCurves() {
+        val broken = Widget("bad", WidgetKinds.CURVE, curve = CurveConfig(emptyList()))
+        val p = Project("default", "x", listOf(Panel("a", "A", 2, listOf(curveWidget("c1", "s1", "s2"), broken, w("1")))))
+        assertEquals(listOf("s1", "s2", "p-1"), p.usablePoints.map { it.id })
+        assertTrue(!broken.isUsable)
+    }
+}

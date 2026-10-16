@@ -91,6 +91,7 @@ fun PanelScreen() {
         PanelContent(
             state = state,
             snapshots = snapshots,
+            history = model.history,
             stats = stats,
             paused = paused,
             selectedPanelId = selected,
@@ -120,6 +121,8 @@ fun PanelContent(
     onEdit: (() -> Unit)? = null,
     /** 空面板里的“添加组件”：为 null（没有仓库 / 只读）时不画。 */
     onAdd: (() -> Unit)? = null,
+    /** 曲线卡的样本历史；为空时曲线卡显示“暂无数据”。 */
+    history: io.github.xingyingyuzhui.modbusmobile.application.panel.SampleHistory? = null,
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
@@ -223,7 +226,11 @@ fun PanelContent(
                             gap = spacing.gapS,
                         ) { index ->
                             val widget: Widget = widgets[index]
-                            WidgetCard(widget, snapshots[widget.point!!.id])
+                            if (widget.curve != null) {
+                                io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveWidgetCard(widget, history)
+                            } else {
+                                WidgetCard(widget, snapshots[widget.point!!.id])
+                            }
                         }
                     }
                 }

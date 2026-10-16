@@ -235,4 +235,73 @@ class ProjectRepositoryTest {
         assertNull(back.rangeMax)
         assertTrue(back.thresholds.isEmpty())
     }
+
+    private fun curveWidget(): Widget = Widget(
+        "c1", WidgetKinds.CURVE, title = "温度 / 压力", spanColumns = 2, spanRows = 2,
+        curve = CurveConfig(
+            series = listOf(
+                CurveSeries(point("s1"), colorIndex = 0, lineStyle = LineStyle.SOLID, width = 2, axis = YAxis.LEFT),
+                CurveSeries(
+                    point("s2", DataType.U16).copy(name = "压力"), colorIndex = 3, lineStyle = LineStyle.DASH, width = 3, axis = YAxis.RIGHT,
+                    showPoints = true, fill = true, step = true,
+                ),
+            ),
+            windowSec = 600, sampling = SamplingMode.SNAPSHOT, retentionMinutes = 90, maxPoints = 5000,
+            left = AxisRange(false, 10.0, 30.0), right = AxisRange(), grid = false, legend = LegendPosition.BOTTOM,
+            gaps = GapStyle.BREAK, cursor = false,
+        ),
+    )
+
+    @Test fun curveWidgetRoundTripsEveryField() {
+        val p = Project("default", "x", listOf(Panel("pn", "A", 2, listOf(curveWidget()))))
+        val r = repo()
+        assertEquals(ProjectSave.Saved, r.save(p))
+        val loaded = r.load() as ProjectLoad.Loaded
+        assertEquals(p, loaded.project)
+        assertTrue(loaded.warnings.isEmpty())
+        val json = JSONObject(mainFile().readText()).getJSONArray("panels").getJSONObject(0).getJSONArray("widgets").getJSONObject(0)
+        assertFalse("曲线组件没有顶层 point", json.has("point"))
+        assertEquals(2, json.getJSONObject("curve").getJSONArray("series").length())
+    }
+
+    @Test fun curveWithAnUnknownLineStyleIsPreservedVerbatim() {
+        val p = Project("default", "x", listOf(Panel("pn", "A", 2, listOf(curveWidget()))))
+        val r = repo()
+        r.save(p)
+        val root = JSONObject(mainFile().readText())
+        val widget = root.getJSONArray("panels").getJSONObject(0).getJSONArray("widgets").getJSONObject(0)
+        widget.getJSONObject("curve").getJSONArray("series").getJSONObject(0).put("lineStyle", "WAVY")
+        mainFile().writeText(root.toString())
+        val loaded = r.load() as ProjectLoad.Loaded
+        val w = loaded.project.panels[0].widgets[0]
+        assertNotNull(w.raw)
+        assertFalse(w.isUsable)
+        assertTrue(loaded.warnings.isNotEmpty())
+        assertEquals(ProjectSave.Saved, r.save(loaded.project))
+        val after = JSONObject(mainFile().readText()).getJSONArray("panels").getJSONObject(0).getJSONArray("widgets").getJSONObject(0)
+        assertEquals("WAVY", after.getJSONObject("curve").getJSONArray("series").getJSONObject(0).getString("lineStyle"))
+    }
+
+    @Test fun curveWithInvalidSettingsIsKeptRawNotCrashing() {
+        val p = Project("default", "x", listOf(Panel("pn", "A", 2, listOf(curveWidget()))))
+        val r = repo()
+        r.save(p)
+        val root = JSONObject(mainFile().readText())
+        val curve = root.getJSONArray("panels").getJSONObject(0).getJSONArray("widgets").getJSONObject(0).getJSONObject("curve")
+        curve.put("windowSec", 5)
+        mainFile().writeText(root.toString())
+        val loaded = r.load() as ProjectLoad.Loaded
+        assertNotNull(loaded.project.panels[0].widgets[0].raw)
+        assertTrue(loaded.warnings.any { it.contains("曲线") })
+    }
+
+    @Test fun curveSpanColumnsAreForcedToTwo() {
+        val p = Project("default", "x", listOf(Panel("pn", "A", 2, listOf(curveWidget()))))
+        val r = repo()
+        r.save(p)
+        val root = JSONObject(mainFile().readText())
+        root.getJSONArray("panels").getJSONObject(0).getJSONArray("widgets").getJSONObject(0).put("spanColumns", 1)
+        mainFile().writeText(root.toString())
+        assertEquals(2, (r.load() as ProjectLoad.Loaded).project.panels[0].widgets[0].spanColumns)
+    }
 }

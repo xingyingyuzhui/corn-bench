@@ -302,7 +302,7 @@ private fun EditGrid(
     ) { index ->
         val widget = widgets[index]
         val dragging = dragId == widget.id
-        val title = widget.title.ifBlank { widget.point?.name.orEmpty() }
+        val title = widget.displayTitle
         val moveEarlier = stringResource(R.string.panel_edit_move_earlier)
         val moveLater = stringResource(R.string.panel_edit_move_later)
         val resizeDescription = stringResource(R.string.panel_edit_resize, title)
@@ -358,7 +358,11 @@ private fun EditGrid(
                 }
                 .testTag("edit-card-${widget.id}"),
         ) {
-            WidgetCard(widget, snapshots[widget.point?.id], Modifier.fillMaxSize(), editing = true)
+            if (widget.curve != null) {
+                io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveEditCard(widget, Modifier.fillMaxSize())
+            } else {
+                WidgetCard(widget, snapshots[widget.point?.id], Modifier.fillMaxSize(), editing = true)
+            }
             DashedOutline(if (hoverId == widget.id) LocalModbusColors.current.accent else LocalModbusColors.current.dim)
             // 右上红 ×：视觉 20dp 圆，画在卡片角上（稿面 right/top -6）；热区 48×48 在卡片内。
             Box(
@@ -387,7 +391,7 @@ private fun EditGrid(
                     .semantics { contentDescription = resizeDescription; role = Role.Button }
                     .pointerInput(widget.id, panelColumns) {
                         detectTapGestures {
-                            val (c, r) = ProjectEdits.nextSize(widget.spanColumns, widget.spanRows, panelColumns)
+                            val (c, r) = ProjectEdits.nextSize(widget.spanColumns, widget.spanRows, panelColumns, widget.minColumns)
                             actions.onSpan(widget.id, c, r)
                         }
                     }
@@ -441,7 +445,7 @@ private fun resizeFor(
     // 一列的宽 / 一行的高：由当前卡片尺寸和它占的列 / 行数反推。
     val cell = (rect.width - gapPx * (widget.spanColumns - 1)) / widget.spanColumns
     val rowHeight = (rect.height - gapPx * (widget.spanRows - 1)) / widget.spanRows
-    return ProjectEdits.resizedSpan(rect.width, rect.height, total.x, total.y, cell, rowHeight, gapPx, minOf(columns, panelColumns))
+    return ProjectEdits.resizedSpan(rect.width, rect.height, total.x, total.y, cell, rowHeight, gapPx, minOf(columns, panelColumns), widget.minColumns)
 }
 
 /** 稿面 `.edit .w{outline:1.5px dashed var(--dim);outline-offset:-4px}`：虚线框内缩 4，圆角随内缩 16−4=12。 */

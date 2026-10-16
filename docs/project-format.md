@@ -76,7 +76,34 @@
 
 ### 组件类型
 
-`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）。其它类型按“读不懂”处理。
+`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）、`curve`（曲线，P7）。其它类型按“读不懂”处理。
+
+### 曲线组件（`kind = "curve"`，P7）
+
+曲线组件没有顶层 `point`，点位在 `curve.series[].point` 里（点位 id 全工程唯一，和普通点位一样参与轮询）。`spanColumns` 固定 2，`spanRows` 1..2。**文件里只有配置，没有样本**：样本历史只放内存，退出 App 即丢。
+
+```json
+{ "id": "w2", "kind": "curve", "title": "", "spanColumns": 2, "spanRows": 1,
+  "curve": {
+    "windowSec": 60, "sampling": "EVERY_SAMPLE", "retentionMinutes": 60, "maxPoints": 20000,
+    "left":  {"auto": true}, "right": {"auto": false, "min": 0.0, "max": 1.0},
+    "grid": true, "legend": "TOP", "gaps": "HATCH", "cursor": true,
+    "series": [
+      {"point": { ...同点位字段... }, "color": 0, "lineStyle": "SOLID", "width": 2, "axis": "LEFT",
+       "showPoints": false, "fill": false, "step": false}
+    ] } }
+```
+
+| 字段 | 取值 |
+|---|---|
+| `windowSec` | 时间窗口 10..86400 秒（向导预设 1 / 5 / 10 分、1 时，另可自定义分钟数） |
+| `sampling` | `EVERY_SAMPLE` 每次读到都记 / `SNAPSHOT` 定时快照（间隔 = max(1 s, 所有系列轮询周期的最大值)，所有系列在同一时刻取值） |
+| `retentionMinutes` / `maxPoints` | 内存保留 1..1440 分钟 / 每系列最多 100..100000 点；`retentionMinutes` 不能短于窗口 |
+| `left` / `right` | `{auto, min, max}`；手动时要 min < max；没有系列用右轴时右轴设置不起作用 |
+| `legend` | `TOP` `BOTTOM` `HIDDEN`；`gaps`：`HATCH`（断开 + 斜纹）/ `BREAK`（仅断开）；`grid` / `cursor`：布尔 |
+| `series[]` | 1..8 个；`color` 0..7（8 色色板）、`lineStyle` `SOLID` `DASH` `DOT`、`width` 1..3、`axis` `LEFT` `RIGHT`、`showPoints` / `fill` / `step` 布尔；图例名称就是 `point.name` |
+
+曲线配置不合法（未知枚举、窗口 / 保留 / 点数越界、没有系列、系列超过 8 个…）时，整个组件按“读不懂”原样保留并给警告，不丢也不崩。
 
 ## 换算规则（`ValueCodec`）
 

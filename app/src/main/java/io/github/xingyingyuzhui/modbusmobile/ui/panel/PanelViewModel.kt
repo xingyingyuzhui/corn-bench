@@ -2,7 +2,11 @@ package io.github.xingyingyuzhui.modbusmobile.ui.panel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.xingyingyuzhui.modbusmobile.application.panel.CurveConfig
+import io.github.xingyingyuzhui.modbusmobile.application.panel.CurveForm
+import io.github.xingyingyuzhui.modbusmobile.application.panel.CurveResult
 import io.github.xingyingyuzhui.modbusmobile.application.panel.FormResult
+import io.github.xingyingyuzhui.modbusmobile.application.panel.SampleHistory
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PointDefinition
 import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetForm
@@ -59,10 +63,22 @@ data class WizardState(
     val editingWidgetId: String? = null,
     val original: WidgetForm? = null,
     val showErrors: Boolean = false,
+    /** 曲线组件的表单（选了曲线才有；此时 [form] 不用）。 */
+    val curve: CurveForm? = null,
+    val originalCurve: CurveForm? = null,
+    /** 曲线：正在编辑哪个系列（底部弹窗打开）；null = 没打开。 */
+    val sheet: Int? = null,
+    /** 曲线：系列的“数据点位”页（从弹窗进入）。 */
+    val pointPage: Boolean = false,
 ) {
-    val dirty: Boolean get() = original == null || form != original
+    val dirty: Boolean get() = if (curve != null) originalCurve == null || curve != originalCurve else original == null || form != original
+
+    /** 改已有组件时，有没有改动（决定返回时要不要确认放弃）。 */
+    val changed: Boolean get() = editingWidgetId != null && if (curve != null) curve != originalCurve else form != original
 
     fun result(): FormResult = form.build(widgetId, pointId)
+
+    fun curveResult(): CurveResult = (curve ?: CurveForm()).build(widgetId)
 }
 
 const val PREVIEW_POINT_ID = "preview"
@@ -103,7 +119,7 @@ class PanelViewModel(
             val result = if (repository == null) ProjectLoad.Loaded(Project.empty()) else withContext(io) { repository.load() }
             _state.value = when (result) {
                 is ProjectLoad.Loaded -> {
-                    runtime?.scheduler?.setPoints(result.project.usablePoints)
+                    runtime?.apply(result.project)
                     PanelUiState.Ready(result.project, result.warnings, result.readOnly)
                 }
                 is ProjectLoad.Corrupt -> PanelUiState.Corrupt(result.reason, result.corruptCopy != null)
@@ -195,7 +211,7 @@ class PanelViewModel(
                 ProjectSave.Saved -> {
                     val warnings = (_state.value as? PanelUiState.Ready)?.warnings.orEmpty()
                     _state.value = PanelUiState.Ready(e.draft, warnings, readOnly = false)
-                    runtime?.scheduler?.setPoints(e.draft.usablePoints)
+                    runtime?.apply(e.draft)
                     _selectedPanelId.value = current.panelId
                     cancelEdit()
                 }
@@ -234,6 +250,12 @@ class PanelViewModel(
             return
         }
         val widget = e.draft.panels.firstOrNull { it.id == e.panelId }?.widgets?.firstOrNull { it.id == widgetId } ?: return
+        if (widget.kind == WidgetKinds.CURVE) {
+            val curve = CurveForm.fromWidget(widget) ?: return
+            _wizard.value = WizardState(2, WidgetForm(), widget.id, newPointId, editingWidgetId = widget.id, curve = curve, originalCurve = curve)
+            schedulePreview(WidgetForm(), curve, immediate = true)
+            return
+        }
         val form = WidgetForm.fromWidget(widget) ?: return
         _wizard.value = WizardState(2, form, widget.id, widget.point?.id ?: newPointId, editingWidgetId = widget.id, original = form)
         schedulePreview(form, immediate = true)
@@ -242,8 +264,14 @@ class PanelViewModel(
     fun wizardSelectKind(kind: String) {
         val w = _wizard.value ?: return
         if (kind !in WidgetKinds.known) return
+        if (kind == WidgetKinds.CURVE) {
+            val curve = CurveForm()
+            _wizard.value = w.copy(step = 2, form = WidgetForm(), curve = curve, sheet = null, pointPage = false, showErrors = false)
+            schedulePreview(WidgetForm(), curve, immediate = true)
+            return
+        }
         val form = WidgetForm.forKind(kind)
-        _wizard.value = w.copy(step = 2, form = form, showErrors = false)
+        _wizard.value = w.copy(step = 2, form = form, curve = null, sheet = null, pointPage = false, showErrors = false)
         schedulePreview(form, immediate = true)
     }
 
@@ -253,11 +281,57 @@ class PanelViewModel(
         schedulePreview(form)
     }
 
+    // ---- 曲线向导 ----
+
+    /** 曲线表单整体替换（底部弹窗 / 数据点位页 / 配置页的改动都走这里）。 */
+    fun wizardCurve(curve: CurveForm) {
+        val w = _wizard.value ?: return
+        if (w.curve == null) return
+        _wizard.value = w.copy(curve = curve)
+        schedulePreview(w.form, curve)
+    }
+
+    /** “＋ 添加系列”：新增一个系列并打开它的编辑弹窗。最多 8 个。 */
+    fun wizardAddSeries() {
+        val w = _wizard.value ?: return
+        val curve = w.curve ?: return
+        if (curve.series.size >= CurveConfig.MAX_SERIES) return
+        val project = _edit.value?.draft ?: Project.empty()
+        val id = ProjectEdits.newPointId(project, extraUsed = curve.series.map { it.pointId }.toSet())
+        val next = curve.addSeries(id)
+        _wizard.value = w.copy(curve = next, sheet = next.series.lastIndex, pointPage = false)
+        schedulePreview(w.form, next)
+    }
+
+    fun wizardOpenSeries(index: Int) {
+        val w = _wizard.value ?: return
+        if (w.curve == null || index !in w.curve.series.indices) return
+        _wizard.value = w.copy(sheet = index, pointPage = false)
+    }
+
+    fun wizardOpenSeriesPoint() {
+        val w = _wizard.value ?: return
+        if (w.sheet == null) return
+        _wizard.value = w.copy(pointPage = true)
+    }
+
+    fun wizardDeleteSeries(index: Int) {
+        val w = _wizard.value ?: return
+        val curve = w.curve ?: return
+        val next = curve.removeSeries(index)
+        _wizard.value = w.copy(curve = next, sheet = null, pointPage = false)
+        schedulePreview(w.form, next)
+    }
+
     fun wizardNext() {
         val w = _wizard.value ?: return
+        if (w.sheet != null || w.pointPage) return
         when (w.step) {
             1 -> Unit
-            2 -> if (w.result().ok) _wizard.value = w.copy(step = 3, showErrors = false) else _wizard.value = w.copy(showErrors = true)
+            2 -> {
+                val ok = if (w.curve != null) w.curveResult().ok else w.result().ok
+                _wizard.value = if (ok) w.copy(step = 3, showErrors = false) else w.copy(showErrors = true)
+            }
             else -> commitWizard()
         }
     }
@@ -265,6 +339,8 @@ class PanelViewModel(
     /** 上一步；返回 false 表示已经在向导的第一页（调用方决定是否要退出向导）。 */
     fun wizardBack(): Boolean {
         val w = _wizard.value ?: return false
+        if (w.pointPage) { _wizard.value = w.copy(pointPage = false); return true }
+        if (w.sheet != null) { _wizard.value = w.copy(sheet = null); return true }
         val first = if (w.editingWidgetId != null) 2 else 1
         if (w.step <= first) return false
         _wizard.value = w.copy(step = w.step - 1)
@@ -280,8 +356,7 @@ class PanelViewModel(
     /** 把表单变成组件放进编辑草稿（添加到当前面板末尾 / 替换原组件）。还没“完成”之前不写盘。 */
     fun commitWizard() {
         val w = _wizard.value ?: return
-        val result = w.result()
-        val widget = result.widget
+        val widget = if (w.curve != null) w.curveResult().widget else w.result().widget
         if (widget == null) {
             _wizard.value = w.copy(step = 2, showErrors = true)
             return
@@ -294,21 +369,33 @@ class PanelViewModel(
         cancelWizard()
     }
 
-    private fun schedulePreview(form: WidgetForm, immediate: Boolean = false) {
+    private fun schedulePreview(form: WidgetForm, curve: CurveForm? = _wizard.value?.curve, immediate: Boolean = false) {
         val target = preview() ?: return
         previewJob?.cancel()
         previewJob = viewModelScope.launch {
             if (!immediate) delay(PREVIEW_DEBOUNCE_MS)
-            val point: PointDefinition? = form.build("preview", PREVIEW_POINT_ID).widget?.point
-            target.setPoint(point)
-            target.setActive(point != null)
+            if (curve != null) {
+                val points = curve.series.mapNotNull { it.build().widget?.point }
+                target.setPoints(points)
+                target.setActive(points.isNotEmpty())
+            } else {
+                val point: PointDefinition? = form.build("preview", PREVIEW_POINT_ID).widget?.point
+                target.setPoint(point)
+                target.setActive(point != null)
+            }
         }
     }
+
+    /** 曲线向导预览的样本历史；没有运行时 / 没有预览能力时为空。 */
+    val previewHistory: SampleHistory? get() = preview()?.history
+
+    /** 面板页曲线卡用的样本历史。 */
+    val history: SampleHistory? get() = runtime?.history
 
     /** 向导页离开前台 / 回到前台（切走应用）时暂停 / 恢复预览读取。 */
     fun setPreviewActive(value: Boolean) {
         val w = _wizard.value
-        if (!value || w == null) previewInstance?.setActive(false) else schedulePreview(w.form, immediate = true)
+        if (!value || w == null) previewInstance?.setActive(false) else schedulePreview(w.form, w.curve, immediate = true)
     }
 
     override fun onCleared() {

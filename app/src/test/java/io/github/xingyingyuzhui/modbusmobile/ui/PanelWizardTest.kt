@@ -141,23 +141,21 @@ class PanelWizardTest {
 
     // ---- 1/3 选类型 ----
 
-    @Test fun pickerShowsOnlyTheFourRealKindsAsTwoColumnCards() {
+    @Test fun pickerShowsOnlyTheFiveRealKindsAsTwoColumnCards() {
         show(wizardState(1))
-        for (kind in listOf("number", "lamp", "status_text", "progress")) {
+        for (kind in listOf("number", "curve", "lamp", "status_text", "progress")) {
             val card = bounds("wiz-kind-$kind")
             assertTrue("$kind 卡高 ${card.height.value}", card.height.value >= 117.5f)
         }
         val a = bounds("wiz-kind-number")
-        val b = bounds("wiz-kind-lamp")
-        val c = bounds("wiz-kind-status_text")
+        val b = bounds("wiz-kind-curve")
+        val c = bounds("wiz-kind-lamp")
         assertEquals("列间距 8", 8f, (b.left - a.right).value, 0.6f)
         assertEquals("行间距 8", 8f, (c.top - a.bottom).value, 0.6f)
         assertEquals(a.width.value, b.width.value, 0.6f)
         assertEquals(14f, a.left.value, 0.6f)
         // 没有的类型不画灰卡
-        for (gone in listOf("曲线", "仪表", "开关", "寄存器表", "按钮")) {
-            assertEquals(gone, 0, compose.onAllNodesWithText(gone, useUnmergedTree = true).fetchSemanticsNodes().size)
-        }
+        assertEquals("提示文字里提到未做的类型，但不能是卡片", 0, count("wiz-kind-gauge") + count("wiz-kind-switch") + count("wiz-kind-register_table") + count("wiz-kind-button"))
         compose.onNodeWithTag("wiz-more-later", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertTextContains("1 / 3")
         compose.onNodeWithText("添加组件", useUnmergedTree = true).assertIsDisplayed()

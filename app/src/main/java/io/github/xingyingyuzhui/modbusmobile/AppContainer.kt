@@ -26,10 +26,11 @@ class AppContainer(app: Application) {
     val trafficRecorder = TrafficRecorder(sessionManager, scope)
     val settingsRepository: SettingsRepository = DataStoreSettingsRepository(app, scope)
     val pointStore = io.github.xingyingyuzhui.modbusmobile.application.panel.PointStore()
+    val sampleHistory = io.github.xingyingyuzhui.modbusmobile.application.panel.SampleHistory()
     val pollScheduler = io.github.xingyingyuzhui.modbusmobile.application.panel.PollScheduler(
-        sessionManager, scope, pointStore, nowMs = { System.nanoTime() / 1_000_000L },
+        sessionManager, scope, pointStore, nowMs = { System.nanoTime() / 1_000_000L }, history = sampleHistory,
     )
-    val panelRuntime = io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime(pointStore, pollScheduler) { previewScope ->
+    val panelRuntime = io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime(pointStore, pollScheduler, sampleHistory) { previewScope ->
         io.github.xingyingyuzhui.modbusmobile.application.panel.PointPreview(sessionManager, previewScope) { System.nanoTime() / 1_000_000L }
     }
     val projectRepository = io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectRepository(java.io.File(app.filesDir, "projects"))

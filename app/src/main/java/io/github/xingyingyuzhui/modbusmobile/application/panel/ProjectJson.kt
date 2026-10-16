@@ -77,7 +77,46 @@ object ProjectJson {
                 )
             }
             w.point?.let { put("point", point(it)) }
+            w.curve?.let { put("curve", curve(it)) }
         }
+    }
+
+    private fun axis(a: AxisRange) = JSONObject().apply {
+        put("auto", a.auto)
+        a.min?.let { put("min", it) }
+        a.max?.let { put("max", it) }
+    }
+
+    private fun curve(c: CurveConfig) = JSONObject().apply {
+        put("windowSec", c.windowSec)
+        put("sampling", c.sampling.name)
+        put("retentionMinutes", c.retentionMinutes)
+        put("maxPoints", c.maxPoints)
+        put("left", axis(c.left))
+        put("right", axis(c.right))
+        put("grid", c.grid)
+        put("legend", c.legend.name)
+        put("gaps", c.gaps.name)
+        put("cursor", c.cursor)
+        put(
+            "series",
+            JSONArray().also { arr ->
+                c.series.forEach { s ->
+                    arr.put(
+                        JSONObject().apply {
+                            put("point", point(s.point))
+                            put("color", s.colorIndex)
+                            put("lineStyle", s.lineStyle.name)
+                            put("width", s.width)
+                            put("axis", s.axis.name)
+                            put("showPoints", s.showPoints)
+                            put("fill", s.fill)
+                            put("step", s.step)
+                        },
+                    )
+                }
+            },
+        )
     }
 
     private fun point(p: PointDefinition) = JSONObject().apply {
@@ -141,6 +180,17 @@ object ProjectJson {
         }
         if (id.isBlank() || kind.isBlank()) return preserved("缺少 id 或类型")
         if (kind !in WidgetKinds.known) return preserved("的类型“$kind”当前版本不认识")
+        if (kind == WidgetKinds.CURVE) {
+            val curveObj = obj.optJSONObject("curve") ?: return preserved("缺少曲线配置")
+            val curve = decodeCurve(curveObj) ?: return preserved("的曲线配置无法读取")
+            val problems = curve.issues()
+            if (problems.isNotEmpty()) return preserved("的曲线配置不合法（${problems.joinToString()}）")
+            return Widget(
+                id = id, kind = kind, title = obj.optString("title", ""), curve = curve,
+                spanColumns = obj.optInt("spanColumns", 2).coerceIn(2, 2),
+                spanRows = obj.optInt("spanRows", 1).coerceIn(1, 2),
+            )
+        }
         val pointObj = obj.optJSONObject("point") ?: return preserved("缺少点位")
         val point = decodePoint(pointObj) ?: return preserved("的点位配置无法读取")
         val issues = point.validate()
@@ -155,6 +205,44 @@ object ProjectJson {
             onLabel = obj.optString("onLabel", ""),
             offLabel = obj.optString("offLabel", ""),
             states = decodeStates(obj, warnings),
+        )
+    }
+
+    private fun decodeAxis(o: JSONObject?): AxisRange? {
+        if (o == null) return AxisRange()
+        fun d(key: String): Double? = if (o.has(key) && !o.isNull(key)) o.optDouble(key, Double.NaN).takeIf { !it.isNaN() } else null
+        return AxisRange(o.optBoolean("auto", true), d("min"), d("max"))
+    }
+
+    private fun decodeCurve(o: JSONObject): CurveConfig? {
+        val seriesArr = o.optJSONArray("series") ?: return null
+        val series = mutableListOf<CurveSeries>()
+        for (i in 0 until seriesArr.length()) {
+            val so = seriesArr.optJSONObject(i) ?: return null
+            val point = decodePoint(so.optJSONObject("point") ?: return null) ?: return null
+            series += CurveSeries(
+                point = point,
+                colorIndex = so.optInt("color", 0),
+                lineStyle = (if (so.has("lineStyle")) enumOrNull<LineStyle>(so.optString("lineStyle")) ?: return null else LineStyle.SOLID),
+                width = so.optInt("width", 2),
+                axis = (if (so.has("axis")) enumOrNull<YAxis>(so.optString("axis")) ?: return null else YAxis.LEFT),
+                showPoints = so.optBoolean("showPoints", false),
+                fill = so.optBoolean("fill", false),
+                step = so.optBoolean("step", false),
+            )
+        }
+        return CurveConfig(
+            series = series,
+            windowSec = o.optInt("windowSec", 60),
+            sampling = (if (o.has("sampling")) enumOrNull<SamplingMode>(o.optString("sampling")) ?: return null else SamplingMode.EVERY_SAMPLE),
+            retentionMinutes = o.optInt("retentionMinutes", 60),
+            maxPoints = o.optInt("maxPoints", CurveConfig.DEFAULT_MAX_POINTS),
+            left = decodeAxis(o.optJSONObject("left")) ?: return null,
+            right = decodeAxis(o.optJSONObject("right")) ?: return null,
+            grid = o.optBoolean("grid", true),
+            legend = (if (o.has("legend")) enumOrNull<LegendPosition>(o.optString("legend")) ?: return null else LegendPosition.TOP),
+            gaps = (if (o.has("gaps")) enumOrNull<GapStyle>(o.optString("gaps")) ?: return null else GapStyle.HATCH),
+            cursor = o.optBoolean("cursor", true),
         )
     }
 
