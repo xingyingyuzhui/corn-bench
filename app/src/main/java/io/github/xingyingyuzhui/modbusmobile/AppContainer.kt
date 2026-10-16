@@ -25,4 +25,5 @@ class AppContainer(app: Application) {
     val sessionManager: SessionManager = DefaultSessionManager(scope, clock, usb)
     val trafficRecorder = TrafficRecorder(sessionManager, scope)
     val settingsRepository: SettingsRepository = DataStoreSettingsRepository(app, scope)
+    val projectRepository = io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectRepository(java.io.File(app.filesDir, "projects"))
 }

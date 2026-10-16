@@ -61,6 +61,9 @@ val LocalSession = staticCompositionLocalOf<SessionManager> {
 /** 应用级日志记录器；没有提供时（截图 / 单测）日志页自己建一个。 */
 val LocalTrafficRecorder = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.TrafficRecorder?> { null }
 
+/** 工程文件存取；没有提供时（截图 / 单测）面板页按空工程显示。 */
+val LocalProjectRepository = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectRepository?> { null }
+
 val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
     error("SettingsRepository 还没有提供")
 }
