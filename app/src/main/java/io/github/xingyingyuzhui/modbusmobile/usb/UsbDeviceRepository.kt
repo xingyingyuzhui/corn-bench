@@ -49,6 +49,10 @@ class UsbDeviceRepository(private val context: Context) {
         }
     }
 
+    fun refresh() {
+        devicesState.value = snapshot()
+    }
+
     fun snapshot(): List<UsbDeviceSummary> {
         val manager = usbManager ?: return emptyList()
         val portsByDevice = runCatching {

@@ -12,4 +12,5 @@ interface UsbStack {
     suspend fun open(target: ConnectionTarget.Usb, serial: SerialSettings): ByteTransport
     fun stop()
     fun setIoErrorHandler(handler: (String) -> Unit)
+    fun refreshDevices() {}
 }

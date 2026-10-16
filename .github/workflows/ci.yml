@@ -18,9 +18,11 @@ jobs:
           packages: platform-tools
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-37.2" "build-tools;36.0.0"
+      - name: Install CJK fonts for screenshot tests
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
       - uses: gradle/actions/setup-gradle@v4
-      - name: Test, lint, and assemble
-        run: ./gradlew :modbus-core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Test, lint, assemble, and record screenshots
+        run: ./gradlew :modbus-core:test :app:testDebugUnitTest :app:recordRoborazziDebug :app:lintDebug :app:assembleDebug
       - name: Reject INTERNET permission
         run: |
           set -euo pipefail
@@ -36,4 +38,9 @@ jobs:
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roborazzi-screenshots
+          path: app/src/test/screenshots/**/*.png
           if-no-files-found: error

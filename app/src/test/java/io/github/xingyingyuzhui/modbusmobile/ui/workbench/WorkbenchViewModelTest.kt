@@ -72,6 +72,7 @@ private class FakeSession : SessionManager {
     override val slaveBank = banks
     override val usbDevices = MutableStateFlow<List<UsbDeviceSummary>>(emptyList())
     override val echoDetected = MutableStateFlow<Boolean?>(null)
+    override val serial = MutableStateFlow<SerialSettings?>(null)
 
     override suspend fun connect(target: ConnectionTarget, serial: SerialSettings, role: Role) = Unit
 

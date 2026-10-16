@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Modbus Mobile · UI 设计稿 v2</title>
+<style>
+:root, .dark{
+  --bg:#0D1117; --s1:#151B23; --s2:#1C2430; --s3:#253041; --line:#2B3544; --row:#1E2631;
+  --tx:#E6EDF3; --mut:#8B98A8; --dim:#5C6878;
+  --amber:#F5A524; --amberT:#F5A524; --amberBg:rgba(245,165,36,.14); --onAmber:#1A1200;
+  --green:#3FB950; --greenBg:rgba(63,185,80,.14);
+  --red:#F85149; --redBg:rgba(248,81,73,.14);
+  --blue:#58A6FF; --blueBg:rgba(88,166,255,.13);
+  --purple:#A371F7; --purpleBg:rgba(163,113,247,.15);
+  --pink:#DB61A2; --pinkBg:rgba(219,97,162,.15);
+  --gray:#6E7681; --grayBg:rgba(110,118,129,.18);
+  --island:rgba(28,36,48,.94); --shadow:0 10px 30px rgba(0,0,0,.55);
+  --sans:"Noto Sans CJK SC",sans-serif; --mono:"Geist Mono","Noto Sans Mono CJK SC",monospace;
+}
+.light{
+  --bg:#F4F6F9; --s1:#FFFFFF; --s2:#EEF1F5; --s3:#E2E7EE; --line:#DCE2EA; --row:#EDF0F4;
+  --tx:#121A24; --mut:#5A6574; --dim:#8D97A5;
+  --amber:#F5A524; --amberT:#B76E00; --amberBg:rgba(245,165,36,.16); --onAmber:#1A1200;
+  --green:#1A7F37; --greenBg:rgba(26,127,55,.10);
+  --red:#CF222E; --redBg:rgba(207,34,46,.09);
+  --blue:#0969DA; --blueBg:rgba(9,105,218,.09);
+  --purple:#8250DF; --purpleBg:rgba(130,80,223,.10);
+  --pink:#BF3989; --pinkBg:rgba(191,57,137,.10);
+  --gray:#6E7781; --grayBg:rgba(110,119,129,.12);
+  --island:rgba(255,255,255,.95); --shadow:0 10px 28px rgba(20,32,50,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05070A;font-family:var(--sans);color:#E6EDF3;padding:36px 40px 48px}
+.board{display:none}
+.board.show{display:block}
+.btitle{display:flex;align-items:baseline;gap:16px;margin-bottom:26px}
+.btitle h1{font-size:26px;font-weight:700}
+.btitle span{color:#8B98A8;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,360px);gap:44px 40px;align-items:start}
+.cap{font-size:14px;color:#8B98A8;margin:0 0 10px 4px;line-height:20px}
+.cap b{color:#E6EDF3;font-weight:600;margin-right:8px}
+.cap .tag{font-size:11px;border:1px solid #2B3544;border-radius:6px;padding:1px 6px;margin-left:6px;color:#8B98A8}
+
+.phone{width:360px;height:780px;background:var(--bg);color:var(--tx);border-radius:28px;overflow:hidden;position:relative;
+  box-shadow:0 0 0 8px #1A1F27,0 0 0 9px #2A303A,0 30px 60px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.phone.long{height:auto}
+.phone.land{width:780px;height:360px;flex-direction:row}
+.sb{height:28px;display:flex;justify-content:space-between;align-items:center;padding:0 18px;font-size:12px;font-family:var(--mono);flex:none}
+.sb i{display:inline-block;width:18px;height:9px;border:1.5px solid var(--tx);border-radius:2px;position:relative;vertical-align:middle}
+.sb i:after{content:"";position:absolute;inset:1px 4px 1px 1px;background:var(--tx)}
+.appbar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex:none}
+.appbar h2{font-size:20px;font-weight:700}
+.appbar .l{display:flex;align-items:center;gap:6px}
+.ic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:var(--mut);font-size:16px}
+.content{flex:1;overflow:hidden;padding:0 14px 96px;display:flex;flex-direction:column;gap:10px}
+.long .content{padding-bottom:16px;overflow:visible}
+
+.sess{margin:0 14px 8px;background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px;flex:none}
+.dot{width:10px;height:10px;border-radius:5px;background:var(--green);box-shadow:0 0 0 4px var(--greenBg);flex:none}
+.sess .t1{font-size:14px;font-weight:600}
+.sess .t2{font-size:11.5px;color:var(--mut);font-family:var(--mono);margin-top:1px}
+.sess .cnt{margin-left:auto;text-align:right;font-family:var(--mono);font-size:11px;line-height:15px}
+.c-tx{color:var(--amberT)} .c-rx{color:var(--green)} .c-er{color:var(--red)} .c-fo{color:var(--blue)}
+
+.card{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:12px}
+.sec{font-size:12px;color:var(--mut);margin:4px 2px 6px;display:flex;justify-content:space-between;align-items:center}
+.lbl{font-size:12px;color:var(--mut);margin-bottom:8px;display:flex;justify-content:space-between}
+.seg{display:flex;background:var(--s2);border-radius:12px;padding:3px;gap:3px}
+.seg div{flex:1;text-align:center;font-size:14px;padding:8px 0;border-radius:9px;color:var(--mut);white-space:nowrap}
+.seg .on{background:var(--s1);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line),0 1px 3px rgba(0,0,0,.12)}
+.dark .seg .on{background:var(--s3);box-shadow:inset 0 0 0 1px #3A4658}
+.seg.sm div{font-size:12.5px;padding:6px 0}
+.seg.big small{display:block;font-size:11px;color:var(--dim);font-weight:400;margin-top:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips.nw{flex-wrap:nowrap;overflow:hidden}
+.chip{font-size:12.5px;padding:6px 11px;border-radius:16px;border:1px solid var(--line);color:var(--mut);white-space:nowrap;background:var(--s1)}
+.chip.on{border-color:var(--amber);color:var(--amberT);background:var(--amberBg)}
+.chip.xs{padding:3px 8px;font-size:12px}
+.fields{display:grid;gap:8px}
+.f{background:var(--s2);border-radius:10px;padding:7px 10px;min-height:50px}
+.f .k{font-size:11px;color:var(--mut)}
+.f .v{font-size:17px;font-family:var(--mono);margin-top:1px;display:flex;justify-content:space-between;align-items:baseline;white-space:nowrap}
+.f .v small{font-size:11px;color:var(--dim)}
+.f .v.t{font-family:var(--sans);font-size:15px}
+.f.on{box-shadow:inset 0 0 0 1.5px var(--amber)}
+.btn{height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;gap:8px;white-space:nowrap}
+.btn.pri{background:var(--amber);color:var(--onAmber)}
+.btn.out{border:1.5px solid var(--line);color:var(--tx);font-weight:600;background:var(--s1)}
+.btn.sm{height:44px;font-size:14px}
+.btn.xs{height:32px;font-size:12.5px;border-radius:10px;padding:0 12px}
+.row{display:flex;gap:8px;align-items:center}
+.sp{flex:1}
+.badge{font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600;white-space:nowrap}
+.b-ok{color:var(--green);background:var(--greenBg)} .b-tx{color:var(--amberT);background:var(--amberBg)}
+.b-er{color:var(--red);background:var(--redBg)} .b-fo{color:var(--blue);background:var(--blueBg)}
+.b-ec{color:var(--purple);background:var(--purpleBg)} .b-am{color:var(--pink);background:var(--pinkBg)}
+.b-gr{color:var(--mut);background:var(--grayBg)}
+.mono{font-family:var(--mono)}
+.mut{color:var(--mut)} .dim{color:var(--dim)}
+.tg{width:42px;height:24px;border-radius:12px;background:var(--s3);position:relative;flex:none}
+.tg:after{content:"";position:absolute;width:18px;height:18px;border-radius:9px;background:var(--s1);top:3px;left:3px;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.tg.on{background:var(--amber)} .tg.on:after{left:21px;background:#fff}
+.list{background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.li{display:flex;align-items:center;gap:10px;padding:0 12px;min-height:50px;border-bottom:1px solid var(--row);font-size:14px}
+.li:last-child{border-bottom:0}
+.li .r{margin-left:auto;color:var(--mut);font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.li .r.mono{font-family:var(--mono)}
+.li .sub{font-size:11.5px;color:var(--mut)}
+.chev{color:var(--dim)}
+.lic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--s2);flex:none}
+.lic svg{width:17px;height:17px;stroke:var(--mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.dev{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--s2)}
+.dev.on{border-color:var(--amber);background:linear-gradient(0deg,var(--amberBg),var(--amberBg)),var(--s2)}
+.dev .ico{width:36px;height:36px;border-radius:10px;background:var(--s3);display:grid;place-items:center;flex:none}
+.dev .n{font-size:14px;font-weight:600}
+.dev .m{font-size:11.5px;color:var(--mut);font-family:var(--mono)}
+.radio{width:20px;height:20px;border-radius:10px;border:2px solid var(--dim);margin-left:auto;flex:none}
+.radio.on{border-color:var(--amber);box-shadow:inset 0 0 0 4px var(--s2),inset 0 0 0 10px var(--amber)}
+.ck{width:20px;height:20px;border-radius:6px;border:2px solid var(--dim);flex:none}
+.ck.on{border-color:var(--amber);background:var(--amber);position:relative}
+.ck.on:after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid var(--onAmber);border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+.tbl{background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.th,.tr{display:grid;grid-template-columns:70px 1fr 84px 26px;align-items:center;padding:0 12px}
+.th{height:30px;font-size:11px;color:var(--dim);border-bottom:1px solid var(--line)}
+.tr{height:40px;border-bottom:1px solid var(--row);font-family:var(--mono)}
+.tr:last-child{border-bottom:0}
+.tr .a{font-size:13px} .tr .a small{display:block;font-size:10px;color:var(--dim);line-height:10px}
+.tr .val{font-size:17px}
+.tr .hx{font-size:12px;color:var(--mut)}
+.tr .ed{color:var(--dim);font-size:14px;text-align:right}
+.tr.flash{background:linear-gradient(90deg,var(--amberBg),transparent 80%)}
+.tr.flash .val{color:var(--amberT)}
+
+/* island dock */
+.island{position:absolute;left:14px;right:14px;bottom:14px;height:64px;border-radius:24px;background:var(--island);
+  border:1px solid var(--line);box-shadow:var(--shadow);display:flex;align-items:center;padding:0 6px;backdrop-filter:blur(12px)}
+.island .it{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--dim);height:52px;justify-content:center;border-radius:18px}
+.island .it.on{background:var(--amberBg);color:var(--amberT);font-weight:700}
+.island svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.rail{position:absolute;left:12px;top:12px;bottom:12px;width:62px;border-radius:24px;background:var(--island);border:1px solid var(--line);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 0}
+.rail .it{width:50px;height:50px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:9.5px;color:var(--dim)}
+.rail .it.on{background:var(--amberBg);color:var(--amberT);font-weight:700}
+.rail svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(1,3,6,.6)}
+.light .scrim{background:rgba(10,20,35,.38)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--s1);border-top-left-radius:24px;border-top-right-radius:24px;padding:10px 16px 18px;border-top:1px solid var(--line)}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--s3);margin:0 auto 12px}
+.bigval{font-size:36px;font-family:var(--mono);font-weight:600}
+.frame{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:var(--mono);font-size:14.5px;letter-spacing:.3px;word-break:break-all}
+.frame .crc{color:var(--dim)} .frame .hl{color:var(--amberT)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.st{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:8px 8px 7px}
+.st .k{font-size:10.5px;color:var(--mut)}
+.st .v{font-size:17px;font-family:var(--mono);font-weight:600;margin-top:2px}
+
+.log{display:flex;flex-direction:column;background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.le{padding:8px 12px;border-bottom:1px solid var(--row);border-left:3px solid transparent}
+.le .h{display:flex;gap:7px;align-items:center;font-size:11.5px}
+.le .h .tm{font-family:var(--mono);color:var(--dim)}
+.le .h .sum{font-size:12.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.le .h .lat{margin-left:auto;font-family:var(--mono);color:var(--mut)}
+.le .hex{font-family:var(--mono);font-size:12.5px;margin-top:3px;word-break:break-all;opacity:.9}
+.le .hex .crc{color:var(--dim)}
+.le.fo{opacity:.6}
+.l-rx{border-left-color:var(--green)!important} .l-tx{border-left-color:var(--amber)!important} .l-fo{border-left-color:var(--blue)!important}
+.l-am{border-left-color:var(--pink)!important} .l-gr{border-left-color:var(--gray)!important} .l-er{border-left-color:var(--red)!important}
+
+/* widgets */
+.wg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.w{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:10px 12px;position:relative}
+.w.span{grid-column:span 2}
+.w .n{font-size:12.5px;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+.w .v{font-family:var(--mono);font-size:26px;font-weight:600;margin-top:4px}
+.w .v small{font-size:12px;color:var(--mut);font-weight:400;margin-left:3px}
+.w .m{font-size:10.5px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+.w.stale .v{color:var(--mut)}
+.w.bad .v{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--red)}
+.lamp{width:14px;height:14px;border-radius:7px;display:inline-block;vertical-align:middle}
+.bar{height:8px;border-radius:4px;background:var(--s2);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--amber);border-radius:4px}
+.edit .w{outline:1.5px dashed var(--dim);outline-offset:-4px}
+.handle{position:absolute;right:6px;bottom:6px;width:12px;height:12px;border-right:2px solid var(--amber);border-bottom:2px solid var(--amber)}
+.wdel{position:absolute;right:-6px;top:-6px;width:20px;height:20px;border-radius:10px;background:var(--red);color:#fff;font-size:12px;display:grid;place-items:center;font-weight:700}
+
+/* picker */
+.pk{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pki{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:10px;height:118px;display:flex;flex-direction:column}
+.pki.on{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+.pki .pv{flex:1;border-radius:10px;background:var(--s2);display:grid;place-items:center;overflow:hidden}
+.pki .t{font-size:13.5px;font-weight:600;margin-top:7px}
+.pki .d{font-size:11px;color:var(--mut)}
+
+.sw8{display:flex;gap:8px}
+.sw8 i{width:28px;height:28px;border-radius:14px;display:block}
+.sw8 i.on{box-shadow:0 0 0 2px var(--s1),0 0 0 4px var(--tx)}
+.formula{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:8px 10px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+.formula b{color:var(--tx);font-weight:600}
+.savebar{position:sticky;bottom:0;padding:10px 14px 14px;background:linear-gradient(0deg,var(--bg) 70%,transparent);display:flex;gap:8px}
+
+/* spec panel */
+.ds{background:#151B23;border:1px solid #2B3544;border-radius:20px;padding:20px;display:flex;gap:36px;color:#E6EDF3;width:1160px}
+.ds h3{font-size:15px;margin-bottom:8px}
+.ds p{font-size:12px;color:#8B98A8;line-height:20px}
+</style>
+</head>
+<body>
+
+<!-- ====================================================== BOARD 1 -->
+<section class="board" id="b1">
+<div class="btitle"><h1>v2 · ① 主流程</h1><span>岛式 Dock · 深浅双主题 · 连接 / 工作台 / 面板 / 日志 / 我的</span></div>
+<div class="grid">
+
+<div><div class="cap"><b>连接</b>深色<span class="tag">Dock 改为悬浮岛</span></div>
+<div class="phone dark">
+  <div class="sb"><span>9:41</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>连接</h2><div class="ic">?</div></div>
+  <div class="content">
+    <div class="card">
+      <div class="lbl"><span>设备</span><span style="color:var(--amberT)">刷新</span></div>
+      <div class="fields">
+        <div class="dev on"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5A524" stroke-width="1.8"><path d="M12 2v14M8 6l4-4 4 4M7 12v3a5 5 0 0 0 10 0v-3"/></svg></div>
+          <div><div class="n">FT232R USB UART</div><div class="m">0403:6001 · 端口 0 · <span style="color:var(--green)">已授权</span></div></div><div class="radio on"></div></div>
+        <div class="dev"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B98A8" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg></div>
+          <div><div class="n">演示设备</div><div class="m">内存总线 · 无需硬件</div></div><div class="radio"></div></div>
+      </div>
+    </div>
+    <div class="card"><div class="lbl"><span>角色</span></div>
+      <div class="seg big"><div class="on">主站<small>主动读写外部从站</small></div><div>从站<small>响应外部主站</small></div></div></div>
+    <div class="card"><div class="lbl"><span>串口</span><span class="mono">8N1</span></div>
+      <div class="chips nw" style="margin-bottom:10px"><span class="chip on">9600 8N1</span><span class="chip">19200 8E1</span><span class="chip">115200 8N1</span><span class="chip">…</span></div>
+      <div class="fields" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+        <div class="f"><div class="k">波特率</div><div class="v">9600</div></div><div class="f"><div class="k">数据位</div><div class="v">8</div></div>
+        <div class="f"><div class="k">校验</div><div class="v t">无</div></div><div class="f"><div class="k">停止位</div><div class="v">1</div></div></div></div>
+    <div class="card" style="padding:12px 14px"><div class="row" style="font-size:14px;color:var(--mut)"><span>高级 · 超时 1000 · 间隔 20 · 回显 关</span><span class="sp"></span><span>›</span></div></div>
+    <div class="sp"></div>
+    <div class="btn pri">连接为主站 · 9600 8N1</div>
+  </div>
+  <div class="island" data-on="0"></div>
+</div></div>
+
+<div><div class="cap"><b>主站工作台 · 读取</b>浅色</div>
+<div class="phone light">
+  <div class="sb"><span>9:42</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>工作台</h2><div class="ic">⋮</div></div>
+  <div class="sess"><div class="dot"></div><div><div class="t1">主站 · 运行中</div><div class="t2">FT232R · 9600 8N1</div></div><div class="cnt"><div><span class="c-tx">TX 128</span> <span class="c-rx">RX 126</span></div><div class="c-er">错误 2</div></div></div>
+  <div class="content">
+    <div class="card">
+      <div class="seg sm" style="margin-bottom:10px;width:150px"><div class="on">读取</div><div>写入</div></div>
+      <div class="seg" style="margin-bottom:10px"><div>线圈</div><div>离散</div><div class="on">保持</div><div>输入</div></div>
+      <div class="fields" style="grid-template-columns:.8fr 1.3fr 1fr;margin-bottom:10px">
+        <div class="f"><div class="k">Unit</div><div class="v">1</div></div><div class="f"><div class="k">起始地址</div><div class="v">0<small>40001</small></div></div><div class="f"><div class="k">数量</div><div class="v">10</div></div></div>
+      <div class="row"><div class="btn pri sm" style="flex:1.4">读取 · FC03</div><div class="btn out sm" style="flex:1">⟳ 每 1 s</div></div>
+    </div>
+    <div class="row" style="justify-content:space-between;padding:0 2px">
+      <div class="row" style="gap:6px"><span class="badge b-ok">成功</span><span class="mono mut" style="font-size:12px">38 ms · 10 个</span></div>
+      <div class="chips nw"><span class="chip xs on">U16</span><span class="chip xs">S16</span><span class="chip xs">HEX</span><span class="chip xs">F32</span></div></div>
+    <div class="tbl">
+      <div class="th"><span>地址</span><span>值</span><span>HEX</span><span></span></div>
+      <div class="tr"><div class="a">0<small>40001</small></div><div class="val">0</div><div class="hx">0x0000</div><div class="ed">✎</div></div>
+      <div class="tr"><div class="a">1<small>40002</small></div><div class="val">10</div><div class="hx">0x000A</div><div class="ed">✎</div></div>
+      <div class="tr"><div class="a">2<small>40003</small></div><div class="val">20</div><div class="hx">0x0014</div><div class="ed">✎</div></div>
+      <div class="tr"><div class="a">3<small>40004</small></div><div class="val">30</div><div class="hx">0x001E</div><div class="ed">✎</div></div>
+      <div class="tr flash"><div class="a">4<small>40005</small></div><div class="val">123</div><div class="hx">0x007B</div><div class="ed">✎</div></div>
+    </div>
+  </div>
+  <div class="island" data-on="1"></div>
+</div></div>
+
+<div><div class="cap"><b>主站工作台 · 写入</b>深色<span class="tag">新增：不读也能直接写</span></div>
+<div class="phone dark">
+  <div class="sb"><span>9:43</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>工作台</h2><div class="ic">⋮</div></div>
+  <div class="sess"><div class="dot"></div><div><div class="t1">主站 · 运行中</div><div class="t2">FT232R · 9600 8N1</div></div><div class="cnt"><div><span class="c-tx">TX 131</span> <span class="c-rx">RX 129</span></div><div class="c-er">错误 2</div></div></div>
+  <div class="content">
+    <div class="card">
+      <div class="seg sm" style="margin-bottom:10px;width:150px"><div>读取</div><div class="on">写入</div></div>
+      <div class="seg" style="margin-bottom:10px"><div>线圈</div><div class="on">保持寄存器</div></div>
+      <div class="fields" style="grid-template-columns:.8fr 1.3fr 1fr;margin-bottom:8px">
+        <div class="f"><div class="k">Unit</div><div class="v">1</div></div><div class="f"><div class="k">起始地址</div><div class="v">100<small>40101</small></div></div><div class="f"><div class="k">格式</div><div class="v t">十进制</div></div></div>
+      <div class="lbl" style="margin:4px 2px 6px"><span>值（3 个 → 自动用 FC16）</span><span style="color:var(--amberT)">＋ 添加</span></div>
+      <div class="fields" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:10px">
+        <div class="f on"><div class="k">100</div><div class="v">100</div></div><div class="f"><div class="k">101</div><div class="v">300</div></div><div class="f"><div class="k">102</div><div class="v">500</div></div></div>
+      <div class="frame" style="font-size:12px;margin-bottom:10px;padding:8px 10px">01 10 00 64 00 03 06 <span class="hl">00 64 01 2C 01 F4</span> <span class="crc">15 01</span></div>
+      <div class="row"><div class="btn pri sm" style="flex:1">预览并写入 · FC16</div><div class="btn out sm" style="width:92px;font-size:12px">⚙ 强制16</div></div>
+    </div>
+    <div class="sec"><span>最近写入</span><span>清空</span></div>
+    <div class="list">
+      <div class="li"><span class="badge b-ok">成功</span><span class="mono" style="font-size:13px">FC06 U1 5 = 123</span><span class="r mono">9:42:18</span></div>
+    </div>
+  </div>
+  <div class="island" data-on="1"></div>
+</div></div>
+
+<div><div class="cap"><b>写入确认</b>深色 · 线圈示例</div>
+<div class="phone dark">
+  <div class="sb"><span>9:44</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>工作台</h2><div class="ic">⋮</div></div>
+  <div class="sess"><div class="dot"></div><div><div class="t1">主站 · 运行中</div><div class="t2">FT232R · 9600 8N1</div></div><div class="cnt"><div><span class="c-tx">TX 131</span> <span class="c-rx">RX 129</span></div></div></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:14px"><div style="font-size:18px;font-weight:700">写单个线圈</div><span class="badge b-gr">Unit 1 · 地址 2 · 00003</span></div>
+    <div class="row" style="gap:14px;margin-bottom:14px;align-items:flex-end">
+      <div><div class="mut" style="font-size:11px">当前</div><div class="mono mut" style="font-size:22px">OFF</div></div>
+      <div class="dim" style="font-size:20px;padding-bottom:4px">→</div>
+      <div class="seg" style="flex:1"><div>OFF</div><div class="on" style="color:var(--amberT)">ON</div></div>
+    </div>
+    <div class="mut" style="font-size:11px;margin-bottom:6px">将发送 8 字节 · FC05</div>
+    <div class="frame">01 05 00 02 <span class="hl">FF 00</span> <span class="crc">2D FA</span></div>
+    <div class="row" style="gap:8px;margin:10px 0 14px;font-size:12px;color:var(--mut);align-items:flex-start"><span style="color:var(--amberT)">⚠</span><span>写入超时不会自动重试，结果标记为「未知」。线圈可能直接驱动执行器，确认现场允许后再发送。</span></div>
+    <div class="row"><div class="btn out" style="flex:1">取消</div><div class="btn pri" style="flex:1.6">发送写入</div></div>
+  </div>
+</div></div>
+
+<div><div class="cap"><b>从站工作台</b>深色 · 第三个入口统一叫「面板」</div>
+<div class="phone dark">
+  <div class="sb"><span>9:50</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>虚拟从站</h2><div class="ic">⋮</div></div>
+  <div class="sess"><div class="dot"></div><div><div class="t1">从站 · 监听中</div><div class="t2">多站总线 · 9600 8N1 · 回显 无</div></div><div class="cnt"><div class="c-rx">在线 12:04</div><div class="mut">Unit 1, 2</div></div></div>
+  <div class="content">
+    <div class="stats">
+      <div class="st"><div class="k">本机请求</div><div class="v">1,284</div></div><div class="st"><div class="k">已响应</div><div class="v c-rx">1,280</div></div>
+      <div class="st"><div class="k">异常</div><div class="v c-er">4</div></div><div class="st"><div class="k">外站帧</div><div class="v c-fo">3,902</div></div></div>
+    <div class="row" style="justify-content:space-between"><div class="chips"><span class="chip on">Unit 1</span><span class="chip">Unit 2</span><span class="chip">＋</span></div><span class="mut" style="font-size:12px">CRC 错 0 · 不明 1</span></div>
+    <div class="seg"><div class="on">保持 40</div><div>输入 10</div><div>线圈 16</div><div>离散 8</div></div>
+    <div class="tbl">
+      <div class="th" style="grid-template-columns:70px 1fr 110px"><span>地址</span><span>值</span><span style="text-align:right">最近来源</span></div>
+      <div class="tr" style="grid-template-columns:70px 1fr 110px"><div class="a">0<small>40001</small></div><div class="val">236</div><div style="text-align:right"><span class="badge b-fo">模拟 · 正弦</span></div></div>
+      <div class="tr" style="grid-template-columns:70px 1fr 110px"><div class="a">1<small>40002</small></div><div class="val">82</div><div class="dim" style="text-align:right;font-size:11px">—</div></div>
+      <div class="tr flash" style="grid-template-columns:70px 1fr 110px"><div class="a">2<small>40003</small></div><div class="val">500</div><div style="text-align:right"><span class="badge b-tx">外部写 · 2 s</span></div></div>
+      <div class="tr" style="grid-template-columns:70px 1fr 110px"><div class="a">3<small>40004</small></div><div class="val">1</div><div style="text-align:right"><span class="badge b-gr">本地编辑</span></div></div>
+      <div class="tr" style="grid-template-columns:70px 1fr 110px"><div class="a">4<small>40005</small></div><div class="val">0</div><div class="dim" style="text-align:right;font-size:11px">—</div></div>
+    </div>
+    <div class="btn out sm">＋ 添加地址段</div>
+  </div>
+  <div class="island" data-on="1"></div>
+</div></div>
+
+<div><div class="cap"><b>通信日志</b>浅色</div>
+<div class="phone light">
+  <div class="sb"><span>9:52</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>通信日志</h2><div class="row" style="gap:2px"><div class="ic">❚❚</div><div class="ic">⇪</div></div></div>
+  <div class="sess"><div class="dot"></div><div><div class="t1">从站 · 监听中</div><div class="t2">多站总线 · 9600 8N1</div></div><div class="cnt"><div class="mut">1,000 条上限</div><div class="mut">已暂停滚动</div></div></div>
+  <div class="content">
+    <div class="chips nw"><span class="chip on">全部</span><span class="chip">本机</span><span class="chip">外站</span><span class="chip">回显</span><span class="chip">异常</span><span class="chip">不明</span></div>
+    <div class="log">
+      <div class="le l-rx"><div class="h"><span class="tm">09:52:03.412</span><span class="badge b-ok">本机请求</span><span class="sum">读保持 U1 0×10</span></div><div class="hex">01 03 00 00 00 0A <span class="crc">C5 CD</span></div></div>
+      <div class="le l-tx"><div class="h"><span class="tm">+6 ms</span><span class="badge b-tx">响应</span><span class="sum">10 个寄存器</span><span class="lat">25 B</span></div><div class="hex">01 03 14 00 00 00 0A 00 14 00 1E 00 28 00 7B 00 3C 00 46 00 50 00 5A <span class="crc">DB 60</span></div></div>
+      <div class="le fo l-fo"><div class="h"><span class="tm">09:52:03.488</span><span class="badge b-fo">外站请求</span><span class="sum">读保持 U2 0×2</span></div><div class="hex">02 03 00 00 00 02 <span class="crc">C4 38</span></div></div>
+      <div class="le fo l-fo"><div class="h"><span class="tm">+31 ms</span><span class="badge b-fo">外站响应</span><span class="sum">U2 · 2 个寄存器</span></div><div class="hex">02 03 04 00 EA 00 52 <span class="crc">69 3A</span></div></div>
+      <div class="le l-er"><div class="h"><span class="tm">09:52:04.106</span><span class="badge b-er">异常 02</span><span class="sum">非法数据地址</span></div><div class="hex">01 83 02 <span class="crc">C0 F1</span></div></div>
+      <div class="le l-am"><div class="h"><span class="tm">09:52:04.733</span><span class="badge b-am">方向不明</span><span class="sum">起点不可信，未执行</span></div><div class="hex">01 06 00 03 01 F4 <span class="crc">79 DD</span></div></div>
+    </div>
+  </div>
+  <div class="island" data-on="3"></div>
+</div></div>
+
+</div>
+</section>
+
+<!-- ====================================================== BOARD 2 -->
+<section class="board" id="b2">
+<div class="btitle"><h1>v2 · ② 面板与组件</h1><span>面板 = 自由组合的监控组件 · 添加流程：选组件 → 数据源 → 换算 → 外观</span></div>
+<div class="grid">
+
+<div><div class="cap"><b>面板</b>深色 · 多页面板</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>面板</h2><div class="row" style="gap:2px"><div class="ic">✎</div><div class="ic">⤢</div></div></div>
+  <div class="sess"><div class="dot"></div><div><div class="t1">主站 · 轮询中</div><div class="t2">设定 1000 ms · 实际 1012 ms</div></div><div class="cnt"><div class="btn out xs">暂停</div></div></div>
+  <div class="content" style="gap:8px">
+    <div class="chips nw"><span class="chip on">机房 A</span><span class="chip">冷站</span><span class="chip">测试</span><span class="chip">＋</span></div>
+    <div class="wg">
+      <div class="w span" style="padding:8px 10px 4px">
+        <div class="n"><span>温度 / 压力 · 1 分钟</span><span style="font-size:11px"><span style="color:#F5A524">━</span> 温度 <span style="color:#58A6FF">━</span> 压力</span></div>
+        <svg width="314" height="92" viewBox="0 0 318 120" preserveAspectRatio="none">
+          <defs><pattern id="h1" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#F85149" stroke-opacity=".35" stroke-width="2"/></pattern></defs>
+          <g stroke="#232C38"><line x1="0" y1="20" x2="318" y2="20"/><line x1="0" y1="60" x2="318" y2="60"/><line x1="0" y1="100" x2="318" y2="100"/></g>
+          <rect x="196" y="10" width="34" height="100" fill="url(#h1)"/>
+          <polyline fill="none" stroke="#F5A524" stroke-width="2" points="0,70 30,64 60,60 90,62 120,52 150,48 180,50 196,46"/><polyline fill="none" stroke="#F5A524" stroke-width="2" points="230,52 260,46 290,42 318,40"/>
+          <polyline fill="none" stroke="#58A6FF" stroke-width="2" points="0,92 30,94 60,90 90,88 120,90 150,86 180,85 196,84"/><polyline fill="none" stroke="#58A6FF" stroke-width="2" points="230,88 260,86 290,85 318,86"/>
+        </svg>
+      </div>
+      <div class="w"><div class="n"><span>供水温度</span><span class="badge b-ok">正常</span></div><div class="v">23.4<small>℃</small></div><div class="m">HR100 · 10:21:07</div></div>
+      <div class="w"><div class="n"><span>供水压力</span><span class="badge b-ok">正常</span></div><div class="v">0.82<small>MPa</small></div><div class="m">HR101 · 10:21:07</div></div>
+      <div class="w"><div class="n"><span>压缩机</span></div>
+        <div class="row" style="margin-top:8px;gap:10px"><span class="lamp" style="background:#3FB950;box-shadow:0 0 10px #3FB950"></span><span style="font-size:15px;font-weight:600">运行</span></div>
+        <div class="row" style="margin-top:6px;gap:10px"><span class="lamp" style="background:var(--s3)"></span><span class="mut" style="font-size:13px">故障</span></div></div>
+      <div class="w"><div class="n"><span>运行模式</span></div><div style="font-size:22px;font-weight:700;margin-top:8px;color:#58A6FF">制冷</div><div class="m">HR120 = 2</div></div>
+      <div class="w"><div class="n"><span>阀门开度</span><span class="mono" style="font-size:13px;color:var(--tx)">62 %</span></div><div class="bar"><i style="width:62%"></i></div><div class="m" style="margin-top:6px">HR130 · 0–100</div></div>
+      <div class="w bad"><div class="n"><span>压缩机电流</span><span class="badge b-er">超时</span></div><div class="v">12.6<small>A</small></div><div class="m">连续超时 3 次</div></div>
+    </div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div></div>
+
+<div><div class="cap"><b>面板 · 编辑模式</b>浅色 · 拖动排序、拉伸、删除</div>
+<div class="phone light">
+  <div class="sb"><span>10:22</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">✕</div><h2>编辑面板</h2></div><div class="btn pri xs">完成</div></div>
+  <div class="content" style="gap:8px">
+    <div class="row"><div class="f" style="flex:1;min-height:44px"><div class="k">面板名称</div><div class="v t">机房 A</div></div><div class="f" style="width:110px;min-height:44px"><div class="k">列数</div><div class="v">2</div></div></div>
+    <div class="wg edit">
+      <div class="w span" style="height:96px"><div class="n"><span>⠿ 温度 / 压力 · 曲线</span></div><div class="m" style="margin-top:30px;text-align:center">2 × 1 · 点击配置</div><span class="handle"></span><span class="wdel">×</span></div>
+      <div class="w"><div class="n"><span>⠿ 供水温度</span></div><div class="v">23.4<small>℃</small></div><span class="handle"></span><span class="wdel">×</span></div>
+      <div class="w"><div class="n"><span>⠿ 供水压力</span></div><div class="v">0.82<small>MPa</small></div><span class="handle"></span><span class="wdel">×</span></div>
+      <div class="w"><div class="n"><span>⠿ 压缩机</span></div><div class="row" style="margin-top:10px;gap:8px"><span class="lamp" style="background:#1A7F37"></span><span>运行</span></div><span class="handle"></span><span class="wdel">×</span></div>
+      <div class="w"><div class="n"><span>⠿ 运行模式</span></div><div style="font-size:20px;font-weight:700;margin-top:8px;color:var(--blue)">制冷</div><span class="handle"></span><span class="wdel">×</span></div>
+    </div>
+    <div class="btn out sm" style="border-style:dashed">＋ 添加组件</div>
+    <div class="mut" style="font-size:11.5px;text-align:center">长按拖动排序 · 拖右下角改尺寸 · 编辑时不会向设备发送任何写入</div>
+  </div>
+</div></div>
+
+<div><div class="cap"><b>添加组件 · 选类型</b>深色</div>
+<div class="phone dark">
+  <div class="sb"><span>10:23</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>添加组件</h2></div><span class="mut" style="font-size:13px">1 / 3</span></div>
+  <div class="content" style="padding-bottom:14px">
+    <div class="pk">
+      <div class="pki on"><div class="pv"><span class="mono" style="font-size:24px;font-weight:600">23.4<small style="font-size:11px;color:var(--mut)"> ℃</small></span></div><div class="t">数值</div><div class="d">单个点位 + 单位 + 质量</div></div>
+      <div class="pki"><div class="pv"><svg width="120" height="44"><polyline fill="none" stroke="#F5A524" stroke-width="2" points="0,30 20,26 40,28 60,16 80,20 100,10 120,14"/><polyline fill="none" stroke="#58A6FF" stroke-width="2" points="0,38 20,36 40,37 60,32 80,34 100,30 120,31"/></svg></div><div class="t">曲线</div><div class="d">多系列 · 双 Y 轴</div></div>
+      <div class="pki"><div class="pv"><svg width="80" height="48" viewBox="0 0 80 48"><path d="M8 44a32 32 0 0 1 64 0" fill="none" stroke="#253041" stroke-width="8" stroke-linecap="round"/><path d="M8 44a32 32 0 0 1 46-29" fill="none" stroke="#F5A524" stroke-width="8" stroke-linecap="round"/></svg></div><div class="t">仪表</div><div class="d">量程 + 分段颜色</div></div>
+      <div class="pki"><div class="pv"><div class="row" style="gap:10px"><span class="lamp" style="background:#3FB950;box-shadow:0 0 10px #3FB950"></span><span class="lamp" style="background:#253041"></span><span class="lamp" style="background:#F85149"></span></div></div><div class="t">指示灯 / 开关</div><div class="d">位、线圈；可选可写</div></div>
+      <div class="pki"><div class="pv"><span style="font-size:20px;font-weight:700;color:#58A6FF">制冷</span></div><div class="t">状态文本</div><div class="d">数值 → 文字映射</div></div>
+      <div class="pki"><div class="pv" style="padding:0 16px"><div class="bar" style="width:100%;margin:0"><i style="width:62%"></i></div></div><div class="t">进度条</div><div class="d">开度、液位、百分比</div></div>
+      <div class="pki"><div class="pv"><span class="mono" style="font-size:12px;color:var(--mut);line-height:16px">0 · 236<br>1 · 82<br>2 · 500</span></div><div class="t">寄存器表</div><div class="d">一段连续地址</div></div>
+      <div class="pki"><div class="pv"><div class="btn pri xs">启动</div></div><div class="t">按钮</div><div class="d">一键写入预设值</div></div>
+    </div>
+  </div>
+</div></div>
+
+<div><div class="cap"><b>添加组件 · 数值配置</b>深色 · 长截图<span class="tag">2 / 3 数据源 + 换算</span></div>
+<div class="phone dark long">
+  <div class="sb"><span>10:24</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>数值组件</h2></div><span class="mut" style="font-size:13px">2 / 3</span></div>
+  <div class="content">
+    <div class="w" style="border-color:var(--amber)"><div class="n"><span>供水温度</span><span class="badge b-ok">实时预览</span></div><div class="v">23.4<small>℃</small></div><div class="m">原始 0x00EA = 234</div></div>
+    <div class="sec"><span>数据源</span></div>
+    <div class="card">
+      <div class="fields" style="grid-template-columns:.7fr 1.3fr 1.2fr;margin-bottom:8px">
+        <div class="f"><div class="k">Unit</div><div class="v">1</div></div><div class="f"><div class="k">区域</div><div class="v t">保持寄存器</div></div><div class="f"><div class="k">地址</div><div class="v">100<small>40101</small></div></div></div>
+      <div class="lbl" style="margin-top:4px"><span>数据类型</span><span>占用 1 个寄存器</span></div>
+      <div class="chips" style="margin-bottom:10px"><span class="chip xs">BOOL</span><span class="chip xs">位</span><span class="chip xs">U16</span><span class="chip xs on">S16</span><span class="chip xs">U32</span><span class="chip xs">S32</span><span class="chip xs">F32</span><span class="chip xs">U64</span><span class="chip xs">S64</span><span class="chip xs">F64</span><span class="chip xs">BCD</span><span class="chip xs">ASCII</span></div>
+      <div class="lbl"><span>字节 / 字序（32/64 位时可选）</span></div>
+      <div class="seg sm" style="opacity:.45"><div class="on">ABCD</div><div>CDAB</div><div>BADC</div><div>DCBA</div></div>
+    </div>
+    <div class="sec"><span>换算与显示</span></div>
+    <div class="card">
+      <div class="fields" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:8px">
+        <div class="f"><div class="k">缩放</div><div class="v">0.1</div></div><div class="f"><div class="k">偏移</div><div class="v">0</div></div><div class="f"><div class="k">小数位</div><div class="v">1</div></div></div>
+      <div class="formula" style="margin-bottom:10px">显示值 = 原始值 × 0.1 + 0　→　234 × 0.1 = <b>23.4</b></div>
+      <div class="lbl"><span>单位</span></div>
+      <div class="chips" style="margin-bottom:10px"><span class="chip xs on">℃</span><span class="chip xs">%</span><span class="chip xs">%RH</span><span class="chip xs">MPa</span><span class="chip xs">bar</span><span class="chip xs">A</span><span class="chip xs">V</span><span class="chip xs">kW</span><span class="chip xs">Hz</span><span class="chip xs">rpm</span><span class="chip xs">自定义</span></div>
+      <div class="fields" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+        <div class="f"><div class="k">名称</div><div class="v t">供水温度</div></div><div class="f"><div class="k">量程（仪表 / 进度条用）</div><div class="v">0 – 50</div></div></div>
+      <div class="lbl"><span>颜色阈值（仅变色，不是报警）</span><span style="color:var(--amberT)">＋</span></div>
+      <div class="list" style="border-radius:12px">
+        <div class="li" style="min-height:40px"><span class="lamp" style="background:#F85149;width:12px;height:12px"></span><span class="mono" style="font-size:13px">≥ 28.0</span><span class="r">红</span></div>
+        <div class="li" style="min-height:40px"><span class="lamp" style="background:#58A6FF;width:12px;height:12px"></span><span class="mono" style="font-size:13px">≤ 10.0</span><span class="r">蓝</span></div>
+      </div>
+    </div>
+    <div class="sec"><span>采集</span></div>
+    <div class="card">
+      <div class="fields" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+        <div class="f"><div class="k">轮询周期</div><div class="v">1000<small>ms</small></div></div><div class="f"><div class="k">判定过期</div><div class="v">3<small>× 周期</small></div></div></div>
+      <div class="row" style="justify-content:space-between;padding:4px 2px"><span style="font-size:14px">记录历史</span><span class="mut" style="font-size:12px;margin-left:auto;margin-right:10px">每 5 s 快照</span><div class="tg on"></div></div>
+    </div>
+    <div class="sec"><span>写入</span></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;padding:2px 2px 10px"><span style="font-size:14px">允许在面板上修改</span><div class="tg"></div></div>
+      <div class="mut" style="font-size:12px">开启后点组件弹出写入确认（FC06/FC16 按长度自动选择），写入值按「(显示值 − 偏移) ÷ 缩放」反算，越界拒绝。</div>
+    </div>
+  </div>
+  <div class="savebar"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">下一步 · 外观</div></div>
+</div></div>
+
+<div><div class="cap"><b>添加组件 · 曲线配置</b>深色 · 长截图<span class="tag">系列、轴、时间窗</span></div>
+<div class="phone dark long">
+  <div class="sb"><span>10:26</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>曲线组件</h2></div><span class="mut" style="font-size:13px">3 / 3</span></div>
+  <div class="content">
+    <div class="w" style="border-color:var(--amber);padding:8px 10px 4px">
+      <div class="n"><span>温度 / 压力</span><span style="font-size:11px"><span style="color:#F5A524">━</span> 温度 <span style="color:#58A6FF">┅</span> 压力</span></div>
+      <svg width="314" height="96" viewBox="0 0 318 120" preserveAspectRatio="none">
+        <g stroke="#232C38"><line x1="22" y1="20" x2="296" y2="20"/><line x1="22" y1="60" x2="296" y2="60"/><line x1="22" y1="100" x2="296" y2="100"/></g>
+        <g font-family="Geist Mono" font-size="10" fill="#F5A524"><text x="0" y="24">30</text><text x="0" y="104">10</text></g>
+        <g font-family="Geist Mono" font-size="10" fill="#58A6FF"><text x="300" y="24">1.0</text><text x="300" y="104">0.5</text></g>
+        <polyline fill="none" stroke="#F5A524" stroke-width="2" points="22,70 60,64 100,60 140,62 180,52 220,48 260,50 296,44"/>
+        <polyline fill="none" stroke="#58A6FF" stroke-width="2" stroke-dasharray="5 4" points="22,50 60,54 100,50 140,46 180,48 220,44 260,46 296,42"/>
+      </svg>
+    </div>
+    <div class="sec"><span>系列 · 2 / 8</span><span style="color:var(--amberT)">＋ 添加系列</span></div>
+    <div class="list">
+      <div class="li"><span class="lamp" style="background:#F5A524"></span><div><div>温度</div><div class="sub mono">U1 HR100 · S16 ×0.1 ℃ · 左轴</div></div><span class="r">━ 2px <span class="chev">›</span></span></div>
+      <div class="li"><span class="lamp" style="background:#58A6FF"></span><div><div>压力</div><div class="sub mono">U1 HR101 · U16 ×0.01 MPa · 右轴</div></div><span class="r">┅ 2px <span class="chev">›</span></span></div>
+    </div>
+    <div class="sec"><span>时间与采样</span></div>
+    <div class="card">
+      <div class="lbl"><span>时间窗口</span></div>
+      <div class="chips" style="margin-bottom:10px"><span class="chip xs on">1 分</span><span class="chip xs">5 分</span><span class="chip xs">10 分</span><span class="chip xs">1 时</span><span class="chip xs">自定义</span></div>
+      <div class="lbl"><span>取点方式</span></div>
+      <div class="seg sm" style="margin-bottom:6px"><div class="on">每次采样</div><div>定时快照</div></div>
+      <div class="mut" style="font-size:11.5px;margin-bottom:10px">每次采样：每个有效读数一个点，尖峰不丢；定时快照：所有系列同一时刻取值。</div>
+      <div class="fields" style="grid-template-columns:1fr 1fr">
+        <div class="f"><div class="k">内存保留</div><div class="v">1<small>小时</small></div></div><div class="f"><div class="k">每系列最多</div><div class="v">20000<small>点</small></div></div></div>
+    </div>
+    <div class="sec"><span>坐标轴</span></div>
+    <div class="card">
+      <div class="lbl"><span>左 Y 轴 · ℃</span><span>自动</span></div>
+      <div class="fields" style="grid-template-columns:1fr 1fr;margin-bottom:10px"><div class="f"><div class="k">最小</div><div class="v">10</div></div><div class="f"><div class="k">最大</div><div class="v">30</div></div></div>
+      <div class="lbl"><span>右 Y 轴 · MPa</span><span style="color:var(--amberT)">自动 ✓</span></div>
+      <div class="row" style="justify-content:space-between;padding:4px 2px"><span style="font-size:14px">网格线</span><div class="tg on"></div></div>
+    </div>
+    <div class="sec"><span>显示</span></div>
+    <div class="card">
+      <div class="lbl"><span>图例位置</span></div>
+      <div class="seg sm" style="margin-bottom:10px"><div class="on">顶部</div><div>底部</div><div>隐藏</div></div>
+      <div class="lbl"><span>缺测 / 超时</span></div>
+      <div class="seg sm" style="margin-bottom:10px"><div class="on">断开 + 斜线</div><div>仅断开</div></div>
+      <div class="row" style="justify-content:space-between;padding:4px 2px"><span style="font-size:14px">显示游标读数</span><div class="tg on"></div></div>
+    </div>
+  </div>
+  <div class="savebar"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">添加到面板</div></div>
+</div></div>
+
+<div><div class="cap"><b>系列编辑</b>浅色 · 底部弹出</div>
+<div class="phone light">
+  <div class="sb"><span>10:27</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>曲线组件</h2></div></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div style="font-size:18px;font-weight:700">系列 · 压力</div><span style="color:var(--red);font-size:13px">删除</span></div>
+    <div class="fields" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
+      <div class="f"><div class="k">图例名称</div><div class="v t">压力</div></div><div class="f"><div class="k">数据点位</div><div class="v" style="font-size:14px">U1 HR101 ›</div></div></div>
+    <div class="lbl"><span>颜色</span></div>
+    <div class="sw8" style="margin-bottom:12px"><i style="background:#F5A524"></i><i class="on" style="background:#0969DA"></i><i style="background:#1A7F37"></i><i style="background:#CF222E"></i><i style="background:#8250DF"></i><i style="background:#BF3989"></i><i style="background:#0E8A8A"></i><i style="background:#6E7781"></i></div>
+    <div class="lbl"><span>线型</span><span>粗细</span></div>
+    <div class="row" style="margin-bottom:12px">
+      <div class="seg sm" style="flex:1.4"><div>实线</div><div class="on">虚线</div><div>点线</div></div>
+      <div class="seg sm" style="flex:1"><div>1</div><div class="on">2</div><div>3</div></div></div>
+    <div class="lbl"><span>Y 轴</span></div>
+    <div class="seg sm" style="margin-bottom:12px"><div>左</div><div class="on">右</div></div>
+    <div class="list" style="margin-bottom:14px;border-radius:12px">
+      <div class="li" style="min-height:44px"><span>显示数据点</span><div class="tg" style="margin-left:auto"></div></div>
+      <div class="li" style="min-height:44px"><span>面积填充</span><div class="tg" style="margin-left:auto"></div></div>
+      <div class="li" style="min-height:44px"><span>阶梯线（适合开关量）</span><div class="tg" style="margin-left:auto"></div></div>
+    </div>
+    <div class="btn pri">完成</div>
+  </div>
+</div></div>
+
+</div>
+</section>
+
+<!-- ====================================================== BOARD 3 -->
+<section class="board" id="b3">
+<div class="btitle"><h1>v2 · ③ 我的</h1><span>工程、导入导出、存储、设置 · 导出支持保存与系统分享（不需要联网权限）</span></div>
+<div class="grid">
+
+<div><div class="cap"><b>我的</b>浅色</div>
+<div class="phone light">
+  <div class="sb"><span>11:02</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>我的</h2><div class="ic">⚙</div></div>
+  <div class="content">
+    <div class="card" style="display:flex;gap:12px;align-items:center">
+      <div style="width:46px;height:46px;border-radius:14px;background:var(--amber);display:grid;place-items:center;font-weight:800;color:#1A1200;font-family:var(--mono)">MB</div>
+      <div><div style="font-size:16px;font-weight:700">机房 A 调试</div><div class="mut" style="font-size:12px">当前工程 · 2 个面板 · 14 个点位</div></div>
+      <div class="btn out xs" style="margin-left:auto">切换</div></div>
+    <div class="sec"><span>数据</span></div>
+    <div class="list">
+      <div class="li"><div class="lic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div><span>导入</span><span class="r">工程 · 点表 CSV <span class="chev">›</span></span></div>
+      <div class="li"><div class="lic"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg></div><span>导出与分享</span><span class="r"><span class="chev">›</span></span></div>
+      <div class="li"><div class="lic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><span>历史会话</span><span class="r">23 个 <span class="chev">›</span></span></div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;font-size:14px"><span>本地存储</span><span class="mono mut" style="font-size:12px">38 MB / 250 MB</span></div>
+      <div class="bar"><i style="width:15%"></i></div>
+      <div class="row mut" style="font-size:11.5px;margin-top:8px;justify-content:space-between"><span>历史保留 30 天 · 抓包仅手动开启</span><span style="color:var(--amberT)">管理</span></div>
+    </div>
+    <div class="sec"><span>设置</span></div>
+    <div class="list">
+      <div class="li"><div class="lic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></div><span>外观</span><span class="r">跟随系统 <span class="chev">›</span></span></div>
+      <div class="li"><div class="lic"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg></div><span>显示与格式</span><span class="r">0 基 + 参考号 <span class="chev">›</span></span></div>
+      <div class="li"><div class="lic"><svg viewBox="0 0 24 24"><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8"/></svg></div><span>通信默认值</span><span class="r">9600 8N1 <span class="chev">›</span></span></div>
+      <div class="li"><div class="lic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.5"/></svg></div><span>关于</span><span class="r mono">v0.1.0 · 离线 <span class="chev">›</span></span></div>
+    </div>
+  </div>
+  <div class="island" data-on="4"></div>
+</div></div>
+
+<div><div class="cap"><b>设置</b>深色 · 长截图<span class="tag">分组可扩展</span></div>
+<div class="phone dark long">
+  <div class="sb"><span>11:03</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>设置</h2></div></div>
+  <div class="content">
+    <div class="sec"><span>外观</span></div>
+    <div class="card">
+      <div class="lbl"><span>主题</span></div>
+      <div class="seg sm" style="margin-bottom:12px"><div>跟随系统</div><div>浅色</div><div class="on">深色</div></div>
+      <div class="lbl"><span>强调色</span></div>
+      <div class="sw8" style="margin-bottom:12px"><i class="on" style="background:#F5A524"></i><i style="background:#2F81F7"></i><i style="background:#2DA44E"></i><i style="background:#0E8A8A"></i><i style="background:#8250DF"></i></div>
+      <div class="lbl"><span>字号</span></div>
+      <div class="seg sm" style="margin-bottom:12px"><div>标准</div><div class="on">大</div><div>特大</div></div>
+      <div class="lbl"><span>界面密度</span></div>
+      <div class="seg sm"><div class="on">舒适</div><div>紧凑</div></div>
+    </div>
+    <div class="list">
+      <div class="li"><span>保持屏幕常亮（连接时）</span><div class="tg on" style="margin-left:auto"></div></div>
+      <div class="li"><span>横屏自动切换曲线全屏</span><div class="tg on" style="margin-left:auto"></div></div>
+      <div class="li"><span>操作震动反馈</span><div class="tg on" style="margin-left:auto"></div></div>
+    </div>
+    <div class="sec"><span>显示与格式</span></div>
+    <div class="card">
+      <div class="lbl"><span>地址显示</span></div>
+      <div class="seg sm" style="margin-bottom:12px"><div>0 基</div><div>参考号</div><div class="on">两者</div></div>
+      <div class="lbl"><span>默认数值格式</span></div>
+      <div class="seg sm" style="margin-bottom:12px"><div class="on">U16</div><div>S16</div><div>HEX</div></div>
+      <div class="lbl"><span>时间显示</span></div>
+      <div class="seg sm"><div class="on">本地时间</div><div>相对时间</div></div>
+    </div>
+    <div class="list">
+      <div class="li"><span>HEX 显示 0x 前缀</span><div class="tg on" style="margin-left:auto"></div></div>
+      <div class="li"><span>日志中 CRC 用暗色</span><div class="tg on" style="margin-left:auto"></div></div>
+    </div>
+    <div class="sec"><span>安全</span></div>
+    <div class="list">
+      <div class="li"><div><div>写入前确认</div><div class="sub">安全项，不能关闭</div></div><span class="r">始终 🔒</span></div>
+      <div class="li"><div><div>线圈写入额外提示</div><div class="sub">提示可能驱动执行器</div></div><div class="tg on" style="margin-left:auto"></div></div>
+    </div>
+    <div class="sec"><span>通信默认值</span></div>
+    <div class="list">
+      <div class="li"><span>响应超时</span><span class="r mono">1000 ms ›</span></div>
+      <div class="li"><span>请求间隔</span><span class="r mono">20 ms ›</span></div>
+      <div class="li"><span>广播等待</span><span class="r mono">150 ms ›</span></div>
+      <div class="li"><span>回显</span><span class="r">关 ›</span></div>
+    </div>
+    <div class="sec"><span>存储</span></div>
+    <div class="list">
+      <div class="li"><span>历史保留</span><span class="r">30 天 ›</span></div>
+      <div class="li"><span>容量上限</span><span class="r mono">250 MB ›</span></div>
+      <div class="li"><span>内存日志条数</span><span class="r mono">1000 ›</span></div>
+    </div>
+    <div class="mut" style="font-size:11.5px;text-align:center;padding:6px 0 4px">更多设置会在后续版本按分组加入</div>
+  </div>
+</div></div>
+
+<div><div class="cap"><b>导出与分享</b>深色 · 底部弹出</div>
+<div class="phone dark">
+  <div class="sb"><span>11:05</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>我的</h2></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">导出</div>
+    <div class="mut" style="font-size:12px;margin-bottom:12px">工程「机房 A 调试」</div>
+    <div class="list" style="margin-bottom:12px;border-radius:12px">
+      <div class="li"><div class="ck on"></div><div><div>工程配置</div><div class="sub">JSON · 串口、点位、面板、虚拟从站</div></div></div>
+      <div class="li"><div class="ck on"></div><div><div>点表</div><div class="sub">CSV · 14 个点位</div></div></div>
+      <div class="li"><div class="ck"></div><div><div>寄存器快照</div><div class="sub">CSV · 从站当前值</div></div></div>
+      <div class="li"><div class="ck on"></div><div><div>采样历史</div><div class="sub">CSV · 含质量标志</div></div><span class="r">最近 1 小时 ›</span></div>
+      <div class="li"><div class="ck"></div><div><div>通信日志</div><div class="sub">CSV + HEX</div></div><span class="r">本次会话 ›</span></div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px;font-size:12px"><span class="mut">打包为 ZIP · 约 1.2 MB · 时间为 ISO 8601（UTC+8）</span></div>
+    <div class="row"><div class="btn out" style="flex:1">保存到文件</div><div class="btn pri" style="flex:1">分享…</div></div>
+    <div class="dim" style="font-size:11px;text-align:center;margin-top:10px">分享使用系统分享面板，App 本身不联网</div>
+  </div>
+</div></div>
+
+<div><div class="cap"><b>导入预览</b>浅色 · 校验通过后才可导入</div>
+<div class="phone light">
+  <div class="sb"><span>11:08</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>导入工程</h2></div></div>
+  <div class="content" style="padding-bottom:14px">
+    <div class="card" style="display:flex;gap:12px;align-items:center">
+      <div class="lic" style="width:40px;height:40px"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg></div>
+      <div><div style="font-weight:600">冷站调试.mbproj.json</div><div class="mut mono" style="font-size:11.5px">48 KB · schemaVersion 1</div></div></div>
+    <div class="sec"><span>校验</span></div>
+    <div class="list">
+      <div class="li"><span class="c-rx">✓</span><span>格式与版本</span></div>
+      <div class="li"><span class="c-rx">✓</span><span>地址范围、无重叠区段</span></div>
+      <div class="li"><span class="c-rx">✓</span><span>Unit ID 不重复</span></div>
+      <div class="li"><span class="c-tx">!</span><div><div>2 个点位缺少单位</div><div class="sub">可导入，导入后在面板中补充</div></div></div>
+    </div>
+    <div class="sec"><span>包含</span></div>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+      <div class="st"><div class="k">面板</div><div class="v">3</div></div><div class="st"><div class="k">点位</div><div class="v">26</div></div><div class="st"><div class="k">虚拟 Unit</div><div class="v">2</div></div></div>
+    <div class="sec"><span>导入方式</span></div>
+    <div class="seg"><div class="on">新建工程</div><div>替换当前</div></div>
+    <div class="row mut" style="font-size:12px;gap:8px;align-items:flex-start"><span style="color:var(--blue)">i</span><span>导入不会自动连接设备、发送写入，也不会启动虚拟从站。</span></div>
+    <div class="sp"></div>
+    <div class="btn pri">导入为新工程</div>
+  </div>
+</div></div>
+
+</div>
+</section>
+
+<!-- ====================================================== BOARD 4 -->
+<section class="board" id="b4">
+<div class="btitle"><h1>v2 · ④ 横屏</h1><span>Dock 岛移到左侧竖排 · 内容双栏 · 曲线全屏带游标</span></div>
+<div style="display:flex;flex-direction:column;gap:40px">
+
+<div><div class="cap"><b>曲线全屏</b>深色 · 游标读数 + 右侧图例</div>
+<div class="phone dark land">
+  <div class="rail" data-on="2"></div>
+  <div style="flex:1;padding:14px 16px 14px 90px;display:flex;flex-direction:column;gap:8px">
+    <div class="row"><span style="font-size:16px;font-weight:700">温度 / 压力</span><span class="badge b-ok">轮询中</span><span class="sp"></span>
+      <div class="chips nw"><span class="chip xs on">1 分</span><span class="chip xs">10 分</span><span class="chip xs">1 时</span></div><div class="ic">❚❚</div><div class="ic">✕</div></div>
+    <div class="row" style="flex:1;gap:12px;align-items:stretch">
+      <div class="card" style="flex:1;padding:6px 8px">
+        <svg width="100%" height="100%" viewBox="0 0 470 250" preserveAspectRatio="none">
+          <defs><pattern id="h4" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#F85149" stroke-opacity=".35" stroke-width="2"/></pattern></defs>
+          <g stroke="#232C38"><line x1="28" y1="20" x2="440" y2="20"/><line x1="28" y1="80" x2="440" y2="80"/><line x1="28" y1="140" x2="440" y2="140"/><line x1="28" y1="200" x2="440" y2="200"/></g>
+          <g font-family="Geist Mono" font-size="10" fill="#F5A524"><text x="2" y="24">30</text><text x="2" y="84">25</text><text x="2" y="144">20</text><text x="2" y="204">15</text></g>
+          <g font-family="Geist Mono" font-size="10" fill="#58A6FF"><text x="444" y="24">1.0</text><text x="444" y="204">0.5</text></g>
+          <g font-family="Geist Mono" font-size="10" fill="#5C6878"><text x="28" y="222">10:20:10</text><text x="220" y="222">10:20:40</text><text x="400" y="222">10:21:10</text></g>
+          <rect x="300" y="14" width="40" height="190" fill="url(#h4)"/><text x="304" y="30" font-size="10" fill="#F85149" font-family="Noto Sans CJK SC">超时 4 s</text>
+          <polyline fill="none" stroke="#F5A524" stroke-width="2.2" points="28,150 60,140 90,132 120,136 150,120 180,110 210,114 240,104 270,98 300,102"/><polyline fill="none" stroke="#F5A524" stroke-width="2.2" points="340,96 370,90 400,86 440,80"/>
+          <polyline fill="none" stroke="#58A6FF" stroke-width="2.2" stroke-dasharray="6 4" points="28,120 60,126 90,120 120,114 150,118 180,112 210,116 240,108 270,110 300,106"/><polyline fill="none" stroke="#58A6FF" stroke-width="2.2" stroke-dasharray="6 4" points="340,104 370,100 400,102 440,98"/>
+          <line x1="240" y1="14" x2="240" y2="204" stroke="#E6EDF3" stroke-opacity=".5" stroke-dasharray="3 3"/>
+          <circle cx="240" cy="104" r="4" fill="#F5A524"/><circle cx="240" cy="108" r="4" fill="#58A6FF"/>
+          <rect x="248" y="40" width="92" height="44" rx="6" fill="#1C2430" stroke="#2B3544"/>
+          <text x="256" y="56" font-family="Geist Mono" font-size="10" fill="#8B98A8">10:20:52.3</text>
+          <text x="256" y="72" font-family="Geist Mono" font-size="10.5" fill="#F5A524">23.4 ℃  <tspan fill="#58A6FF">0.82</tspan></text>
+        </svg>
+      </div>
+      <div style="width:150px;display:flex;flex-direction:column;gap:8px">
+        <div class="w"><div class="n"><span><span style="color:#F5A524">━</span> 温度</span></div><div class="v" style="font-size:22px">24.1<small>℃</small></div><div class="m">最小 21.0 · 最大 24.6</div></div>
+        <div class="w"><div class="n"><span><span style="color:#58A6FF">┅</span> 压力</span></div><div class="v" style="font-size:22px">0.83<small>MPa</small></div><div class="m">最小 0.79 · 最大 0.85</div></div>
+        <div class="btn out xs">📷 快照</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div style="display:flex;gap:40px">
+<div><div class="cap"><b>主站工作台</b>浅色 · 左侧构造请求，右侧结果</div>
+<div class="phone light land">
+  <div class="rail" data-on="1"></div>
+  <div style="flex:1;padding:12px 14px 12px 88px;display:flex;gap:12px">
+    <div style="width:280px;display:flex;flex-direction:column;gap:8px">
+      <div class="sess" style="margin:0"><div class="dot"></div><div><div class="t1">主站 · 运行中</div><div class="t2">FT232R · 9600 8N1</div></div><div class="cnt"><span class="c-tx">TX 128</span><br><span class="c-rx">RX 126</span></div></div>
+      <div class="card" style="padding:10px">
+        <div class="seg sm" style="margin-bottom:8px"><div class="on">读取</div><div>写入</div></div>
+        <div class="seg sm" style="margin-bottom:8px"><div>线圈</div><div>离散</div><div class="on">保持</div><div>输入</div></div>
+        <div class="fields" style="grid-template-columns:.7fr 1.3fr 1fr;margin-bottom:8px"><div class="f" style="min-height:44px"><div class="k">Unit</div><div class="v">1</div></div><div class="f" style="min-height:44px"><div class="k">地址</div><div class="v">0<small>40001</small></div></div><div class="f" style="min-height:44px"><div class="k">数量</div><div class="v">10</div></div></div>
+        <div class="btn pri sm">读取 · FC03</div>
+      </div>
+    </div>
+    <div class="tbl" style="flex:1;align-self:stretch">
+      <div class="th" style="grid-template-columns:62px 1fr 70px"><span>地址</span><span>值 U16</span><span>HEX</span></div>
+      <div class="tr" style="grid-template-columns:62px 1fr 70px;height:36px"><div class="a">0<small>40001</small></div><div class="val">0</div><div class="hx">0x0000</div></div>
+      <div class="tr" style="grid-template-columns:62px 1fr 70px;height:36px"><div class="a">1<small>40002</small></div><div class="val">10</div><div class="hx">0x000A</div></div>
+      <div class="tr" style="grid-template-columns:62px 1fr 70px;height:36px"><div class="a">2<small>40003</small></div><div class="val">20</div><div class="hx">0x0014</div></div>
+      <div class="tr" style="grid-template-columns:62px 1fr 70px;height:36px"><div class="a">3<small>40004</small></div><div class="val">30</div><div class="hx">0x001E</div></div>
+      <div class="tr flash" style="grid-template-columns:62px 1fr 70px;height:36px"><div class="a">4<small>40005</small></div><div class="val">123</div><div class="hx">0x007B</div></div>
+      <div class="tr" style="grid-template-columns:62px 1fr 70px;height:36px"><div class="a">5<small>40006</small></div><div class="val">50</div><div class="hx">0x0032</div></div>
+      <div class="tr" style="grid-template-columns:62px 1fr 70px;height:36px"><div class="a">6<small>40007</small></div><div class="val">60</div><div class="hx">0x003C</div></div>
+    </div>
+  </div>
+</div></div>
+</div>
+
+<div><div class="cap"><b>面板</b>深色 · 横屏时列数自动变为 4</div>
+<div class="phone dark land">
+  <div class="rail" data-on="2"></div>
+  <div style="flex:1;padding:12px 14px 12px 88px;display:flex;flex-direction:column;gap:8px">
+    <div class="row"><span style="font-size:16px;font-weight:700">面板</span><div class="chips nw"><span class="chip xs on">机房 A</span><span class="chip xs">冷站</span><span class="chip xs">测试</span></div><span class="sp"></span><span class="badge b-ok">轮询 1012 ms</span><div class="ic">✎</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1">
+      <div class="w" style="grid-column:span 2;grid-row:span 2;padding:8px 10px">
+        <div class="n"><span>温度 / 压力</span></div>
+        <svg width="100%" height="190" viewBox="0 0 318 160" preserveAspectRatio="none">
+          <g stroke="#232C38"><line x1="0" y1="30" x2="318" y2="30"/><line x1="0" y1="80" x2="318" y2="80"/><line x1="0" y1="130" x2="318" y2="130"/></g>
+          <polyline fill="none" stroke="#F5A524" stroke-width="2" points="0,100 40,92 80,86 120,90 160,74 200,66 240,70 280,60 318,56"/>
+          <polyline fill="none" stroke="#58A6FF" stroke-width="2" stroke-dasharray="5 4" points="0,70 40,76 80,70 120,64 160,68 200,62 240,66 280,58 318,60"/></svg></div>
+      <div class="w"><div class="n"><span>供水温度</span><span class="badge b-ok">正常</span></div><div class="v">23.4<small>℃</small></div></div>
+      <div class="w"><div class="n"><span>供水压力</span><span class="badge b-ok">正常</span></div><div class="v">0.82<small>MPa</small></div></div>
+      <div class="w"><div class="n"><span>压缩机</span></div><div class="row" style="margin-top:10px;gap:8px"><span class="lamp" style="background:#3FB950;box-shadow:0 0 10px #3FB950"></span><span style="font-weight:600">运行</span></div></div>
+      <div class="w"><div class="n"><span>阀门开度</span><span class="mono" style="font-size:13px;color:var(--tx)">62 %</span></div><div class="bar"><i style="width:62%"></i></div></div>
+    </div>
+  </div>
+</div></div>
+
+</div>
+</section>
+
+<!-- ====================================================== BOARD 5 -->
+<section class="board" id="b5">
+<div class="btitle"><h1>v2 · ⑤ 补充：组件细节与从站面板</h1><span>外观步骤 · 状态映射 · 位选择 · 从站面板 · 模拟规则</span></div>
+<div class="grid">
+
+<div><div class="cap"><b>数值组件 · 外观</b>深色<span class="tag">3 / 3</span></div>
+<div class="phone dark">
+  <div class="sb"><span>10:25</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>数值组件</h2></div><span class="mut" style="font-size:13px">3 / 3</span></div>
+  <div class="content" style="padding-bottom:0">
+    <div class="wg"><div class="w" style="border-color:var(--amber)"><div class="n"><span>供水温度</span><span class="badge b-ok">正常</span></div><div class="v" style="font-size:30px">23.4<small>℃</small></div><div class="m">10:21:07 · 原始 234</div></div>
+      <div style="display:flex;align-items:center;justify-content:center" class="mut"><span style="font-size:12px">← 1 × 1 实际效果</span></div></div>
+    <div class="card">
+      <div class="lbl"><span>尺寸</span></div>
+      <div class="seg sm" style="margin-bottom:10px"><div class="on">1 × 1</div><div>2 × 1</div><div>2 × 2</div></div>
+      <div class="lbl"><span>数值字号</span><span>对齐</span></div>
+      <div class="row" style="margin-bottom:10px"><div class="seg sm" style="flex:1.4"><div>小</div><div>中</div><div class="on">大</div></div><div class="seg sm" style="flex:1"><div class="on">左</div><div>中</div></div></div>
+      <div class="lbl"><span>数值颜色</span></div>
+      <div class="seg sm" style="margin-bottom:10px"><div class="on">跟随阈值</div><div>固定颜色</div></div>
+      <div class="lbl"><span>卡片样式</span></div>
+      <div class="seg sm"><div class="on">填充</div><div>描边</div><div>无背景</div></div>
+    </div>
+    <div class="list">
+      <div class="li" style="min-height:42px"><span>显示名称</span><div class="tg on" style="margin-left:auto"></div></div>
+      <div class="li" style="min-height:42px"><span>显示质量标签</span><div class="tg on" style="margin-left:auto"></div></div>
+      <div class="li" style="min-height:42px"><span>显示采样时间</span><div class="tg on" style="margin-left:auto"></div></div>
+      <div class="li" style="min-height:42px"><span>显示原始值</span><div class="tg" style="margin-left:auto"></div></div>
+    </div>
+  </div>
+  <div class="savebar" style="position:absolute;left:0;right:0;bottom:0"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">添加到面板</div></div>
+</div></div>
+
+<div><div class="cap"><b>状态文本 · 数值映射</b>浅色</div>
+<div class="phone light">
+  <div class="sb"><span>10:30</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>状态文本</h2></div><span class="mut" style="font-size:13px">2 / 3</span></div>
+  <div class="content" style="padding-bottom:0">
+    <div class="w" style="border-color:var(--amber)"><div class="n"><span>运行模式</span><span class="badge b-ok">实时预览</span></div><div style="font-size:24px;font-weight:700;margin-top:6px;color:var(--blue)">制冷</div><div class="m">U1 HR120 = 2</div></div>
+    <div class="card" style="padding:10px 12px"><div class="row" style="font-size:13px"><span class="mut">数据源</span><span class="mono">U1 · HR120 · U16</span><span class="sp"></span><span style="color:var(--amberT)">修改 ›</span></div></div>
+    <div class="lbl" style="margin:2px 2px 0"><span>匹配方式</span></div>
+    <div class="seg sm"><div class="on">等于</div><div>范围</div><div>按位（任一位为 1）</div></div>
+    <div class="sec" style="margin-top:6px"><span>映射表 · 5 项</span><span style="color:var(--amberT)">＋ 添加</span></div>
+    <div class="list">
+      <div class="li" style="min-height:44px"><span class="mono" style="width:30px">0</span><span class="lamp" style="background:#8D97A5;width:12px;height:12px"></span><span>停止</span><span class="r">⠿</span></div>
+      <div class="li" style="min-height:44px"><span class="mono" style="width:30px">1</span><span class="lamp" style="background:#1A7F37;width:12px;height:12px"></span><span>运行</span><span class="r">⠿</span></div>
+      <div class="li" style="min-height:44px;background:var(--amberBg)"><span class="mono" style="width:30px">2</span><span class="lamp" style="background:#0969DA;width:12px;height:12px"></span><span>制冷</span><span class="r"><span class="badge b-tx">当前</span> ⠿</span></div>
+      <div class="li" style="min-height:44px"><span class="mono" style="width:30px">3</span><span class="lamp" style="background:#B76E00;width:12px;height:12px"></span><span>制热</span><span class="r">⠿</span></div>
+      <div class="li" style="min-height:44px"><span class="mono" style="width:30px">4</span><span class="lamp" style="background:#CF222E;width:12px;height:12px"></span><span>故障</span><span class="r">⠿</span></div>
+    </div>
+    <div class="card" style="padding:10px 12px"><div class="row" style="font-size:13px"><span>未匹配时显示</span><span class="sp"></span><span class="mono mut">未知 ({原始值})</span></div></div>
+    <div class="mut" style="font-size:11.5px">点颜色圆点换颜色，左滑删除；也可以从 CSV 批量导入映射。</div>
+  </div>
+  <div class="savebar" style="position:absolute;left:0;right:0;bottom:0"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">下一步 · 外观</div></div>
+</div></div>
+
+<div><div class="cap"><b>指示灯 / 开关 · 位</b>深色 · 寄存器中的某一位</div>
+<div class="phone dark">
+  <div class="sb"><span>10:32</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>指示灯 / 开关</h2></div><span class="mut" style="font-size:13px">2 / 3</span></div>
+  <div class="content" style="padding-bottom:0">
+    <div class="card">
+      <div class="lbl"><span>数据来源</span></div>
+      <div class="seg sm" style="margin-bottom:10px"><div>线圈</div><div>离散输入</div><div class="on">寄存器的位</div></div>
+      <div class="fields" style="grid-template-columns:.7fr 1.3fr 1.2fr;margin-bottom:10px">
+        <div class="f"><div class="k">Unit</div><div class="v">1</div></div><div class="f"><div class="k">区域</div><div class="v t">保持寄存器</div></div><div class="f"><div class="k">地址</div><div class="v">140<small>40141</small></div></div></div>
+      <div class="lbl"><span>选择位 · 当前值 0x0029</span><span class="mono" style="color:var(--amberT)">bit 3 = 1</span></div>
+      <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;font-family:var(--mono);font-size:11px;text-align:center">
+        <div class="dim">15</div><div class="dim">14</div><div class="dim">13</div><div class="dim">12</div><div class="dim">11</div><div class="dim">10</div><div class="dim">9</div><div class="dim">8</div>
+        <div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div>
+        <div class="dim">7</div><div class="dim">6</div><div class="dim">5</div><div class="dim">4</div><div class="dim">3</div><div class="dim">2</div><div class="dim">1</div><div class="dim">0</div>
+        <div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">1</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f on" style="min-height:30px;padding:6px 0;color:var(--amberT)">1</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">0</div><div class="f" style="min-height:30px;padding:6px 0">1</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="fields" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+        <div class="f"><div class="k">为 1 时</div><div class="v t"><span><span class="lamp" style="background:#3FB950;width:10px;height:10px"></span> 运行</span></div></div>
+        <div class="f"><div class="k">为 0 时</div><div class="v t"><span><span class="lamp" style="background:#5C6878;width:10px;height:10px"></span> 停止</span></div></div></div>
+      <div class="row" style="justify-content:space-between;padding:4px 2px"><span style="font-size:14px">取反（0 表示运行）</span><div class="tg"></div></div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;padding:2px 2px 8px"><span style="font-size:14px">作为开关，可写</span><div class="tg on"></div></div>
+      <div class="row" style="gap:8px;font-size:12px;color:var(--mut);align-items:flex-start"><span style="color:var(--amberT)">⚠</span><span>寄存器位的写入是「先读整字 → 改这一位 → FC06 写回」，不是原子操作，其他位可能被同时改动。线圈请用 FC05。</span></div>
+    </div>
+  </div>
+  <div class="savebar" style="position:absolute;left:0;right:0;bottom:0"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">下一步 · 外观</div></div>
+</div></div>
+
+<div><div class="cap"><b>面板 · 从站模式</b>深色 · 虚拟寄存器 + 模拟规则</div>
+<div class="phone dark">
+  <div class="sb"><span>9:55</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><h2>面板</h2><div class="row" style="gap:2px"><div class="ic">✎</div></div></div>
+  <div class="sess"><div class="dot"></div><div><div class="t1">从站 · 监听中</div><div class="t2">Unit 1, 2 · 模拟 3 条运行中</div></div><div class="cnt"><div class="btn out xs">全部暂停</div></div></div>
+  <div class="content" style="gap:8px">
+    <div class="wg">
+      <div class="w"><div class="n"><span>HR0 温度</span><span class="badge b-fo">正弦</span></div><div class="v">23.6<small>℃</small></div>
+        <svg width="130" height="22"><polyline fill="none" stroke="#58A6FF" stroke-width="1.6" points="0,11 10,5 20,2 30,4 40,10 50,16 60,20 70,18 80,12 90,6 100,2 110,4 120,10 130,16"/></svg></div>
+      <div class="w"><div class="n"><span>HR2 设定值</span><span class="badge b-tx">外部写</span></div><div class="v" style="color:var(--amberT)">500</div><div class="m">主站 U1 · 2 s 前 · 共 7 次</div></div>
+      <div class="w"><div class="n"><span>Coil0 运行</span><span class="badge b-gr">本地</span></div>
+        <div class="row" style="margin-top:8px;justify-content:space-between"><span style="font-size:15px;font-weight:600">ON</span><div class="tg on"></div></div><div class="m">点开关直接改虚拟值</div></div>
+      <div class="w"><div class="n"><span>HR10 计数</span><span class="badge b-fo">递增</span></div><div class="v">1,042</div><div class="m">+1 / 1 s · 回绕 65535</div></div>
+    </div>
+    <div class="sec"><span>模拟规则</span><span style="color:var(--amberT)">＋ 新建</span></div>
+    <div class="list">
+      <div class="li"><span class="lamp" style="background:#3FB950;width:10px;height:10px"></span><div><div>正弦 · U1 HR0</div><div class="sub mono">中心 236 ±40 · 周期 10 s</div></div><span class="r">运行 ›</span></div>
+      <div class="li"><span class="lamp" style="background:#3FB950;width:10px;height:10px"></span><div><div>递增 · U1 HR10</div><div class="sub mono">+1 / 1 s</div></div><span class="r">运行 ›</span></div>
+      <div class="li"><span class="lamp" style="background:#D29922;width:10px;height:10px"></span><div><div>随机 · U2 IR0–3</div><div class="sub">外部写入后已暂停</div></div><span class="r" style="color:var(--amberT)">恢复 ›</span></div>
+    </div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div></div>
+
+<div><div class="cap"><b>模拟规则编辑</b>浅色 · 长截图</div>
+<div class="phone light long">
+  <div class="sb"><span>9:57</span><span>▂▄▆ <i></i></span></div>
+  <div class="appbar"><div class="l"><div class="ic">←</div><h2>模拟规则</h2></div><span style="color:var(--red);font-size:13px">删除</span></div>
+  <div class="content">
+    <div class="card" style="padding:8px 10px">
+      <div class="row" style="justify-content:space-between;font-size:12px;margin-bottom:2px"><span class="mut">预览 · 20 s</span><span class="mono">当前 248</span></div>
+      <svg width="314" height="80" viewBox="0 0 314 80"><g stroke="#E2E7EE"><line x1="0" y1="10" x2="314" y2="10"/><line x1="0" y1="40" x2="314" y2="40"/><line x1="0" y1="70" x2="314" y2="70"/></g>
+        <polyline fill="none" stroke="#0969DA" stroke-width="2" points="0,40 13,30 26,21 39,14 52,10 65,11 78,15 91,23 104,32 117,42 130,52 143,60 156,67 169,70 182,69 195,64 208,57 221,48 234,38 247,28 260,19 273,13 286,10 299,12 314,17"/>
+        <g font-family="Geist Mono" font-size="9" fill="#8D97A5"><text x="2" y="9">276</text><text x="2" y="78">196</text></g></svg>
+    </div>
+    <div class="sec"><span>目标</span></div>
+    <div class="fields" style="grid-template-columns:.7fr 1.3fr 1.2fr">
+      <div class="f"><div class="k">Unit</div><div class="v">1</div></div><div class="f"><div class="k">区域</div><div class="v t">保持寄存器</div></div><div class="f"><div class="k">地址</div><div class="v">0 – 0</div></div></div>
+    <div class="sec"><span>规则类型</span></div>
+    <div class="chips"><span class="chip">常量</span><span class="chip">递增</span><span class="chip on">正弦</span><span class="chip">方波</span><span class="chip">随机</span><span class="chip">序列</span></div>
+    <div class="sec"><span>参数</span></div>
+    <div class="card">
+      <div class="fields" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+        <div class="f"><div class="k">中心值</div><div class="v">236</div></div><div class="f"><div class="k">幅度</div><div class="v">40</div></div>
+        <div class="f"><div class="k">周期</div><div class="v">10<small>s</small></div></div><div class="f"><div class="k">相位</div><div class="v">0<small>°</small></div></div>
+        <div class="f"><div class="k">刷新间隔</div><div class="v">500<small>ms</small></div></div><div class="f"><div class="k">叠加随机</div><div class="v">± 2</div></div></div>
+      <div class="fields" style="grid-template-columns:1fr 1fr"><div class="f"><div class="k">下限</div><div class="v">0</div></div><div class="f"><div class="k">上限</div><div class="v">65535</div></div></div>
+    </div>
+    <div class="sec"><span>外部主站写入这个地址时</span></div>
+    <div class="seg sm"><div class="on">暂停本规则</div><div>继续覆盖</div></div>
+    <div class="mut" style="font-size:11.5px">默认暂停，避免外部刚写入就被模拟值覆盖；在面板上点「恢复」继续。</div>
+    <div class="list">
+      <div class="li"><span>启动从站时自动运行</span><div class="tg on" style="margin-left:auto"></div></div>
+    </div>
+  </div>
+  <div class="savebar"><div class="btn out" style="flex:1">停止</div><div class="btn pri" style="flex:1.6">保存并运行</div></div>
+</div></div>
+
+</div>
+</section>
+
+<!-- ====================================================== BOARD 6 -->
+<section class="board" id="b6">
+<div class="btitle"><h1>v2 · ⑥ 横屏补充</h1><span>日志：列表 + 解码详情 · 我的：分组 + 详情</span></div>
+<div style="display:flex;flex-direction:column;gap:40px">
+
+<div><div class="cap"><b>通信日志</b>深色 · 选中一帧，右侧逐字段解码</div>
+<div class="phone dark land">
+  <div class="rail" data-on="3"></div>
+  <div style="flex:1;padding:12px 14px 12px 88px;display:flex;gap:12px">
+    <div style="flex:1.25;display:flex;flex-direction:column;gap:8px;min-width:0">
+      <div class="row"><span style="font-size:16px;font-weight:700">通信日志</span><div class="chips nw"><span class="chip xs on">全部</span><span class="chip xs">本机</span><span class="chip xs">外站</span><span class="chip xs">异常</span></div><span class="sp"></span><div class="ic">❚❚</div><div class="ic">⇪</div></div>
+      <div class="log" style="flex:1">
+        <div class="le l-rx" style="background:var(--amberBg)"><div class="h"><span class="tm">09:52:03.412</span><span class="badge b-ok">本机请求</span><span class="sum">读保持 U1 0×10</span></div><div class="hex">01 03 00 00 00 0A <span class="crc">C5 CD</span></div></div>
+        <div class="le l-tx"><div class="h"><span class="tm">+6 ms</span><span class="badge b-tx">响应</span><span class="sum">10 个寄存器</span><span class="lat">25 B</span></div></div>
+        <div class="le fo l-fo"><div class="h"><span class="tm">09:52:03.488</span><span class="badge b-fo">外站请求</span><span class="sum">读保持 U2 0×2</span></div></div>
+        <div class="le fo l-fo"><div class="h"><span class="tm">+31 ms</span><span class="badge b-fo">外站响应</span><span class="sum">U2 · 2 个寄存器</span></div></div>
+        <div class="le l-er" style="border-bottom:0"><div class="h"><span class="tm">09:52:04.106</span><span class="badge b-er">异常 02</span><span class="sum">非法数据地址</span></div></div>
+      </div>
+    </div>
+    <div class="card" style="flex:1;display:flex;flex-direction:column;gap:8px">
+      <div class="row"><span style="font-weight:700">帧详情</span><span class="badge b-ok">CRC 正确</span><span class="sp"></span><span class="mut" style="font-size:12px">复制 HEX</span></div>
+      <div class="list" style="border-radius:12px;background:var(--s2)">
+        <div class="li" style="min-height:32px;font-size:12.5px"><span class="mono" style="width:44px;color:var(--amberT)">01</span><span>Unit ID</span><span class="r">1</span></div>
+        <div class="li" style="min-height:32px;font-size:12.5px"><span class="mono" style="width:44px;color:var(--amberT)">03</span><span>功能码</span><span class="r">读保持寄存器</span></div>
+        <div class="li" style="min-height:32px;font-size:12.5px"><span class="mono" style="width:44px;color:var(--amberT)">00 00</span><span>起始地址</span><span class="r mono">0 · 40001</span></div>
+        <div class="li" style="min-height:32px;font-size:12.5px"><span class="mono" style="width:44px;color:var(--amberT)">00 0A</span><span>数量</span><span class="r mono">10</span></div>
+        <div class="li" style="min-height:32px;font-size:12.5px"><span class="mono dim" style="width:44px">C5 CD</span><span>CRC16</span><span class="r mono">0xCDC5 ✓</span></div>
+      </div>
+      <div class="mut" style="font-size:11.5px">配对响应 +6 ms · 25 字节 · 点击跳转</div>
+    </div>
+  </div>
+</div></div>
+
+<div><div class="cap"><b>我的</b>浅色 · 左侧分组，右侧直接显示设置</div>
+<div class="phone light land">
+  <div class="rail" data-on="4"></div>
+  <div style="flex:1;padding:12px 14px 12px 88px;display:flex;gap:12px">
+    <div style="width:250px;display:flex;flex-direction:column;gap:8px">
+      <div class="card" style="display:flex;gap:10px;align-items:center;padding:10px"><div style="width:36px;height:36px;border-radius:11px;background:var(--amber);display:grid;place-items:center;font-weight:800;color:#1A1200;font-family:var(--mono);font-size:13px">MB</div><div><div style="font-weight:700;font-size:14px">机房 A 调试</div><div class="mut" style="font-size:11px">2 个面板 · 14 个点位</div></div></div>
+      <div class="list">
+        <div class="li" style="min-height:40px;font-size:13px">导入</div>
+        <div class="li" style="min-height:40px;font-size:13px">导出与分享</div>
+        <div class="li" style="min-height:40px;font-size:13px;background:var(--amberBg);color:var(--amberT);font-weight:600">外观</div>
+        <div class="li" style="min-height:40px;font-size:13px">显示与格式</div>
+        <div class="li" style="min-height:40px;font-size:13px">通信默认值</div>
+      </div>
+    </div>
+    <div class="card" style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="font-weight:700">外观</div>
+      <div class="lbl" style="margin:0"><span>主题</span></div>
+      <div class="seg sm"><div>跟随系统</div><div class="on">浅色</div><div>深色</div></div>
+      <div class="row" style="gap:24px">
+        <div><div class="lbl"><span>强调色</span></div><div class="sw8"><i class="on" style="background:#F5A524"></i><i style="background:#2F81F7"></i><i style="background:#2DA44E"></i><i style="background:#0E8A8A"></i><i style="background:#8250DF"></i></div></div>
+        <div style="flex:1"><div class="lbl"><span>字号</span></div><div class="seg sm"><div>标准</div><div class="on">大</div><div>特大</div></div></div>
+      </div>
+      <div class="list" style="border-radius:12px">
+        <div class="li" style="min-height:40px;font-size:13px"><span>保持屏幕常亮（连接时）</span><div class="tg on" style="margin-left:auto"></div></div>
+        <div class="li" style="min-height:40px;font-size:13px"><span>横屏自动切换曲线全屏</span><div class="tg on" style="margin-left:auto"></div></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+</div>
+</section>
+
+<script>
+const ICON = [
+  ['连接','<path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8"/>'],
+  ['工作台','<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'],
+  ['面板','<rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/>'],
+  ['日志','<path d="M5 6h14M5 12h14M5 18h9"/>'],
+  ['我的','<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'],
+];
+document.querySelectorAll('.island,.rail').forEach(el=>{
+  const on = +el.dataset.on;
+  el.innerHTML = ICON.map(([t,p],i)=>`<div class="it${i===on?' on':''}"><svg viewBox="0 0 24 24">${p}</svg>${t}</div>`).join('');
+});
+const b = (location.hash.match(/b=(\d)/)||[0,'1'])[1];
+document.getElementById('b'+b).classList.add('show');
+</script>
+</body>
+</html>
