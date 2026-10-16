@@ -89,12 +89,12 @@ fun SecondaryButton(
                 when {
                     height != null -> Modifier.height(height)
                     compact -> Modifier.minimumInteractiveComponentSize().height(44.dp)
-                    else -> Modifier.heightIn(min = MinTouch)
+                    else -> Modifier.height(52.dp) // 稿面 .btn 默认高 52（G#10）
                 },
             )
             .clip(shape)
             .background(if (active) colors.wash(colors.accent) else colors.surface1)
-            .border(if (active) 1.5.dp else 1.dp, if (active) colors.accent else colors.line, shape)
+            .border(1.5.dp, if (active) colors.accent else colors.line, shape) // 稿面次按钮描边 1.5
             .semantics { role = Role.Button }
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -115,6 +115,7 @@ fun SecondaryButton(
     }
 }
 
+/** 稿面 .btn.xs：高 32、字 12.5、圆角 10；触控高度用 minimumInteractiveComponentSize 补到 48。 */
 @Composable
 fun SmallButton(
     text: String,
@@ -125,15 +126,16 @@ fun SmallButton(
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier
-            .heightIn(min = MinTouch)
+            .minimumInteractiveComponentSize()
+            .height(32.dp)
             .clip(shape)
-            .border(1.dp, colors.line, shape)
+            .border(1.5.dp, colors.line, shape)
             .semantics { role = Role.Button }
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = colors.text, fontSize = 13.sp)
+        Text(text, color = colors.text, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

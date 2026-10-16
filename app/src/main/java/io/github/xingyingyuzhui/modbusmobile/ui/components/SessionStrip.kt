@@ -143,9 +143,9 @@ fun SessionStripContent(
                 .background(dot),
         )
         Column(Modifier.weight(1f)) {
-            Text(title, color = colors.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = colors.text, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
             if (detail.isNotEmpty()) {
-                Text(detail, style = Mono.copy(fontSize = 11.5.sp), color = colors.muted, modifier = Modifier.padding(top = 1.dp))
+                Text(detail, style = Mono.copy(fontSize = 11.5.sp, lineHeight = 16.sp), color = colors.muted, modifier = Modifier.padding(top = 1.dp))
             }
         }
         if (trailing != null) trailing()
