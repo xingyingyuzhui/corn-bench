@@ -25,5 +25,10 @@ class AppContainer(app: Application) {
     val sessionManager: SessionManager = DefaultSessionManager(scope, clock, usb)
     val trafficRecorder = TrafficRecorder(sessionManager, scope)
     val settingsRepository: SettingsRepository = DataStoreSettingsRepository(app, scope)
+    val pointStore = io.github.xingyingyuzhui.modbusmobile.application.panel.PointStore()
+    val pollScheduler = io.github.xingyingyuzhui.modbusmobile.application.panel.PollScheduler(
+        sessionManager, scope, pointStore, nowMs = { System.nanoTime() / 1_000_000L },
+    )
+    val panelRuntime = io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime(pointStore, pollScheduler)
     val projectRepository = io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectRepository(java.io.File(app.filesDir, "projects"))
 }

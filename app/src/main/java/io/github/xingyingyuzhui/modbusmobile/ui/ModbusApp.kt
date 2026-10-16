@@ -64,6 +64,8 @@ val LocalTrafficRecorder = staticCompositionLocalOf<io.github.xingyingyuzhui.mod
 /** 工程文件存取；没有提供时（截图 / 单测）面板页按空工程显示。 */
 val LocalProjectRepository = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectRepository?> { null }
 
+val LocalPanelRuntime = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime?> { null }
+
 val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
     error("SettingsRepository 还没有提供")
 }

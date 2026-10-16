@@ -68,6 +68,13 @@ class PointDefinitionTest {
         )
     }
 
+    @Test fun pollPeriodIsBounded() {
+        assertTrue(PointIssue.POLL_RANGE in point().copy(pollMs = 99).validate())
+        assertTrue(PointIssue.POLL_RANGE in point().copy(pollMs = 600_001).validate())
+        assertTrue(point().copy(pollMs = 100).validate().isEmpty())
+        assertTrue(point().copy(pollMs = 600_000).validate().isEmpty())
+    }
+
     @Test fun writableOnlyForCoilsAndHolding() {
         assertTrue(point(area = RegisterArea.HOLDING_REGISTER).isWritable)
         assertTrue(point(area = RegisterArea.COIL, type = DataType.BOOL).isWritable)
