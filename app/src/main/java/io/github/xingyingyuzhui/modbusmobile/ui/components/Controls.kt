@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -169,6 +170,7 @@ fun FieldTile(
     value: String,
     sub: String? = null,
     modifier: Modifier = Modifier,
+    mono: Boolean = true,
 ) {
     val colors = LocalModbusColors.current
     Column(
@@ -179,7 +181,12 @@ fun FieldTile(
     ) {
         Text(label, color = colors.muted, fontSize = 11.sp)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, style = Mono.copy(fontSize = 17.sp), color = colors.text)
+            Text(
+                value,
+                color = colors.text,
+                fontSize = if (mono) 17.sp else 15.sp,
+                fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
+            )
             if (sub != null) {
                 Text(sub, color = colors.dim, fontSize = 11.sp, fontFamily = JetBrainsMono, modifier = Modifier.padding(start = 6.dp))
             }

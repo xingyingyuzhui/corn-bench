@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.wireLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
+import io.github.xingyingyuzhui.modbusmobile.ui.components.FieldTile
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusCard
 import io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
@@ -98,20 +100,18 @@ fun ConnectionScreen() {
         ) {
             ModbusCard {
                 SectionLabel(stringResource(R.string.section_device)) {
-                    Row(
-                        Modifier.heightIn(min = MinTouch).clickable(onClick = model::refresh),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_refresh),
-                            contentDescription = stringResource(R.string.action_refresh),
-                            tint = colors.accentText,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Text(stringResource(R.string.action_refresh), color = colors.accentText, fontSize = 13.sp)
-                    }
+                    Text(
+                        stringResource(R.string.action_refresh),
+                        color = colors.accentText,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .heightIn(min = MinTouch)
+                            .clickable(onClick = model::refresh)
+                            .wrapContentHeight(Alignment.CenterVertically),
+                    )
                 }
                 DeviceRow(
+                    icon = R.drawable.ic_device_demo,
                     title = stringResource(R.string.device_demo),
                     subtitle = stringResource(R.string.device_demo_sub),
                     selected = model.selected == ConnectionTarget.Demo,
@@ -120,6 +120,7 @@ fun ConnectionScreen() {
                 devices.forEach { device ->
                     val target = ConnectionTarget.Usb(device.deviceId, device.portIndex)
                     DeviceRow(
+                        icon = R.drawable.ic_device_usb,
                         title = device.productName,
                         subtitle = device.subtitle(),
                         selected = model.selected == target,
@@ -166,6 +167,29 @@ fun ConnectionScreen() {
                     },
                     scroll = true,
                 )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FieldTile(
+                        stringResource(R.string.field_baud),
+                        model.baud.toString(),
+                        modifier = Modifier.weight(1.4f),
+                    )
+                    FieldTile(
+                        stringResource(R.string.field_data_bits),
+                        model.dataBits.toString(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    FieldTile(
+                        stringResource(R.string.field_parity),
+                        parityName(model.parity),
+                        mono = false,
+                        modifier = Modifier.weight(1f),
+                    )
+                    FieldTile(
+                        stringResource(R.string.field_stop_bits),
+                        model.stopBits.toString(),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 if (model.preset == null) {
                     Text(stringResource(R.string.field_baud), color = colors.muted, fontSize = 12.sp)
                     ChipRow(baudChoices, { it == model.baud }, { it.toString() }, { model.baud = it; model.selectCustom() }, scroll = true)
@@ -254,7 +278,13 @@ fun ConnectionScreen() {
 }
 
 @Composable
-private fun DeviceRow(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
+private fun DeviceRow(
+    icon: Int,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(12.dp)
     Row(
@@ -270,6 +300,20 @@ private fun DeviceRow(title: String, subtitle: String, selected: Boolean, onClic
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(colors.surface3),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painterResource(icon),
+                contentDescription = null,
+                tint = if (selected) colors.accent else colors.muted,
+                modifier = Modifier.size(20.dp),
+            )
+        }
         Column(Modifier.weight(1f)) {
             Text(title, color = colors.text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text(subtitle, style = Mono.copy(fontSize = 12.sp), color = colors.muted)
