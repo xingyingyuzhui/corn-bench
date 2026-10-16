@@ -251,3 +251,19 @@ fun InfoIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
         drawLine(color, Offset(c.x, c.y - d * 0.02f), Offset(c.x, c.y + d * 0.22f), stroke, StrokeCap.Round)
     }
 }
+
+/** ⤢ 全屏：对角两个箭头。 */
+@Composable
+fun ExpandIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = this.size.minDimension * 0.11f
+        // 右上、左下各一个角箭头 + 中间的对角线
+        drawLine(color, Offset(w * 0.2f, h * 0.8f), Offset(w * 0.8f, h * 0.2f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.5f, h * 0.2f), Offset(w * 0.8f, h * 0.2f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.8f, h * 0.2f), Offset(w * 0.8f, h * 0.5f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.2f, h * 0.5f), Offset(w * 0.2f, h * 0.8f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.2f, h * 0.8f), Offset(w * 0.5f, h * 0.8f), stroke, StrokeCap.Round)
+    }
+}

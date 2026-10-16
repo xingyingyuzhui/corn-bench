@@ -56,10 +56,10 @@ data class WidgetForm(
     val spanColumns: Int = 1,
     val spanRows: Int = 1,
 ) {
-    val usesConversion: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS
-    val usesRange: Boolean get() = kind == WidgetKinds.PROGRESS
-    val usesThresholds: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS
-    val usesUnitLabel: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS
+    val usesConversion: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE
+    val usesRange: Boolean get() = kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE
+    val usesThresholds: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE
+    val usesUnitLabel: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE
 
     /** 这一类组件在当前区域下能选的数据类型。 */
     fun allowedTypes(): List<DataType> = allowedTypes(kind, area)
@@ -193,7 +193,7 @@ data class WidgetForm(
             isBitArea(area) -> listOf(DataType.BOOL)
             kind == WidgetKinds.LAMP -> listOf(DataType.BIT, DataType.U16, DataType.S16)
             kind == WidgetKinds.STATUS_TEXT -> listOf(DataType.U16, DataType.S16, DataType.U32, DataType.S32, DataType.BCD16, DataType.BCD32)
-            kind == WidgetKinds.PROGRESS -> numeric
+            kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE -> numeric
             else -> numeric + listOf(DataType.BIT, DataType.ASCII)
         }
 
@@ -204,6 +204,7 @@ data class WidgetForm(
         fun forKind(kind: String): WidgetForm = when (kind) {
             WidgetKinds.LAMP -> WidgetForm(kind = kind, type = DataType.BIT, onLabel = "", offLabel = "")
             WidgetKinds.PROGRESS -> WidgetForm(kind = kind, rangeMin = "0", rangeMax = "100", unitLabel = "%")
+            WidgetKinds.GAUGE -> WidgetForm(kind = kind, rangeMin = "0", rangeMax = "100")
             else -> WidgetForm(kind = kind)
         }
 

@@ -118,6 +118,21 @@ class ProjectRepositoryTest {
         assertEquals(text, mainFile().readText())
     }
 
+    @Test fun gaugeRoundTripsAsAKnownUsableKindWithRangeAndThresholds() {
+        val gauge = Widget("wg", WidgetKinds.GAUGE, "压力", point("pg", DataType.U16))
+        val repo = repo()
+        repo.save(Project("default", "x", listOf(Panel("a", "b", widgets = listOf(gauge)))))
+        assertTrue(mainFile().readText().contains("\"kind\": \"gauge\"") || mainFile().readText().contains("\"kind\":\"gauge\""))
+        val r = repo.load() as ProjectLoad.Loaded
+        val w = r.project.panels[0].widgets.single()
+        assertEquals(gauge, w)
+        assertTrue("仪表是已知类型，可用", w.isUsable)
+        assertTrue(r.warnings.isEmpty())
+        assertEquals(-20.0, w.point!!.rangeMin!!, 0.0)
+        assertEquals(3, w.point!!.thresholds.size)
+        assertEquals(1, r.project.usablePoints.size)
+    }
+
     @Test fun unknownWidgetKindIsPreservedVerbatim() {
         val obj = JSONObject(ProjectJson.encode(project()))
         val future = JSONObject("""{"id":"wx","kind":"gauge3d","title":"未来组件","extra":{"a":[1,2,3]}}""")

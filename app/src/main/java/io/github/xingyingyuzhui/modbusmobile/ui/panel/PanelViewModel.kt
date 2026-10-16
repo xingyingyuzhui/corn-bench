@@ -83,6 +83,10 @@ data class WizardState(
 
 const val PREVIEW_POINT_ID = "preview"
 
+/** [PanelRuntime.setActive] 的使用者名：面板页 / 曲线全屏页。 */
+const val PANEL_OWNER = "panel"
+const val CURVE_OWNER = "curve"
+
 /** 面板页状态。P3：读出工程文件，把点位交给轮询调度器，显示每个点位的最新值和质量；编辑在后续 PR。[repository] 为空（截图 / 单测）按空工程处理。 */
 class PanelViewModel(
     private val repository: ProjectRepository?,
@@ -110,8 +114,8 @@ class PanelViewModel(
     }
 
     /** 页面可见（且应用在前台）时才轮询。 */
-    fun setActive(value: Boolean) {
-        runtime?.scheduler?.setActive(value)
+    fun setActive(value: Boolean, owner: String = PANEL_OWNER) {
+        runtime?.setActive(owner, value)
     }
 
     init {

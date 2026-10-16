@@ -141,9 +141,9 @@ class PanelWizardTest {
 
     // ---- 1/3 选类型 ----
 
-    @Test fun pickerShowsOnlyTheFiveRealKindsAsTwoColumnCards() {
+    @Test fun pickerShowsOnlyTheSixRealKindsAsTwoColumnCards() {
         show(wizardState(1))
-        for (kind in listOf("number", "curve", "lamp", "status_text", "progress")) {
+        for (kind in listOf("number", "curve", "lamp", "status_text", "progress", "gauge")) {
             val card = bounds("wiz-kind-$kind")
             assertTrue("$kind 卡高 ${card.height.value}", card.height.value >= 117.5f)
         }
@@ -155,7 +155,11 @@ class PanelWizardTest {
         assertEquals(a.width.value, b.width.value, 0.6f)
         assertEquals(14f, a.left.value, 0.6f)
         // 没有的类型不画灰卡
-        assertEquals("提示文字里提到未做的类型，但不能是卡片", 0, count("wiz-kind-gauge") + count("wiz-kind-switch") + count("wiz-kind-register_table") + count("wiz-kind-button"))
+        val g = bounds("wiz-kind-gauge")
+        val p = bounds("wiz-kind-progress")
+        assertEquals("仪表和进度条同一行（第三行）", p.top.value, g.top.value, 0.6f)
+        compose.onNodeWithText("量程 + 分段颜色", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals("提示文字里提到未做的类型，但不能是卡片", 0, count("wiz-kind-switch") + count("wiz-kind-register_table") + count("wiz-kind-button"))
         compose.onNodeWithTag("wiz-more-later", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertTextContains("1 / 3")
         compose.onNodeWithText("添加组件", useUnmergedTree = true).assertIsDisplayed()
@@ -406,6 +410,20 @@ class PanelWizardTest {
         compose.onNodeWithTag("wiz-range-max", useUnmergedTree = true).assertIsDisplayed()
     }
 
+    @Test fun gaugeConfigHasRangeUnitThresholdsAndAPreviewGauge() {
+        show(wizardState(2, WidgetForm.forKind(WidgetKinds.GAUGE).copy(name = "供水压力", address = "101", unitLabel = "MPa")))
+        compose.onNodeWithText("仪表组件", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("wiz-range-min", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("wiz-range-max", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals("预览卡是仪表", 1, count("panel-gauge-w-new"))
+    }
+
+    @Test fun gaugeRangeErrorShowsBelowTheField() {
+        show(wizardState(2, WidgetForm.forKind(WidgetKinds.GAUGE).copy(name = "x", address = "1", rangeMin = "5", rangeMax = "5"), showErrors = true))
+        compose.onNodeWithTag("wiz-range-max", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("最小值要小于最大值", useUnmergedTree = true).assertIsDisplayed()
+    }
+
     // ---- 3/3 外观 ----
 
     @Test fun lookStepOffersSizeAndShowsActualSize() {
@@ -459,6 +477,11 @@ class PanelWizardTest {
     private fun shot(name: String) = compose.onRoot().captureRoboImage(name)
 
     @Test fun render_wizard_pick_dark() { show(wizardState(1)); shot("panel_wizard_pick_dark.png") }
+
+    @Test fun render_wizard_gauge_dark() {
+        show(wizardState(2, WidgetForm.forKind(WidgetKinds.GAUGE).copy(name = "供水压力", address = "101", unitLabel = "MPa", rangeMax = "1.2")))
+        shot("panel_wizard_gauge_dark.png")
+    }
 
     @Test fun render_wizard_pick_light() { show(wizardState(1), theme = ThemeMode.LIGHT); shot("panel_wizard_pick_light.png") }
 

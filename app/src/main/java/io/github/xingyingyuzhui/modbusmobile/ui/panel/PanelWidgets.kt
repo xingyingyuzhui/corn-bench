@@ -22,7 +22,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -75,6 +82,7 @@ fun WidgetCard(
             WidgetKinds.LAMP -> LampBody(widget, point, name, snapshot, look)
             WidgetKinds.STATUS_TEXT -> StatusBody(widget, point, name, snapshot, look)
             WidgetKinds.PROGRESS -> ProgressBody(widget, point, name, snapshot, look)
+            WidgetKinds.GAUGE -> GaugeBody(widget, point, name, snapshot, look)
             else -> NumberBody(widget, point, name, snapshot, look)
         }
     }
@@ -325,6 +333,89 @@ private fun ProgressBody(widget: Widget, point: PointDefinition, name: String, s
         }
     }
     Meta(look, topPadding = 6)
+}
+
+/**
+ * 仪表（半圆）：8dp 底轨 + 值弧（正常 = tx、预警 = 琥珀、告警 = 红、非正常数据 = 灰）；
+ * 阈值分段画在底轨外侧一圈细带上（预警 / 告警区间，随量程换算，不被值弧盖住）；中间下方是当前值，两端是量程。
+ * 值在量程外：弧停在端点（读数仍显示真实值）。没有数据时只画底轨和分段。
+ */
+@Composable
+private fun GaugeBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
+    val colors = LocalModbusColors.current
+    NameRow(name, look.badge)
+    val min = point.rangeMin ?: 0.0
+    val max = point.rangeMax ?: 100.0
+    val span = if (max > min) max - min else 1.0
+    val value = snapshot?.engineering
+    val hasValue = value != null && snapshot?.raw != null
+    val fraction = if (!hasValue) 0f else ((value!! - min) / span).coerceIn(0.0, 1.0).toFloat()
+    val ok = snapshot?.quality == Quality.OK
+    val arcColor = when {
+        !ok -> colors.dim
+        snapshot?.level == ThresholdLevel.ALERT -> colors.error
+        snapshot?.level == ThresholdLevel.WARN -> colors.txText
+        else -> colors.tx
+    }
+    val track = colors.surface3
+    val warn = colors.txText
+    val alert = colors.error
+    val bands = point.thresholds.filter { it.level != ThresholdLevel.NORMAL }.sortedBy { it.level.ordinal }
+    val valueText = if (!hasValue) "—" else snapshot?.text ?: ""
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = Mono.copy(fontSize = 10.sp, lineHeight = 13.sp, color = colors.dim)
+    val minLabel = ValueCodec.format(min, null).orEmpty()
+    val maxLabel = ValueCodec.format(max, null).orEmpty()
+    val labelBand = 15.dp
+    val gaugeDesc = stringResource(R.string.panel_gauge_desc, minLabel, maxLabel)
+    Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(78.dp).testTag("panel-gauge-${widget.id}").semantics { contentDescription = gaugeDesc }) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 8.dp.toPx()
+            val bandStroke = 3.dp.toPx()
+            val bandGap = 4.dp.toPx()
+            val outer = stroke / 2 + bandGap + bandStroke
+            val baseY = size.height - labelBand.toPx() - stroke / 2f
+            val radius = minOf(size.width / 2f - outer, baseY - bandStroke - bandGap - stroke / 2f).coerceAtLeast(1f)
+            val center = Offset(size.width / 2f, baseY)
+            fun arc(color: Color, from: Float, to: Float, r: Float, width: Float, round: Boolean) {
+                if (to <= from) return
+                drawArc(
+                    color, startAngle = 180f + 180f * from, sweepAngle = 180f * (to - from), useCenter = false,
+                    topLeft = Offset(center.x - r, center.y - r), size = Size(r * 2, r * 2),
+                    style = Stroke(width, cap = if (round) StrokeCap.Round else StrokeCap.Butt),
+                )
+            }
+            arc(track, 0f, 1f, radius, stroke, round = true)
+            bands.forEach { b ->
+                val from = ((b.min ?: min) - min).div(span).coerceIn(0.0, 1.0).toFloat()
+                val to = ((b.max ?: max) - min).div(span).coerceIn(0.0, 1.0).toFloat()
+                arc(if (b.level == ThresholdLevel.ALERT) alert else warn, from, to, radius + stroke / 2 + bandGap + bandStroke / 2, bandStroke, round = false)
+            }
+            if (fraction > 0f) arc(arcColor, 0f, fraction, radius, stroke, round = true)
+            // 量程两端：画在底轨两端的正下方
+            val y = size.height - labelBand.toPx() + 2.dp.toPx()
+            val l = measurer.measure(minLabel, labelStyle)
+            val r = measurer.measure(maxLabel, labelStyle)
+            drawText(l, topLeft = Offset((center.x - radius - l.size.width / 2f).coerceIn(0f, size.width - l.size.width), y))
+            drawText(r, topLeft = Offset((center.x + radius - r.size.width / 2f).coerceIn(0f, size.width - r.size.width), y))
+        }
+        Row(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = labelBand + 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                valueText,
+                style = Mono.copy(fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold),
+                color = look.valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alignByBaseline().testTag("panel-value-${widget.id}")
+                    .then(if (look.strike) Modifier.redStrike(colors.error) else Modifier),
+            )
+            if (point.unitLabel.isNotBlank() && hasValue) {
+                Text(point.unitLabel, color = colors.muted, fontSize = 11.sp, lineHeight = 14.sp, modifier = Modifier.alignByBaseline())
+            }
+        }
+    }
+    Meta(look, topPadding = 4)
 }
 
 // ---- 工具 ----

@@ -111,6 +111,40 @@ class WidgetFormTest {
         assertEquals(FormError.NOT_A_NUMBER, build(form.copy(rangeMin = "a")).errors[FormField.RANGE_MIN])
     }
 
+    @Test fun gaugeDefaultsToZeroToHundredAndNeedsOrderedRange() {
+        val form = WidgetForm.forKind(WidgetKinds.GAUGE).copy(name = "供水压力", address = "101")
+        val w = build(form).widget!!
+        assertEquals(WidgetKinds.GAUGE, w.kind)
+        assertEquals(0.0, w.point!!.rangeMin!!, 0.0)
+        assertEquals(100.0, w.point!!.rangeMax!!, 0.0)
+        assertEquals("", w.point!!.unitLabel)
+        assertEquals(FormError.RANGE_ORDER, build(form.copy(rangeMin = "10", rangeMax = "10")).errors[FormField.RANGE_MAX])
+        assertEquals(FormError.RANGE_ORDER, build(form.copy(rangeMin = "10", rangeMax = "-1")).errors[FormField.RANGE_MAX])
+    }
+
+    @Test fun gaugeKeepsConversionUnitAndThresholdsAndOnlyOffersNumericTypes() {
+        val form = WidgetForm.forKind(WidgetKinds.GAUGE).copy(
+            name = "压力", address = "101", type = DataType.U16, scale = "0.01", decimals = "2", unitLabel = "MPa",
+            rangeMin = "0", rangeMax = "1.2",
+            thresholds = listOf(ThresholdRow(ThresholdOp.GE, "0.8", ThresholdLevel.WARN), ThresholdRow(ThresholdOp.GE, "1", ThresholdLevel.ALERT)),
+        )
+        val p = build(form).widget!!.point!!
+        assertEquals(0.01, p.conversion.scale, 0.0)
+        assertEquals("MPa", p.unitLabel)
+        assertEquals(2, p.thresholds.size)
+        assertEquals(1.2, p.rangeMax!!, 0.0)
+        val allowed = WidgetForm.allowedTypes(WidgetKinds.GAUGE, RegisterArea.HOLDING_REGISTER)
+        assertTrue(DataType.F32 in allowed && DataType.S16 in allowed)
+        assertTrue("仪表不画文本 / 位", DataType.ASCII !in allowed && DataType.BOOL !in allowed)
+    }
+
+    @Test fun gaugeRoundTripsThroughTheForm() {
+        val gauge = build(
+            WidgetForm.forKind(WidgetKinds.GAUGE).copy(name = "转速", address = "7", rangeMin = "0", rangeMax = "3000", unitLabel = "rpm"),
+        ).widget!!
+        assertEquals(gauge, WidgetForm.fromWidget(gauge)!!.build(gauge.id, gauge.point!!.id).widget)
+    }
+
     @Test fun numberCardIgnoresRangeAndLampIgnoresConversion() {
         val p = build(number { copy(rangeMin = "5", rangeMax = "1") }).widget!!.point!!
         assertNull("数值卡不用量程", p.rangeMin)

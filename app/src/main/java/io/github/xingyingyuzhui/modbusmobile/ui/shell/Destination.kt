@@ -16,4 +16,10 @@ enum class Destination(
     Mine("mine", R.string.nav_mine, R.drawable.ic_nav_mine),
 }
 
+/** 曲线全屏路由：`curve?id=<曲线组件 id>`；不带 id 也能进（显示“没找到这个曲线”），所以 id 是可选参数。 */
 const val CurveRoute = "curve"
+const val CurveRoutePattern = "curve?id={id}"
+
+fun curveRoute(widgetId: String): String = "curve?id=" + android.net.Uri.encode(widgetId)
+
+fun isCurveRoute(route: String?): Boolean = route != null && (route == CurveRoute || route.startsWith("curve?"))
