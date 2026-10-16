@@ -25,7 +25,7 @@ class ProjectRepositoryTest {
     private fun point(id: String = "p1", type: DataType = DataType.S16) = PointDefinition(
         id = id, name = "温度", unitId = 3, area = RegisterArea.INPUT_REGISTER, address = 100, type = type,
         order = ByteWordOrder.CDAB, bit = 2, asciiRegisters = 4,
-        conversion = Conversion(0.1, -20.0, 1), unitLabel = "°C", rangeMin = -20.0, rangeMax = 120.0,
+        conversion = Conversion(0.1, -20.0, 1), unitLabel = "°C", rangeMin = -20.0, rangeMax = 120.0, pollMs = 500,
         thresholds = listOf(
             ThresholdBand(ThresholdLevel.WARN, 60.0, 80.0),
             ThresholdBand(ThresholdLevel.ALERT, 80.0, null),
@@ -162,6 +162,20 @@ class ProjectRepositoryTest {
         assertEquals(2, r.project.panels[0].widgets.size)
         assertTrue(r.project.panels[0].widgets.none { it.isUsable })
         assertTrue(r.warnings.size >= 3)
+    }
+
+    @Test fun pollPeriodRoundTripsDefaultsAndRejectsOutOfRange() {
+        val obj = JSONObject(ProjectJson.encode(project()))
+        val widgets = obj.getJSONArray("panels").getJSONObject(0).getJSONArray("widgets")
+        assertEquals(500, widgets.getJSONObject(0).getJSONObject("point").getInt("pollMs"))
+        widgets.getJSONObject(1).getJSONObject("point").remove("pollMs") // 老文件没有这个字段
+        widgets.getJSONObject(0).getJSONObject("point").put("pollMs", 50)
+        mainFile().parentFile!!.mkdirs()
+        mainFile().writeText(obj.toString())
+        val r = repo().load() as ProjectLoad.Loaded
+        assertFalse(r.project.panels[0].widgets[0].isUsable)
+        assertTrue(r.warnings.any { "POLL_RANGE" in it })
+        assertEquals(PointDefinition.DEFAULT_POLL_MS, r.project.panels[0].widgets[1].point!!.pollMs)
     }
 
     @Test fun columnsAndSpansAreClamped() {

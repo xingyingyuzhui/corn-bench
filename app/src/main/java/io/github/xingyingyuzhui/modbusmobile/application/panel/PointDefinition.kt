@@ -31,7 +31,10 @@ enum class PointIssue {
 
     /** 一次读最多 125 个寄存器。 */
     TOO_MANY_REGISTERS,
-    BAD_CONVERSION, DECIMALS_RANGE, RANGE_ORDER, THRESHOLD_ORDER,
+    BAD_CONVERSION, DECIMALS_RANGE,
+
+    /** 轮询周期 100..600000 ms。 */
+    POLL_RANGE, RANGE_ORDER, THRESHOLD_ORDER,
 }
 
 /** 一个“点位”：从哪个从站的哪个地址、按什么类型解释、怎么换算和着色。 */
@@ -52,6 +55,8 @@ data class PointDefinition(
     val rangeMin: Double? = null,
     val rangeMax: Double? = null,
     val thresholds: List<ThresholdBand> = emptyList(),
+    /** 轮询周期（毫秒），100..600000。 */
+    val pollMs: Int = DEFAULT_POLL_MS,
 ) {
     val isBitArea: Boolean get() = area == RegisterArea.COIL || area == RegisterArea.DISCRETE_INPUT
 
@@ -75,6 +80,7 @@ data class PointDefinition(
         if (!isBitArea && count > 125) issues += PointIssue.TOO_MANY_REGISTERS
         if (address in 0..65535 && address + count > 65536) issues += PointIssue.SPAN_OVERFLOW
         if (!conversion.isValid) issues += PointIssue.BAD_CONVERSION
+        if (pollMs !in MIN_POLL_MS..MAX_POLL_MS) issues += PointIssue.POLL_RANGE
         conversion.decimals?.let { if (it !in 0..10) issues += PointIssue.DECIMALS_RANGE }
         if (rangeMin != null && rangeMax != null && !(rangeMin < rangeMax)) issues += PointIssue.RANGE_ORDER
         if (thresholds.any { it.min != null && it.max != null && !(it.min < it.max) }) issues += PointIssue.THRESHOLD_ORDER
@@ -87,5 +93,11 @@ data class PointDefinition(
         if (raw is RawValue.Text) return raw.value
         val eng = ValueCodec.toEngineering(raw, conversion) ?: return null
         return ValueCodec.format(eng, conversion.decimals)
+    }
+
+    companion object {
+        const val DEFAULT_POLL_MS = 1000
+        const val MIN_POLL_MS = 100
+        const val MAX_POLL_MS = 600_000
     }
 }

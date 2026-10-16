@@ -82,6 +82,7 @@ object ProjectJson {
         put("offset", p.conversion.offset)
         p.conversion.decimals?.let { put("decimals", it) }
         put("unitLabel", p.unitLabel)
+        put("pollMs", p.pollMs)
         p.rangeMin?.let { put("rangeMin", it) }
         p.rangeMax?.let { put("rangeMax", it) }
         put(
@@ -175,6 +176,7 @@ object ProjectJson {
                 decimals = if (o.has("decimals") && !o.isNull("decimals")) o.optInt("decimals", -1) else null,
             ),
             unitLabel = o.optString("unitLabel", ""),
+            pollMs = o.optInt("pollMs", PointDefinition.DEFAULT_POLL_MS),
             rangeMin = double("rangeMin"),
             rangeMax = double("rangeMax"),
             thresholds = thresholds,
