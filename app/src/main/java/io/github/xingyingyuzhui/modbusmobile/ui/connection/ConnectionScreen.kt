@@ -25,6 +25,8 @@ import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.Parity
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.BusTopology
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoMode
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Fault
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Ok
@@ -35,6 +37,7 @@ fun ConnectionScreen() {
     val model: ConnectionViewModel = viewModel { ConnectionViewModel(session) }
     val state by model.state.collectAsStateWithLifecycle()
     val devices by model.devices.collectAsStateWithLifecycle()
+    val echoDetected by model.echoDetected.collectAsStateWithLifecycle()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -48,6 +51,30 @@ fun ConnectionScreen() {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = model.role == Role.MASTER, onClick = { model.role = Role.MASTER }, label = { Text("主站") })
             FilterChip(selected = model.role == Role.SLAVE, onClick = { model.role = Role.SLAVE }, label = { Text("从站") })
+        }
+        if (model.role == Role.SLAVE) {
+            Text("拓扑", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = model.topology == BusTopology.POINT_TO_POINT,
+                    onClick = { model.topology = BusTopology.POINT_TO_POINT },
+                    label = { Text("点对点") },
+                )
+                FilterChip(
+                    selected = model.topology == BusTopology.MULTIDROP,
+                    onClick = { model.topology = BusTopology.MULTIDROP },
+                    label = { Text("多站总线") },
+                )
+            }
+            Text("回显", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = model.echoMode == EchoMode.OFF, onClick = { model.echoMode = EchoMode.OFF }, label = { Text("关") })
+                FilterChip(selected = model.echoMode == EchoMode.ON, onClick = { model.echoMode = EchoMode.ON }, label = { Text("开") })
+                FilterChip(selected = model.echoMode == EchoMode.AUTO, onClick = { model.echoMode = EchoMode.AUTO }, label = { Text("自动") })
+            }
+            if (state is SessionState.Running) {
+                Text("回显检测：${echoDetected.caption()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Text("串口", style = MaterialTheme.typography.titleMedium)
         OptionRow("波特率", listOf(1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200), model.baud) { model.baud = it }
@@ -107,6 +134,12 @@ private fun DeviceRow(title: String, subtitle: String, selected: Boolean, onClic
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
         }
     }
+}
+
+private fun Boolean?.caption(): String = when (this) {
+    true -> "有回显"
+    false -> "无回显"
+    null -> "检测中"
 }
 
 private fun SessionState.caption(): String = when (this) {

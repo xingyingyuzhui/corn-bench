@@ -39,7 +39,7 @@ class RtuCodecTest {
             ModbusResponse.WriteSingleRegister(1, FunctionCode.WRITE_SINGLE_REGISTER, 0, 123),
             ModbusResponse.WriteMultipleCoils(1, FunctionCode.WRITE_MULTIPLE_COILS, 0, 10),
             ModbusResponse.WriteMultipleRegisters(1, FunctionCode.WRITE_MULTIPLE_REGISTERS, 5, 3),
-            ModbusResponse.ExceptionFrame(1, FunctionCode.READ_HOLDING_REGISTERS, ExceptionCode.ILLEGAL_DATA_ADDRESS),
+            ModbusResponse.ExceptionFrame(1, FunctionCode.READ_HOLDING_REGISTERS.code, ExceptionCode.ILLEGAL_DATA_ADDRESS),
         )
         responses.forEach { response ->
             val decoded = RtuCodec.decodeResponse(RtuCodec.encodeResponse(response))
@@ -50,14 +50,39 @@ class RtuCodecTest {
     @Test
     fun illegalAddressExceptionIsFiveBytes() {
         val frame = RtuCodec.encodeResponse(
-            ModbusResponse.ExceptionFrame(1, FunctionCode.READ_HOLDING_REGISTERS, ExceptionCode.ILLEGAL_DATA_ADDRESS),
+            ModbusResponse.ExceptionFrame(1, FunctionCode.READ_HOLDING_REGISTERS.code, ExceptionCode.ILLEGAL_DATA_ADDRESS),
         )
         assertEquals("01 83 02 C0 F1", frame.toHex())
         val decoded = RtuCodec.decodeResponse(frame)
         val response = assertIs<DecodedResponse.Ok>(decoded).response
         val exception = assertIs<ModbusResponse.ExceptionFrame>(response)
         assertEquals(ExceptionCode.ILLEGAL_DATA_ADDRESS, exception.code)
-        assertEquals(FunctionCode.READ_HOLDING_REGISTERS, exception.function)
+        assertEquals(FunctionCode.READ_HOLDING_REGISTERS.code, exception.functionCode)
+    }
+
+    @Test
+    fun unknownExceptionCodeDecodes() {
+        val frame = Crc16Modbus.append(byteArrayOf(0x01, 0x83.toByte(), 0x04))
+        val exception = assertIs<ModbusResponse.ExceptionFrame>(
+            assertIs<DecodedResponse.Ok>(RtuCodec.decodeResponse(frame)).response,
+        )
+        assertEquals(ExceptionCode.SLAVE_DEVICE_FAILURE, exception.code)
+        assertEquals(0x03, exception.functionCode)
+        val zero = Crc16Modbus.append(byteArrayOf(0x01, 0x83.toByte(), 0x00))
+        assertEquals(DecodedResponse.Invalid, RtuCodec.decodeResponse(zero))
+    }
+
+    @Test
+    fun quantityIsCheckedBeforeAddressSpan() {
+        val span = RtuCodec.decodeRequest(Crc16Modbus.append(byteArrayOf(0x01, 0x03, 0xFF.toByte(), 0xFF.toByte(), 0x00, 0x02)))
+        val spanReply = assertIs<DecodedRequest.ExceptionReply>(span)
+        assertEquals(ExceptionCode.ILLEGAL_DATA_ADDRESS, spanReply.code)
+        val quantity = RtuCodec.decodeRequest(Crc16Modbus.append(byteArrayOf(0x01, 0x03, 0x00, 0x00, 0x00, 0x7E)))
+        val quantityReply = assertIs<DecodedRequest.ExceptionReply>(quantity)
+        assertEquals(ExceptionCode.ILLEGAL_DATA_VALUE, quantityReply.code)
+        val both = RtuCodec.decodeRequest(Crc16Modbus.append(byteArrayOf(0x01, 0x10, 0xFF.toByte(), 0xFF.toByte(), 0x00, 0x02, 0x03, 0x00, 0x01)))
+        val bothReply = assertIs<DecodedRequest.ExceptionReply>(both)
+        assertEquals(ExceptionCode.ILLEGAL_DATA_VALUE, bothReply.code)
     }
 
     @Test

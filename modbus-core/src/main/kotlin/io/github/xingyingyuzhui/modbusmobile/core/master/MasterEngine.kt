@@ -1,11 +1,13 @@
 package io.github.xingyingyuzhui.modbusmobile.core.master
 
 import io.github.xingyingyuzhui.modbusmobile.core.model.ExceptionCode
+import io.github.xingyingyuzhui.modbusmobile.core.model.FunctionCode
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficDirection
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
+import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficKind
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.DecodedResponse
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.PointToPointScanner
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.RtuCodec
@@ -16,6 +18,7 @@ import io.github.xingyingyuzhui.modbusmobile.core.transport.MonotonicClock
 import io.github.xingyingyuzhui.modbusmobile.core.transport.SendResult
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -35,6 +38,12 @@ interface MasterEngine {
     fun close()
 }
 
+/**
+ * 单在途主站。
+ *
+ * 两笔完全相同的 RTU 请求无法和迟到响应区分，响应里没有事务号。这是协议本身的限制。
+ * 站号、功能码、数量或写入回显对不上的帧只记一条接收日志，然后继续等到本笔截止时间。
+ */
 class DefaultMasterEngine(
     private val transport: ByteTransport,
     private val clock: MonotonicClock,
@@ -42,6 +51,7 @@ class DefaultMasterEngine(
     private val responseTimeout: Duration = 1_000.milliseconds,
     private val turnaround: Duration = 150.milliseconds,
     private val suppressEcho: Boolean = false,
+    private val interRequestDelay: Duration = 20.milliseconds,
     private val onTraffic: (TrafficEvent) -> Unit = {},
 ) : MasterEngine {
     private val mutex = Mutex()
@@ -51,64 +61,78 @@ class DefaultMasterEngine(
     private val collector = scope.launch {
         transport.received.collect { chunk -> inbox.send(chunk) }
     }
+    private var lastEndNs = Long.MIN_VALUE / 2
 
     override val traffic: SharedFlow<TrafficEvent> = events.asSharedFlow()
 
     override suspend fun execute(request: ModbusRequest): ModbusResult = mutex.withLock {
-        if (transport.connectionState.value != ConnectionState.CONNECTED) {
-            return ModbusResult.Disconnected
-        }
-        val epoch = transport.connectionEpoch
-        yield()
-        while (inbox.tryReceive().getOrNull() != null) {
-            // 丢掉上一笔迟到的字节，避免配到新请求上。
-        }
-        scanner.reset(epoch)
-        scanner.expectResponse(request.function)
-        val frame = RtuCodec.encodeRequest(request)
-        if (suppressEcho) scanner.armEcho(frame)
-        publish(TrafficDirection.TX, frame)
+        val wait = lastEndNs + interRequestDelay.inWholeNanoseconds - clock.nowNs()
+        if (wait > 0) delay(wait.nanoseconds)
         var sent = false
-        when (val send = transport.send(frame)) {
-            is SendResult.Failed -> {
-                return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
-            }
-            SendResult.AcceptedByTransport, SendResult.WriteReturned, SendResult.ConfirmedOnWire -> sent = true
-        }
-        if (transport.connectionEpoch != epoch || transport.connectionState.value != ConnectionState.CONNECTED) {
-            return if (request.isWrite && sent) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
-        }
-        if (request.isBroadcast) {
-            if (turnaround > Duration.ZERO) delay(turnaround)
-            return ModbusResult.Success(syntheticBroadcast(request))
-        }
-        val deadline = clock.nowNs() + responseTimeout.inWholeNanoseconds
         try {
+            if (transport.connectionState.value != ConnectionState.CONNECTED) {
+                return ModbusResult.Disconnected
+            }
+            val epoch = transport.connectionEpoch
+            yield()
+            scanner.reset(epoch)
+            scanner.expectResponse(request.function)
+            val frame = RtuCodec.encodeRequest(request)
+            if (suppressEcho) scanner.armEcho(frame)
+            publish(TrafficDirection.TX, frame, TrafficKind.TX_REQUEST)
+            when (val send = transport.send(frame)) {
+                is SendResult.Failed -> {
+                    return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
+                }
+                SendResult.AcceptedByTransport, SendResult.WriteReturned, SendResult.ConfirmedOnWire -> sent = true
+            }
+            if (transport.connectionEpoch != epoch || transport.connectionState.value != ConnectionState.CONNECTED) {
+                return if (request.isWrite && sent) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
+            }
+            if (request.isBroadcast) {
+                if (turnaround > Duration.ZERO) delay(turnaround)
+                return ModbusResult.Success(syntheticBroadcast(request))
+            }
+            val deadline = clock.nowNs() + responseTimeout.inWholeNanoseconds
             while (clock.nowNs() < deadline) {
                 if (transport.connectionEpoch != epoch || transport.connectionState.value != ConnectionState.CONNECTED) {
                     return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
                 }
                 val remainingMs = ((deadline - clock.nowNs()) / 1_000_000L).coerceAtLeast(0L)
-                val chunk = withTimeoutOrNull(remainingMs) { inbox.receive() } ?: break
+                val chunk = withTimeoutOrNull(remainingMs.milliseconds) { inbox.receive() } ?: break
                 if (chunk.connectionEpoch != epoch) {
                     return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
                 }
                 for (event in scanner.accept(chunk)) {
                     when (event) {
                         is ScanEvent.Response -> {
-                            publish(TrafficDirection.RX, event.raw)
-                            return match(request, event.raw)
+                            publish(TrafficDirection.RX, event.raw, TrafficKind.RX_RESPONSE)
+                            val outcome = match(request, event.raw)
+                            if (outcome is ModbusResult.Success || outcome is ModbusResult.Exception) {
+                                return outcome
+                            }
                         }
-                        is ScanEvent.Echo, is ScanEvent.Discarded, is ScanEvent.Request -> Unit
+                        is ScanEvent.LocalRequest,
+                        is ScanEvent.ForeignRequest,
+                        is ScanEvent.ForeignResponse,
+                        is ScanEvent.Echo,
+                        is ScanEvent.Ambiguous,
+                        is ScanEvent.Dropped,
+                        is ScanEvent.TransactionClosed,
+                        is ScanEvent.Discarded,
+                        -> Unit
                     }
                 }
             }
+            awaitSilence()
+            return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Timeout
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
             return if (request.isWrite && sent) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
+        } finally {
+            lastEndNs = clock.nowNs()
         }
-        return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Timeout
     }
 
     override fun close() {
@@ -116,8 +140,25 @@ class DefaultMasterEngine(
         inbox.close()
     }
 
-    private fun publish(direction: TrafficDirection, bytes: ByteArray) {
-        val event = TrafficEvent(clock.nowNs(), direction, bytes.copyOf())
+    private suspend fun awaitSilence() {
+        val quietNs = SILENCE_QUIET.inWholeNanoseconds
+        val maxNs = SILENCE_MAX.inWholeNanoseconds
+        val started = clock.nowNs()
+        var lastByte = started
+        while (clock.nowNs() - started < maxNs) {
+            val now = clock.nowNs()
+            val quietLeft = lastByte + quietNs - now
+            val maxLeft = started + maxNs - now
+            val waitNs = minOf(quietLeft, maxLeft)
+            if (waitNs <= 0) break
+            val chunk = withTimeoutOrNull(waitNs.nanoseconds) { inbox.receive() } ?: break
+            lastByte = clock.nowNs()
+            publish(TrafficDirection.RX, chunk.bytes, TrafficKind.RX_RESPONSE)
+        }
+    }
+
+    private fun publish(direction: TrafficDirection, bytes: ByteArray, kind: TrafficKind) {
+        val event = TrafficEvent(clock.nowNs(), direction, bytes.copyOf(), kind)
         events.tryEmit(event)
         onTraffic(event)
     }
@@ -131,10 +172,11 @@ class DefaultMasterEngine(
         }
         if (decoded.unitId != request.unitId) return ModbusResult.InvalidResponse("Unit ID 不匹配")
         if (decoded is ModbusResponse.ExceptionFrame) {
-            if (decoded.function != request.function) return ModbusResult.InvalidResponse("异常功能码不匹配")
+            if (decoded.functionCode != request.function.code) return ModbusResult.InvalidResponse("异常功能码不匹配")
             return ModbusResult.Exception(decoded.code)
         }
-        if (decoded.function != request.function) return ModbusResult.InvalidResponse("功能码不匹配")
+        val function = decoded.functionCodeOrNull()
+        if (function != request.function) return ModbusResult.InvalidResponse("功能码不匹配")
         return when (request) {
             is ModbusRequest.ReadCoils, is ModbusRequest.ReadDiscreteInputs -> {
                 val response = decoded as? ModbusResponse.ReadBits
@@ -196,8 +238,23 @@ class DefaultMasterEngine(
         is ModbusRequest.WriteMultipleRegisters -> {
             ModbusResponse.WriteMultipleRegisters(0, request.function, request.address, request.quantity)
         }
-        else -> ModbusResponse.ExceptionFrame(0, request.function, ExceptionCode.ILLEGAL_FUNCTION)
+        else -> ModbusResponse.ExceptionFrame(0, request.function.code, ExceptionCode.ILLEGAL_FUNCTION)
     }
+
+    private companion object {
+        val SILENCE_QUIET = 50.milliseconds
+        val SILENCE_MAX = 300.milliseconds
+    }
+}
+
+private fun ModbusResponse.functionCodeOrNull(): FunctionCode? = when (this) {
+    is ModbusResponse.ReadBits -> function
+    is ModbusResponse.ReadRegisters -> function
+    is ModbusResponse.WriteSingleCoil -> function
+    is ModbusResponse.WriteSingleRegister -> function
+    is ModbusResponse.WriteMultipleCoils -> function
+    is ModbusResponse.WriteMultipleRegisters -> function
+    is ModbusResponse.ExceptionFrame -> null
 }
 
 private val ModbusRequest.readQuantity: Int

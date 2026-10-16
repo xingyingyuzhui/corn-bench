@@ -3,34 +3,25 @@ package io.github.xingyingyuzhui.modbusmobile.core.rtu
 import io.github.xingyingyuzhui.modbusmobile.core.model.FunctionCode
 import io.github.xingyingyuzhui.modbusmobile.core.transport.ByteChunk
 
-sealed interface ScanEvent {
-    data class Request(val raw: ByteArray) : ScanEvent
-    data class Response(val raw: ByteArray) : ScanEvent
-    data class Echo(val raw: ByteArray) : ScanEvent
-    data class Discarded(val reason: String) : ScanEvent
-}
-
-interface RtuFrameScanner {
-    fun onClockTick(nowMonotonicNs: Long)
-    fun reset(epoch: Long)
-    fun armEcho(frame: ByteArray)
-    fun accept(chunk: ByteChunk): List<ScanEvent>
-}
-
 enum class ScanMode {
     REQUEST,
     RESPONSE,
 }
 
 /**
- * 点对点扫描：只认当前方向上的完整帧，并抑制与刚发送帧完全一致的回显。
- * 回显可以跨多个 [ByteChunk] 拼齐；方向模糊和多站抢占不在这里做。
+ * 点对点扫描。长度只从 [FrameShapes] 取。
+ * 默认回显跟踪用很长的时限，主站不打 tick 时仍能吞掉刚发出的整帧。
  */
-class PointToPointScanner : RtuFrameScanner {
-    private val buffer = ArrayDeque<Byte>()
+class PointToPointScanner(
+    private val echo: EchoTracker = EchoTracker(
+        mode = EchoMode.ON,
+        wireNs = { 0L },
+        slackNs = Long.MAX_VALUE / 4,
+    ),
+) : RtuFrameScanner {
+    private val buf = RxBuffer(4 * FrameShapes.MAX_ADU)
     private var mode = ScanMode.REQUEST
     private var expectedFunction: FunctionCode? = null
-    private var echo: ByteArray? = null
     private var epoch: Long = 0
 
     fun expectRequests() {
@@ -43,174 +34,126 @@ class PointToPointScanner : RtuFrameScanner {
         expectedFunction = function
     }
 
-    override fun onClockTick(nowMonotonicNs: Long) = Unit
+    override fun onClockTick(nowMonotonicNs: Long): List<ScanEvent> {
+        echo.expire(nowMonotonicNs)
+        return emptyList()
+    }
 
     override fun reset(epoch: Long) {
         this.epoch = epoch
-        buffer.clear()
-        echo = null
+        buf.clear()
+        echo.clear()
     }
 
     override fun armEcho(frame: ByteArray) {
-        echo = frame.copyOf()
+        echo.arm(frame, nowNs = 0L)
     }
 
     override fun accept(chunk: ByteChunk): List<ScanEvent> {
         if (epoch != 0L && chunk.connectionEpoch != epoch) {
             return listOf(ScanEvent.Discarded("epoch"))
         }
-        chunk.bytes.forEach { buffer.addLast(it) }
-        val events = mutableListOf<ScanEvent>()
-        while (buffer.size > MAX_BUFFER) {
-            buffer.removeFirst()
-            events += ScanEvent.Discarded("buffer")
+        val out = mutableListOf<ScanEvent>()
+        push(chunk.bytes, out)
+        drain(out)
+        return out
+    }
+
+    private fun push(bytes: ByteArray, out: MutableList<ScanEvent>) {
+        if (bytes.isEmpty()) return
+        val capacity = buf.capacity
+        val incoming = if (bytes.size > capacity) {
+            out += ScanEvent.Discarded("buffer")
+            bytes.copyOfRange(bytes.size - capacity, bytes.size)
+        } else {
+            bytes
         }
-        while (true) {
-            if (!consumeEcho(events)) break
-            when (val step = extractOne()) {
-                Extract.NeedMore -> break
-                is Extract.Event -> events += step.event
+        val overflow = buf.size + incoming.size - capacity
+        if (overflow > 0) {
+            buf.drop(overflow)
+            out += ScanEvent.Discarded("buffer")
+        }
+        buf.append(incoming)
+    }
+
+    private fun drain(out: MutableList<ScanEvent>) {
+        repeat(MAX_STEPS) {
+            if (buf.size == 0) return
+            when (val echoMatch = echo.match(buf)) {
+                is EchoMatch.Full -> {
+                    out += ScanEvent.Echo(buf.copy(0, echoMatch.length))
+                    buf.drop(echoMatch.length)
+                    echo.consume()
+                    return@repeat
+                }
+                EchoMatch.Partial -> return
+                EchoMatch.Mismatch, EchoMatch.Idle -> Unit
+            }
+            when (val step = extract()) {
+                Step.Wait -> return
+                is Step.Emit -> {
+                    out += step.event
+                    buf.drop(step.length)
+                }
+                is Step.Drop -> {
+                    buf.drop(1)
+                    out += ScanEvent.Discarded(step.reason)
+                }
             }
         }
-        return events
     }
 
-    private fun consumeEcho(events: MutableList<ScanEvent>): Boolean {
-        val expected = echo ?: return true
-        if (buffer.size < expected.size) {
-            if (isPrefixOf(expected)) return false
-            echo = null
-            return true
-        }
-        if (startsWith(expected)) {
-            events += ScanEvent.Echo(take(expected.size))
-            echo = null
-            return true
-        }
-        echo = null
-        return true
-    }
-
-    private fun extractOne(): Extract {
-        if (buffer.size < 2) return Extract.NeedMore
+    private fun extract(): Step {
+        if (buf.size < 2) return Step.Wait
         return if (mode == ScanMode.RESPONSE) extractResponse() else extractRequest()
     }
 
-    private fun extractRequest(): Extract {
-        val function = buffer[1].toInt() and 0xFF
-        if ((function and 0x80) != 0) {
-            if (buffer.size < 5) return Extract.NeedMore
-            val frame = peek(5)
-            return if (Crc16Modbus.matches(frame)) {
-                Extract.Event(ScanEvent.Discarded("exception-shaped")).also { take(5) }
+    private fun extractRequest(): Step {
+        if ((buf[1] and 0x80) != 0) {
+            if (buf.size < 5) return Step.Wait
+            return if (Crc16Modbus.matches(buf, 0, 5)) {
+                Step.Emit(5, ScanEvent.Discarded("exception-shaped"))
             } else {
-                dropOne("crc")
+                Step.Drop("crc")
             }
         }
-        val length = requestLength(function) ?: return Extract.NeedMore
-        if (length < 0) return dropOne("unknown-function")
-        val frame = peek(length)
-        if (!Crc16Modbus.matches(frame)) return dropOne("crc")
-        take(length)
-        return Extract.Event(ScanEvent.Request(frame))
-    }
-
-    private fun extractResponse(): Extract {
-        val expected = expectedFunction ?: return dropOne("no-expectation")
-        val function = buffer[1].toInt() and 0xFF
-        if (function == (expected.code or 0x80)) {
-            if (buffer.size < 5) return Extract.NeedMore
-            val frame = peek(5)
-            return if (Crc16Modbus.matches(frame)) {
-                take(5)
-                Extract.Event(ScanEvent.Response(frame))
-            } else {
-                dropOne("crc")
+        return when (val shape = FrameShapes.request(buf)) {
+            is Shape.NeedMore -> Step.Wait
+            is Shape.Length -> when {
+                shape.total > buf.size -> Step.Wait
+                Crc16Modbus.matches(buf, 0, shape.total) -> {
+                    Step.Emit(shape.total, ScanEvent.LocalRequest(buf.copy(0, shape.total)))
+                }
+                else -> Step.Drop("crc")
             }
+            Shape.Malformed -> Step.Drop("length")
+            Shape.Unmodeled -> Step.Drop("unknown-function")
         }
-        val length = responseLength(expected) ?: return Extract.NeedMore
-        if (length < 0) return dropOne("length")
-        val frame = peek(length)
-        if (!Crc16Modbus.matches(frame) || frame[1].toInt().and(0xFF) != expected.code) {
-            return dropOne("crc")
+    }
+
+    private fun extractResponse(): Step {
+        val expected = expectedFunction ?: return Step.Drop("no-expectation")
+        return when (val shape = FrameShapes.response(expected.code, buf)) {
+            is Shape.NeedMore -> Step.Wait
+            is Shape.Length -> when {
+                shape.total > buf.size -> Step.Wait
+                Crc16Modbus.matches(buf, 0, shape.total) -> {
+                    Step.Emit(shape.total, ScanEvent.Response(buf.copy(0, shape.total)))
+                }
+                else -> Step.Drop("crc")
+            }
+            Shape.Malformed -> Step.Drop("crc")
+            Shape.Unmodeled -> Step.Drop("length")
         }
-        take(length)
-        return Extract.Event(ScanEvent.Response(frame))
     }
 
-    private fun requestLength(function: Int): Int? = when (function) {
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06 -> if (buffer.size < 8) null else 8
-        0x0F, 0x10 -> countedLength(header = 7, byteCountAt = 6, extra = 9)
-        else -> -1
-    }
-
-    private fun responseLength(expected: FunctionCode): Int? = when (expected) {
-        FunctionCode.READ_COILS,
-        FunctionCode.READ_DISCRETE_INPUTS,
-        FunctionCode.READ_HOLDING_REGISTERS,
-        FunctionCode.READ_INPUT_REGISTERS,
-        -> countedLength(header = 3, byteCountAt = 2, extra = 5)
-        FunctionCode.WRITE_SINGLE_COIL,
-        FunctionCode.WRITE_SINGLE_REGISTER,
-        FunctionCode.WRITE_MULTIPLE_COILS,
-        FunctionCode.WRITE_MULTIPLE_REGISTERS,
-        -> if (buffer.size < 8) null else 8
-    }
-
-    private fun countedLength(header: Int, byteCountAt: Int, extra: Int): Int? {
-        if (buffer.size < header) return null
-        val byteCount = buffer[byteCountAt].toInt() and 0xFF
-        if (byteCount > 250) return -1
-        val total = extra + byteCount
-        return if (buffer.size < total) null else total
-    }
-
-    private fun dropOne(reason: String): Extract {
-        buffer.removeFirst()
-        return Extract.Event(ScanEvent.Discarded(reason))
-    }
-
-    private fun isPrefixOf(frame: ByteArray): Boolean {
-        if (buffer.size > frame.size) return false
-        buffer.forEachIndexed { index, byte -> if (byte != frame[index]) return false }
-        return true
-    }
-
-    private fun startsWith(frame: ByteArray): Boolean {
-        if (buffer.size < frame.size) return false
-        for (index in frame.indices) {
-            if (buffer.elementAt(index) != frame[index]) return false
-        }
-        return true
-    }
-
-    private fun peek(length: Int): ByteArray = ByteArray(length) { buffer.elementAt(it) }
-
-    private fun take(length: Int): ByteArray {
-        val frame = peek(length)
-        repeat(length) { buffer.removeFirst() }
-        return frame
-    }
-
-    private sealed interface Extract {
-        data object NeedMore : Extract
-        data class Event(val event: ScanEvent) : Extract
+    private sealed interface Step {
+        data object Wait : Step
+        class Emit(val length: Int, val event: ScanEvent) : Step
+        class Drop(val reason: String) : Step
     }
 
     private companion object {
-        const val MAX_BUFFER = 512
-    }
-}
-
-/**
- * TODO: 多站总线扫描见 spec §3.2 / §3.2.2a，留给下一个 PR。
- * 本期不实现外站抢占、残帧时钟和模糊方向。
- */
-class MultidropScanner : RtuFrameScanner {
-    override fun onClockTick(nowMonotonicNs: Long) = Unit
-    override fun reset(epoch: Long) = Unit
-    override fun armEcho(frame: ByteArray) = Unit
-    override fun accept(chunk: ByteChunk): List<ScanEvent> {
-        error("MultidropScanner 未实现，见 spec §3.2/§3.2.2a")
+        const val MAX_STEPS = 1024
     }
 }
