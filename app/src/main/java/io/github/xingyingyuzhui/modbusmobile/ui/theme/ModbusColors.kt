@@ -27,7 +27,24 @@ data class ModbusColors(
     val onAccent: Color,
     val island: Color,
 ) {
-    fun wash(color: Color): Color = color.copy(alpha = if (isDark) 0.14f else 0.10f)
+    /**
+     * 语义色浅底：稿面每个颜色单独取值（G#7）。
+     * 深色 amber/green/red .14、blue .13、purple/pink .15、gray .18；浅色 amber .16、green .10、red/blue .09、purple/pink .10、gray .12。
+     * 不是上面这些语义色的（比如用户选的强调色）按 amber 档。
+     */
+    fun wash(color: Color): Color {
+        val opaque = color.copy(alpha = 1f)
+        val alpha = when (opaque) {
+            rxLocal -> if (isDark) 0.14f else 0.10f
+            error -> if (isDark) 0.14f else 0.09f
+            foreign -> if (isDark) 0.13f else 0.09f
+            echo -> if (isDark) 0.15f else 0.10f
+            ambiguous -> if (isDark) 0.15f else 0.10f
+            dropped -> if (isDark) 0.18f else 0.12f
+            else -> if (isDark) 0.14f else 0.16f
+        }
+        return color.copy(alpha = alpha)
+    }
 
     val accentText: Color
         get() = if (!isDark && accent == Color(0xFFF5A524)) txText else accent

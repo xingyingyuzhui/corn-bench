@@ -169,7 +169,7 @@ private fun RegisterRowView(
         }
         Text(
             row.value,
-            style = Mono.copy(fontSize = 17.sp),
+            style = Mono.copy(fontSize = 17.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
             color = if (flash.value > 0.02f) colors.txText else colors.text,
             maxLines = 1,
             modifier = Modifier.weight(1f),

@@ -129,7 +129,7 @@ fun <T> SegmentedControl(
     selected: T,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
-    itemHeight: Dp = MinTouch,
+    itemHeight: Dp = SegItemDesign,
     label: @Composable (T) -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -210,7 +210,7 @@ fun <T> ChipRow(
     modifier: Modifier = Modifier,
     scroll: Boolean = false,
     xs: Boolean = false,
-    design: Boolean = false,
+    design: Boolean = true,
     description: (T) -> String? = { null },
 ) {
     if (scroll) {
@@ -256,7 +256,7 @@ fun SelectChip(
     text: String,
     selected: Boolean,
     xs: Boolean = false,
-    design: Boolean = false,
+    design: Boolean = true,
     description: String? = null,
     onClick: () -> Unit,
 ) {
@@ -306,6 +306,7 @@ fun FieldTile(
                 color = colors.text,
                 fontSize = if (mono) 17.sp else 15.sp,
                 lineHeight = 22.sp,
+                fontWeight = FontWeight.SemiBold,
                 fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
             )
             if (sub != null) {
@@ -424,6 +425,7 @@ fun ChoiceTile(
             value,
             color = valueColor,
             fontSize = if (mono) 17.sp else 15.sp,
+            fontWeight = FontWeight.SemiBold,
             fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
             maxLines = 1,
             modifier = Modifier.padding(top = 2.dp),
