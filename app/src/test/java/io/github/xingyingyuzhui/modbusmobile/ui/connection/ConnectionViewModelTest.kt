@@ -6,6 +6,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.Parity
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
+import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.application.UsbDeviceSummary
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
@@ -90,6 +91,41 @@ class ConnectionViewModelTest {
         // 19200 8N1 不再是预设，手动改成它就是自定义
         model.parity = Parity.NONE
         assertNull(model.preset)
+    }
+
+    @Test
+    fun commDefaultsSeedTheAdvancedFieldsAndBroadcastWaitReachesTheSession() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val session = RecordingSession()
+            val defaults = UiSettings(
+                defaultResponseTimeoutMs = 2_500, defaultInterRequestMs = 35,
+                defaultBroadcastWaitMs = 400, defaultEcho = EchoMode.AUTO,
+            )
+            val model = ConnectionViewModel(session, defaults)
+            assertEquals("2500", model.timeoutText)
+            assertEquals("35", model.gapText)
+            assertEquals(EchoMode.AUTO, model.echoMode)
+            model.connect()
+            advanceUntilIdle()
+            val serial = session.connected!!
+            assertEquals(2_500L, serial.responseTimeoutMs)
+            assertEquals(35L, serial.interRequestDelayMs)
+            assertEquals(400L, serial.turnaroundMs)
+            assertEquals(EchoMode.AUTO, serial.echoMode)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun changingDefaultsLaterOnlyMovesFieldsTheUserHasNotTouched() {
+        val model = ConnectionViewModel(RecordingSession())
+        model.timeoutText = "3000" // 用户手动改过
+        model.applyDefaults(UiSettings(defaultResponseTimeoutMs = 2_000, defaultInterRequestMs = 50, defaultEcho = EchoMode.ON))
+        assertEquals("用户改过的不被覆盖", "3000", model.timeoutText)
+        assertEquals("没动过的跟着默认值走", "50", model.gapText)
+        assertEquals(EchoMode.ON, model.echoMode)
     }
 }
 

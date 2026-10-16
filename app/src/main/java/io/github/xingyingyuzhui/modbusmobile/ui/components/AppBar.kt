@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
@@ -67,5 +68,27 @@ fun HeaderIconButton(
         contentAlignment = Alignment.Center,
     ) {
         content()
+    }
+}
+
+/** 二级页脚手架：← 返回 + 标题（稿面 b3-2）。返回钮的触控区域 48×48，页头高度仍是 52。 */
+@Composable
+fun SubPageHeader(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalModbusColors.current
+    Row(
+        modifier.fillMaxWidth().height(52.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        HeaderIconButton(
+            androidx.compose.ui.res.stringResource(io.github.xingyingyuzhui.modbusmobile.R.string.cd_back),
+            onBack,
+            Modifier.testTag("sub-back"),
+        ) { BackIcon(colors.text) }
+        Text(title, color = colors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).testTag("sub-title"))
     }
 }

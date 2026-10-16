@@ -12,12 +12,23 @@ import io.github.xingyingyuzhui.modbusmobile.application.Parity
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.TimeoutGapValidation
+import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.application.validateTimeoutGap
 import io.github.xingyingyuzhui.modbusmobile.application.wireLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import kotlinx.coroutines.launch
 
-class ConnectionViewModel(private val session: SessionManager) : ViewModel() {
+/**
+ * [defaults] 是「我的 · 通信默认值」：只作为高级设置的初始值，连接页仍可逐次修改。
+ * 默认值之后又改了：只有“用户没动过”的输入框会跟着变（输入框当前值 == 上一次应用的默认值）。
+ */
+class ConnectionViewModel(
+    private val session: SessionManager,
+    defaults: UiSettings = UiSettings(),
+) : ViewModel() {
+    private var applied = defaults
+    private var broadcastWaitMs = defaults.defaultBroadcastWaitMs
+
     val state = session.state
     val devices = session.usbDevices
     val echoDetected = session.echoDetected
@@ -28,10 +39,10 @@ class ConnectionViewModel(private val session: SessionManager) : ViewModel() {
     var parity by mutableStateOf(Parity.NONE)
     var role by mutableStateOf(Role.MASTER)
     var topology by mutableStateOf(BusTopology.POINT_TO_POINT)
-    var echoMode by mutableStateOf(EchoMode.OFF)
+    var echoMode by mutableStateOf(defaults.defaultEcho)
     var selected by mutableStateOf<ConnectionTarget>(ConnectionTarget.Demo)
-    var timeoutText by mutableStateOf("1000")
-    var gapText by mutableStateOf("20")
+    var timeoutText by mutableStateOf(defaults.defaultResponseTimeoutMs.toString())
+    var gapText by mutableStateOf(defaults.defaultInterRequestMs.toString())
     var advancedOpen by mutableStateOf(false)
     var helpOpen by mutableStateOf(false)
     var customPinned by mutableStateOf(false)
@@ -51,6 +62,15 @@ class ConnectionViewModel(private val session: SessionManager) : ViewModel() {
         dataBits = preset.dataBits
         parity = preset.parity
         stopBits = preset.stopBits
+    }
+
+    fun applyDefaults(new: UiSettings) {
+        val old = applied
+        if (timeoutText == old.defaultResponseTimeoutMs.toString()) timeoutText = new.defaultResponseTimeoutMs.toString()
+        if (gapText == old.defaultInterRequestMs.toString()) gapText = new.defaultInterRequestMs.toString()
+        if (echoMode == old.defaultEcho) echoMode = new.defaultEcho
+        broadcastWaitMs = new.defaultBroadcastWaitMs
+        applied = new
     }
 
     fun selectCustom() {
@@ -75,6 +95,7 @@ class ConnectionViewModel(private val session: SessionManager) : ViewModel() {
                     stopBits = stopBits,
                     responseTimeoutMs = timeout,
                     interRequestDelayMs = gap,
+                    turnaroundMs = broadcastWaitMs,
                     topology = topology,
                     echoMode = echoMode,
                 ),

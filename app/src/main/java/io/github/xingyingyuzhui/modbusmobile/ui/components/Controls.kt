@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
@@ -28,8 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
@@ -432,7 +431,41 @@ fun ChoiceTile(
     }
 }
 
-enum class SettingTrailing { SWITCH, CHEVRON, LOCKED }
+const val SwitchVisualTag = "switch-visual"
+
+enum class SettingTrailing { SWITCH, CHEVRON, LOCKED, NONE }
+
+/** 稿面开关：42×24 轨道，20dp 白色滑块（G#5）。只负责画，点击由所在行处理（整行 ≥48dp 可点）。 */
+@Composable
+fun ModbusSwitchVisual(checked: Boolean, modifier: Modifier = Modifier) {
+    val colors = LocalModbusColors.current
+    Box(
+        modifier
+            .testTag(SwitchVisualTag)
+            .size(width = 42.dp, height = 24.dp)
+            .clip(CircleShape)
+            .background(if (checked) colors.accent else colors.surface3),
+    ) {
+        Box(
+            Modifier
+                .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
+                .padding(2.dp)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(androidx.compose.ui.graphics.Color.White),
+        )
+    }
+}
+
+/** 行首 30×30 图标块（稿面 b3-1 列表行）。 */
+@Composable
+fun SettingIconBlock(content: @Composable () -> Unit) {
+    val colors = LocalModbusColors.current
+    Box(
+        Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(colors.surface2),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
 
 @Composable
 fun SettingRow(
@@ -442,39 +475,73 @@ fun SettingRow(
     trailing: SettingTrailing = SettingTrailing.CHEVRON,
     checked: Boolean = false,
     selected: Boolean = false,
+    value: String? = null,
+    icon: (@Composable () -> Unit)? = null,
     onChecked: (Boolean) -> Unit = {},
     onClick: () -> Unit = {},
 ) {
     val colors = LocalModbusColors.current
+    val base = modifier
+        .fillMaxWidth()
+        .heightIn(min = MinTouch)
+        .clip(RoundedCornerShape(12.dp))
+        .background(if (selected) colors.wash(colors.accent) else androidx.compose.ui.graphics.Color.Transparent)
+    val interactive = when (trailing) {
+        SettingTrailing.SWITCH -> base.toggleable(value = checked, role = Role.Switch, onValueChange = onChecked)
+        SettingTrailing.LOCKED, SettingTrailing.NONE -> base
+        SettingTrailing.CHEVRON -> base.clickable(role = Role.Button, onClick = onClick)
+    }
     Row(
-        modifier
-            .fillMaxWidth()
-            .heightIn(min = MinTouch)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) colors.wash(colors.accent) else androidx.compose.ui.graphics.Color.Transparent)
-            .clickable(enabled = trailing != SettingTrailing.LOCKED, onClick = {
-                if (trailing == SettingTrailing.SWITCH) onChecked(!checked) else onClick()
-            })
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+        interactive.padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (icon != null) SettingIconBlock(icon)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = colors.text, fontSize = 14.sp)
-            if (subtitle != null) Text(subtitle, color = colors.muted, fontSize = 12.sp)
+            Text(
+                title,
+                color = if (selected) colors.accentText else colors.text,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            )
+            if (subtitle != null) Text(subtitle, color = colors.muted, fontSize = 12.sp, lineHeight = 16.sp)
+        }
+        if (value != null) {
+            Text(value, color = colors.dim, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1)
         }
         when (trailing) {
-            SettingTrailing.SWITCH -> Switch(
-                checked = checked,
-                onCheckedChange = onChecked,
-                colors = SwitchDefaults.colors(
-                    checkedTrackColor = colors.accent,
-                    checkedThumbColor = colors.onAccent,
-                ),
-            )
+            SettingTrailing.SWITCH -> ModbusSwitchVisual(checked)
             SettingTrailing.CHEVRON -> Text("›", color = colors.dim, fontSize = 18.sp)
-            SettingTrailing.LOCKED -> Text(stringResource(R.string.setting_locked), color = colors.dim, fontSize = 13.sp)
+            SettingTrailing.LOCKED -> Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.setting_always), color = colors.dim, fontSize = 13.sp)
+                LockIcon(colors.dim)
+            }
+            SettingTrailing.NONE -> Unit
         }
     }
+}
+
+/** 设置行的容器卡片：无内边距、行间不留空隙，行与行之间自己放 [RowDivider]。 */
+@Composable
+fun SettingsCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val colors = LocalModbusColors.current
+    val shape = RoundedCornerShape(CardRadius)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(colors.surface1, shape)
+            .border(1.dp, colors.line, shape)
+            .clip(shape)
+            .padding(1.dp),
+        content = content,
+    )
+}
+
+/** 卡片内行与行之间的分隔线。 */
+@Composable
+fun RowDivider() {
+    Box(Modifier.fillMaxWidth().height(1.dp).background(LocalModbusColors.current.line))
 }
 
 @Composable
@@ -494,19 +561,20 @@ fun ColorSwatchRow(
                     .clickable { onSelect(accent) },
                 contentAlignment = Alignment.Center,
             ) {
+                // 选中：外圈描边 + 2dp 间隙（稿面 b3-2 强调色圆点），圆点本身 26dp。
                 Box(
                     Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(androidx.compose.ui.graphics.Color(accent.argb.toInt()))
-                        .then(
-                            if (selected == accent) {
-                                Modifier.border(2.dp, colors.text, CircleShape)
-                            } else {
-                                Modifier
-                            },
-                        ),
-                )
+                        .size(34.dp)
+                        .then(if (selected == accent) Modifier.border(2.dp, colors.text, CircleShape) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(androidx.compose.ui.graphics.Color(accent.argb.toInt())),
+                    )
+                }
             }
         }
     }

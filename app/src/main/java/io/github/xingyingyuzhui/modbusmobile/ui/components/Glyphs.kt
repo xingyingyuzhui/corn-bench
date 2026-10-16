@@ -161,3 +161,82 @@ fun PlayIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
         drawPath(path, color)
     }
 }
+
+@Composable
+fun BackIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = this.size.minDimension * 0.11f
+        drawLine(color, Offset(w * 0.85f, h * 0.5f), Offset(w * 0.15f, h * 0.5f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.15f, h * 0.5f), Offset(w * 0.45f, h * 0.2f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.15f, h * 0.5f), Offset(w * 0.45f, h * 0.8f), stroke, StrokeCap.Round)
+    }
+}
+
+@Composable
+fun LockIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = this.size.minDimension * 0.12f
+        drawArc(
+            color, 180f, 180f, false,
+            topLeft = Offset(w * 0.28f, h * 0.08f), size = Size(w * 0.44f, h * 0.44f),
+            style = Stroke(stroke, cap = StrokeCap.Round),
+        )
+        drawRoundRect(color, Offset(w * 0.18f, h * 0.42f), Size(w * 0.64f, h * 0.5f), androidx.compose.ui.geometry.CornerRadius(w * 0.1f))
+    }
+}
+
+/** 外观：半填充的圆（亮 / 暗）。 */
+@Composable
+fun AppearanceIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val d = this.size.minDimension
+        val stroke = d * 0.11f
+        val center = Offset(this.size.width / 2f, this.size.height / 2f)
+        val r = d * 0.38f
+        drawCircle(color, r, center, style = Stroke(stroke))
+        drawArc(color, -90f, 180f, true, Offset(center.x - r, center.y - r), Size(r * 2, r * 2))
+    }
+}
+
+/** 显示与格式：三条不等长的横线。 */
+@Composable
+fun DisplayFormatIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = this.size.minDimension * 0.11f
+        listOf(0.25f to 0.8f, 0.5f to 0.55f, 0.75f to 0.7f).forEach { (y, len) ->
+            drawLine(color, Offset(w * 0.1f, h * y), Offset(w * (0.1f + len * 0.8f), h * y), stroke, StrokeCap.Round)
+        }
+    }
+}
+
+/** 通信：上下两个反向箭头。 */
+@Composable
+fun CommIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = this.size.minDimension * 0.11f
+        drawLine(color, Offset(w * 0.12f, h * 0.35f), Offset(w * 0.88f, h * 0.35f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.88f, h * 0.35f), Offset(w * 0.68f, h * 0.18f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.88f, h * 0.65f), Offset(w * 0.12f, h * 0.65f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.12f, h * 0.65f), Offset(w * 0.32f, h * 0.82f), stroke, StrokeCap.Round)
+    }
+}
+
+@Composable
+fun InfoIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val d = this.size.minDimension
+        val stroke = d * 0.1f
+        val c = Offset(this.size.width / 2f, this.size.height / 2f)
+        drawCircle(color, d * 0.4f, c, style = Stroke(stroke))
+        drawCircle(color, d * 0.06f, Offset(c.x, c.y - d * 0.16f))
+        drawLine(color, Offset(c.x, c.y - d * 0.02f), Offset(c.x, c.y + d * 0.22f), stroke, StrokeCap.Round)
+    }
+}
