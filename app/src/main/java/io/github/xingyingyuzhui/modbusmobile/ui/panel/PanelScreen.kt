@@ -37,7 +37,9 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PencilIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalOpenCurve
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalOpenWizard
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalReportCurveTarget
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusCard
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PageHeader
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
@@ -67,6 +69,7 @@ fun PanelScreen() {
     }
     val edit by model.edit.collectAsStateWithLifecycle()
     val openWizard = LocalOpenWizard.current
+    val openCurve = LocalOpenCurve.current
     val editing = edit
     if (editing != null) {
         PanelEditor(
@@ -99,6 +102,7 @@ fun PanelScreen() {
             onTogglePause = model::togglePause,
             onEdit = if (model.canEdit) ({ model.startEdit(selected) }) else null,
             onAdd = if (model.canEdit) ({ model.startEdit(selected); model.startWizard(null); openWizard() }) else null,
+            onOpenCurve = openCurve,
         )
     }
 }
@@ -123,6 +127,8 @@ fun PanelContent(
     onAdd: (() -> Unit)? = null,
     /** 曲线卡的样本历史；为空时曲线卡显示“暂无数据”。 */
     history: io.github.xingyingyuzhui.modbusmobile.application.panel.SampleHistory? = null,
+    /** 曲线卡 ⤢：打开该曲线组件的全屏页；为 null 时曲线卡不画 ⤢。 */
+    onOpenCurve: ((String) -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
@@ -135,17 +141,27 @@ fun PanelContent(
     val panels = ready?.project?.panels.orEmpty()
     val current: Panel? = panels.firstOrNull { it.id == selectedPanelId } ?: panels.firstOrNull()
     val widgets = current?.widgets?.filter { it.isUsable }.orEmpty()
+    // 当前面板里第一个曲线组件：报给外壳，横屏自动全屏用（没有曲线就是 null，不会自动进空页）
+    val reportCurve = LocalReportCurveTarget.current
+    val curveTarget = widgets.firstOrNull { it.curve != null }?.id
+    androidx.compose.runtime.DisposableEffect(curveTarget) {
+        reportCurve(curveTarget)
+        onDispose { reportCurve(null) }
+    }
     val anyWidgets = panels.any { p -> p.widgets.any { it.isUsable } }
     val columns = if (landscape) 4 else (current?.columns ?: 2)
+    // 页头 ⤢（稿面 b2-1）：打开当前面板第一个曲线的全屏；没有曲线 / 没有处理函数就不画
+    val expandEntry: (() -> Unit)? = curveTarget?.let { id -> onOpenCurve?.let { open -> { open(id) } } }
     val editEntry: (() -> Unit)? = if (ready != null && !ready.readOnly && panels.isNotEmpty()) onEdit else null
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Column(Modifier.padding(start = pageStart(), end = spacing.page)) {
             if (landscape) {
-                LandscapeHeader(panels, current, stats, paused, masterRunning && anyWidgets, onSelectPanel, onTogglePause, editEntry)
+                LandscapeHeader(panels, current, stats, paused, masterRunning && anyWidgets, onSelectPanel, onTogglePause, editEntry, expandEntry)
             } else {
                 PageHeader(stringResource(R.string.title_panel)) {
                     if (editEntry != null) EditEntryButton(editEntry)
+                    if (expandEntry != null) ExpandEntryButton(expandEntry)
                 }
                 val polling = masterRunning && anyWidgets && stats != null && !paused
                 val title = when {
@@ -227,7 +243,10 @@ fun PanelContent(
                         ) { index ->
                             val widget: Widget = widgets[index]
                             if (widget.curve != null) {
-                                io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveWidgetCard(widget, history)
+                                io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveWidgetCard(
+                                    widget, history,
+                                    onFullscreen = onOpenCurve?.let { open -> { open(widget.id) } },
+                                )
                             } else {
                                 WidgetCard(widget, snapshots[widget.point!!.id])
                             }
@@ -278,6 +297,7 @@ private fun LandscapeHeader(
     onSelect: (String) -> Unit,
     onTogglePause: () -> Unit,
     onEdit: (() -> Unit)?,
+    onExpand: (() -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
     Row(
@@ -307,6 +327,14 @@ private fun LandscapeHeader(
         }
         if (canPause) PauseButton(paused, onTogglePause)
         if (onEdit != null) EditEntryButton(onEdit)
+        if (onExpand != null) ExpandEntryButton(onExpand)
+    }
+}
+
+@Composable
+private fun ExpandEntryButton(onExpand: () -> Unit) {
+    HeaderIconButton(stringResource(R.string.curve_open_fullscreen), onExpand, Modifier.testTag("panel-expand")) {
+        io.github.xingyingyuzhui.modbusmobile.ui.components.ExpandIcon(LocalModbusColors.current.muted, size = 16.dp)
     }
 }
 

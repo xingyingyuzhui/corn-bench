@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -41,7 +42,9 @@ import io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveFullscreenScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.mine.MineScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.panel.PanelScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.panel.PanelWizardScreen
-import io.github.xingyingyuzhui.modbusmobile.ui.shell.CurveRoute
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.CurveRoutePattern
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.curveRoute
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.isCurveRoute
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.Destination
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.DockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockBottomGap
@@ -79,6 +82,12 @@ val LocalOpenWizard = staticCompositionLocalOf<() -> Unit> { {} }
 
 const val PanelWizardRoute = "panel/wizard"
 
+/** 打开某个曲线组件的全屏页（曲线卡的 ⤢）。 */
+val LocalOpenCurve = staticCompositionLocalOf<(String) -> Unit> { {} }
+
+/** 面板页把“当前面板里第一个曲线组件的 id”报给外壳（横屏自动全屏用）；离开面板页时报 null。 */
+val LocalReportCurveTarget = staticCompositionLocalOf<(String?) -> Unit> { {} }
+
 val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
     error("连接页回调还没有提供")
 }
@@ -93,17 +102,21 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val portrait = adaptive.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.COMPACT &&
         adaptive.windowSizeClass.windowHeightSizeClass != WindowHeightSizeClass.COMPACT
     val current = nav.currentBackStackEntryAsState().value?.destination?.route
-    val hideChrome = current == CurveRoute || current == PanelWizardRoute
-    var suppressCurve by remember { mutableStateOf(false) }
-    var autoEntered by remember { mutableStateOf(false) }
+    val onCurve = isCurveRoute(current)
+    val hideChrome = onCurve || current == PanelWizardRoute
+    var suppressCurve by rememberSaveable { mutableStateOf(false) }
+    var autoEntered by rememberSaveable { mutableStateOf(false) }
+    var curveTarget by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(portrait) {
         if (portrait) suppressCurve = false
     }
-    LaunchedEffect(portrait, settings.landscapeCurveFullscreen, suppressCurve, current) {
-        if (!portrait && settings.landscapeCurveFullscreen && !suppressCurve && current != CurveRoute) {
+    LaunchedEffect(portrait, settings.landscapeCurveFullscreen, suppressCurve, current, curveTarget) {
+        // 只在“面板页 + 横屏 + 当前面板有曲线”时自动进全屏，进哪个曲线由面板页报上来（没有曲线就不进，不放空页）
+        val target = curveTarget
+        if (!portrait && settings.landscapeCurveFullscreen && !suppressCurve && current == Destination.Panel.route && target != null) {
             autoEntered = true
-            nav.navigate(CurveRoute) { launchSingleTop = true }
-        } else if (portrait && autoEntered && current == CurveRoute) {
+            nav.navigate(curveRoute(target)) { launchSingleTop = true }
+        } else if (portrait && autoEntered && onCurve) {
             autoEntered = false
             nav.popBackStack()
         }
@@ -120,7 +133,8 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
         selectTab(nav, Destination.Connection)
     }
     val closeCurve: () -> Unit = {
-        suppressCurve = true
+        // 横屏下手动关掉：回到竖屏前不再自动进；竖屏下从 ⤢ 进来再关，不影响以后横屏自动进
+        if (!portrait) suppressCurve = true
         autoEntered = false
         nav.popBackStack()
     }
@@ -130,6 +144,8 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
             LocalShellMode provides if (portrait) ShellMode.PORTRAIT else ShellMode.LANDSCAPE,
             LocalOpenConnection provides openConnection,
             LocalOpenWizard provides { nav.navigate(PanelWizardRoute) { launchSingleTop = true } },
+            LocalOpenCurve provides { id -> nav.navigate(curveRoute(id)) { launchSingleTop = true } },
+            LocalReportCurveTarget provides { id -> curveTarget = id },
             LocalAppViewModelStoreOwner provides appStoreOwner,
         ) {
             NavHost(
@@ -150,7 +166,14 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
                         PanelWizardScreen(parent) { nav.popBackStack() }
                     }
                 }
-                composable(CurveRoute) { CurveFullscreenScreen(onClose = closeCurve) }
+                composable(
+                    CurveRoutePattern,
+                    arguments = listOf(androidx.navigation.navArgument("id") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }),
+                ) { entry ->
+                    // 和面板页共用同一个 ViewModel（工程 / 草稿 / 轮询）；没有面板页（直接进入）就用自己的
+                    val parent = remember(entry) { runCatching { nav.getBackStackEntry(Destination.Panel.route) }.getOrNull() }
+                    CurveFullscreenScreen(parent ?: entry, entry.arguments?.getString("id"), onClose = closeCurve)
+                }
             }
         }
         if (showDock) {

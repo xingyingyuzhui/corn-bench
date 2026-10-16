@@ -7,7 +7,8 @@ object WidgetKinds {
     const val STATUS_TEXT = "status_text"
     const val PROGRESS = "progress"
     const val CURVE = "curve"
-    val known = setOf(NUMBER, LAMP, STATUS_TEXT, PROGRESS, CURVE)
+    const val GAUGE = "gauge"
+    val known = setOf(NUMBER, LAMP, STATUS_TEXT, PROGRESS, CURVE, GAUGE)
 }
 
 enum class StateTone { GREEN, AMBER, RED, BLUE, GRAY }

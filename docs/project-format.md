@@ -72,11 +72,11 @@
 | `onLabel` / `offLabel` | 指示灯 / 为 1 / 0 时的文字，缺省“开”/“关” |
 | `states` | 状态文本：`[{"value": 2, "label": "制冷", "tone": "BLUE"}]`；`tone` ∈ `GREEN AMBER RED BLUE GRAY`，缺省 BLUE；没有 `value` 或 `label` 的条目忽略并给警告；取值没有映射时显示“未定义（值）” |
 
-进度条用点位的 `rangeMin` / `rangeMax`（缺省 0..100）。
+进度条和仪表（`gauge`，半圆表盘，只读）用点位的 `rangeMin` / `rangeMax`（缺省 0..100，必须 min < max）；仪表还用点位的 `thresholds`（预警 / 告警区间，画在表盘外圈）和 `unitLabel`。
 
 ### 组件类型
 
-`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）、`curve`（曲线，P7）。其它类型按“读不懂”处理。
+`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）、`curve`（曲线，P7）、`gauge`（仪表，P8a）。其它类型按“读不懂”处理。
 
 ### 曲线组件（`kind = "curve"`，P7）
 

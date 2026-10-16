@@ -195,7 +195,11 @@
     <string name="panel_wiz_title_lamp">指示灯组件</string>
     <string name="panel_wiz_title_status">状态文本</string>
     <string name="panel_wiz_title_progress">进度条组件</string>
-    <string name="panel_wiz_more_later">仪表、开关、寄存器表、按钮会在后续版本加入。</string>
+    <string name="panel_gauge_desc">仪表，量程 %1$s 到 %2$s</string>
+    <string name="panel_wiz_kind_gauge">仪表</string>
+    <string name="panel_wiz_kind_gauge_desc">量程 + 分段颜色</string>
+    <string name="panel_wiz_title_gauge">仪表组件</string>
+    <string name="panel_wiz_more_later">开关、寄存器表、按钮（这些会写设备，要先确认）会在后续版本加入。</string>
     <string name="panel_wiz_sec_source">数据源</string>
     <string name="panel_wiz_sec_convert">换算与显示</string>
     <string name="panel_wiz_sec_display">显示</string>
@@ -277,12 +281,6 @@
     <string name="panel_corrupt_body">原因：%1$s。</string>
     <string name="panel_corrupt_body_saved">原因：%1$s。已把原文件另存了一份副本，没有删除任何内容。</string>
 
-    <string name="curve_pending">曲线绘制在面板里程碑接入</string>
-    <string name="curve_1m">1 分钟</string>
-    <string name="curve_5m">5 分钟</string>
-    <string name="curve_15m">15 分钟</string>
-    <string name="curve_1h">1 小时</string>
-
     <string name="setting_theme">主题</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
@@ -310,7 +308,7 @@
     <string name="setting_vibration">操作震动反馈</string>
     <string name="vibration_hint">确认写入时轻震一下。</string>
     <string name="setting_landscape_curve">横屏自动切换曲线全屏</string>
-    <string name="landscape_curve_hint">关闭曲线后，回到竖屏才会再次允许自动进入。</string>
+    <string name="landscape_curve_hint">在面板页横屏时，如果当前面板有曲线组件，自动全屏显示第一个。关闭曲线后，回到竖屏才会再次允许自动进入。</string>
     <string name="setting_locked">锁定</string>
 
     <string name="quality_ok">正常</string>
@@ -628,4 +626,23 @@
     <string name="panel_wiz_series_points">显示数据点</string>
     <string name="panel_wiz_series_fill">面积填充</string>
     <string name="panel_wiz_series_step">阶梯线（适合开关量）</string>
+    <!-- P8a：曲线全屏 / 快照 -->
+    <string name="panel_strip_polling_short">轮询中</string>
+    <string name="panel_strip_paused_short">已暂停</string>
+    <string name="curve_fs_idle">未轮询</string>
+    <string name="curve_fs_frozen">曲线已暂停</string>
+    <string name="curve_fs_pause">暂停曲线滚动</string>
+    <string name="curve_fs_resume">继续曲线滚动</string>
+    <string name="curve_fs_snapshot">快照</string>
+    <string name="curve_fs_minmax">最小 %1$s · 最大 %2$s</string>
+    <string name="curve_fs_missing">没有找到这个曲线组件（可能已被删除，或配置不可用）。回到面板里再打开。</string>
+    <string name="curve_fs_w_s">%1$d 秒</string>
+    <string name="curve_fs_w_m">%1$d 分</string>
+    <string name="curve_fs_w_h">%1$d 时</string>
+    <string name="curve_gap_label">超时 %1$d s</string>
+    <string name="curve_open_fullscreen">全屏查看曲线</string>
+    <string name="curve_snap_title">保存曲线快照</string>
+    <string name="curve_snap_choose">快照是一张 PNG 图片，保存到你选择的位置，或分享给你选择的应用。</string>
+    <string name="curve_snap_privacy_message">快照图片包含点位名称、当前数值和时间，可能涉及现场隐私或敏感信息。\n\n图片只会保存到你选择的位置，或分享给你选择的应用；本应用不会上传。</string>
+    <string name="curve_snap_failed_capture">无法生成快照</string>
 </resources>

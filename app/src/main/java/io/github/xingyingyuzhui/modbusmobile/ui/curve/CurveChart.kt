@@ -4,7 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.semantics.Role
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ExpandIcon
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -142,13 +145,15 @@ fun CurveWidgetCard(
     history: SampleHistory?,
     modifier: Modifier = Modifier,
     borderColor: Color? = null,
+    /** 非空时卡片右上角画 ⤢（≥48dp 触控），点它进曲线全屏。编辑模式 / 截图夹具不传。 */
+    onFullscreen: (() -> Unit)? = null,
 ) {
     val config = widget.curve ?: return
     val now = rememberCurveNow()
     val frame = remember(config, now, history) {
         CurveMath.frame(config, now) { id, from -> history?.read(id, from) ?: SampleHistory.Slice.EMPTY }
     }
-    CurveCardBody(widget.displayTitle, widget.id, config, frame, modifier, borderColor)
+    CurveCardBody(widget.displayTitle, widget.id, config, frame, modifier, borderColor, onFullscreen)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -160,12 +165,14 @@ fun CurveCardBody(
     frame: CurveMath.Frame,
     modifier: Modifier = Modifier,
     borderColor: Color? = null,
+    onFullscreen: (() -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
-    CardFrame(modifier, "panel-card-$id", borderColor) {
+    Box(modifier) {
+    CardFrame(Modifier, "panel-card-$id", borderColor) {
         // 标题（过长只截名称，“· 1 分钟”保留）和图例放同一个 FlowRow：放得下就同一行（图例靠右），放不下图例换到下一行。
         FlowRow(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().padding(end = if (onFullscreen != null) 30.dp else 0.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(2.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
@@ -189,6 +196,19 @@ fun CurveCardBody(
         if (config.legend == LegendPosition.BOTTOM) {
             CurveLegend(config, Modifier.padding(top = 4.dp).testTag("curve-legend-$id"))
         }
+    }
+    if (onFullscreen != null) {
+        val label = stringResource(R.string.curve_open_fullscreen)
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .size(48.dp)
+                .clickable(role = Role.Button, onClickLabel = label, onClick = onFullscreen)
+                .semantics { contentDescription = label }
+                .testTag("curve-expand-$id"),
+            contentAlignment = Alignment.Center,
+        ) { ExpandIcon(colors.muted) }
+    }
     }
 }
 
@@ -277,6 +297,8 @@ fun CurveChart(
     modifier: Modifier = Modifier,
     tag: String = "curve-chart",
     initialCursorMs: Long? = null,
+    /** 全屏：每条网格线都有刻度、底部有时间轴、缺测段标“超时 N s”。 */
+    detail: Boolean = false,
 ) {
     val colors = LocalModbusColors.current
     val density = LocalDensity.current
@@ -285,14 +307,22 @@ fun CurveChart(
     var cursorMs by remember { mutableStateOf(initialCursorMs) }
     val leftAxis = frame.left
     val rightAxis = frame.right
-    fun labels(axis: CurveMath.Axis?) = axis?.let { listOf(CurveMath.axisLabel(it.max, it.step), CurveMath.axisLabel(it.min, it.step)) }
+    fun labels(axis: CurveMath.Axis?) = axis?.let {
+        if (detail) {
+            (0..CurveMath.GRID_INTERVALS).map { i -> CurveMath.axisLabel(it.max - it.span * i / CurveMath.GRID_INTERVALS, it.step) }
+        } else {
+            listOf(CurveMath.axisLabel(it.max, it.step), CurveMath.axisLabel(it.min, it.step))
+        }
+    }
     val leftLabels = labels(leftAxis)
     val rightLabels = labels(rightAxis)
     fun labelWidth(list: List<String>?) = list?.maxOfOrNull { measurer.measure(it, labelStyle).size.width }?.let { with(density) { it.toDp() + 6.dp } } ?: 2.dp
     val padLeft = with(density) { labelWidth(leftLabels).toPx() }
     val padRight = with(density) { labelWidth(rightLabels).toPx() }
     val padTop = with(density) { 6.dp.toPx() }
-    val padBottom = with(density) { 6.dp.toPx() }
+    val padBottom = with(density) { (if (detail) 20.dp else 6.dp).toPx() }
+    val resources = androidx.compose.ui.platform.LocalContext.current.resources
+    val gapText: (Long) -> String = if (detail) { ms -> resources.getString(R.string.curve_gap_label, (ms + 500) / 1000) } else { _ -> "" }
     val summary = curveSummary(config, frame)
 
     // 不用 BoxWithConstraints：它是 SubcomposeLayout，面板网格按行取固有高度时会直接崩。
@@ -325,7 +355,7 @@ fun CurveChart(
         ) {
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                 if (sizePx == IntSize.Zero) return@Canvas
-                drawChart(config, geo, colors, measurer, labelStyle, leftLabels, rightLabels)
+                drawChart(config, geo, colors, measurer, labelStyle, leftLabels, rightLabels, detail, gapText)
                 val t = cursorMs
                 if (canCursor && t != null && t >= frame.fromMs && t <= frame.toMs) {
                     val x = geo.x(t)
@@ -415,6 +445,8 @@ private fun DrawScope.drawChart(
     labelStyle: TextStyle,
     leftLabels: List<String>?,
     rightLabels: List<String>?,
+    detail: Boolean,
+    gapText: (Long) -> String,
 ) {
     val frame = geo.frame
     // 网格：4 条等分横线
@@ -432,13 +464,23 @@ private fun DrawScope.drawChart(
         val style = labelStyle.copy(color = color)
         labels.forEachIndexed { i, text ->
             val layout = measurer.measure(text, style)
-            val y = geo.padTop + geo.plotH * (if (i == 0) 0f else 1f) - layout.size.height / 2f
+            val y = geo.padTop + geo.plotH * (i.toFloat() / (labels.size - 1).coerceAtLeast(1)) - layout.size.height / 2f
             val x = if (side == YAxis.LEFT) geo.padLeft - layout.size.width - 4.dp.toPx() else geo.padLeft + geo.plotW + 4.dp.toPx()
             drawText(layout, topLeft = Offset(x, y.coerceIn(0f, size.height - layout.size.height)))
         }
     }
     axisLabels(frame.left, leftLabels, YAxis.LEFT)
     axisLabels(frame.right, rightLabels, YAxis.RIGHT)
+    if (detail) {
+        // 底部时间轴：起点 / 中点 / 终点
+        val style = labelStyle.copy(color = colors.dim)
+        val y = geo.padTop + geo.plotH + 4.dp.toPx()
+        listOf(0f, 0.5f, 1f).forEach { f ->
+            val layout = measurer.measure(timeFormat.format(Instant.ofEpochMilli(frame.fromMs + ((frame.toMs - frame.fromMs) * f).toLong())), style)
+            val x = (geo.padLeft + geo.plotW * f - layout.size.width * f).coerceIn(0f, size.width - layout.size.width)
+            drawText(layout, topLeft = Offset(x, y))
+        }
+    }
 
     clipRect(geo.padLeft, geo.padTop - 2.dp.toPx(), geo.padLeft + geo.plotW, geo.padTop + geo.plotH + 2.dp.toPx()) {
         if (config.gaps == GapStyle.HATCH) {
@@ -449,6 +491,10 @@ private fun DrawScope.drawChart(
                 val x0 = geo.x(gap.first)
                 val x1 = geo.x(gap.last)
                 if (x1 - x0 < 1f) continue
+                if (detail && x1 - x0 > 48.dp.toPx()) {
+                    val layout = measurer.measure(gapText(gap.last - gap.first), labelStyle.copy(color = colors.error))
+                    drawText(layout, topLeft = Offset(x0 + 4.dp.toPx(), geo.padTop + 2.dp.toPx()))
+                }
                 clipRect(x0, geo.padTop, x1, geo.padTop + geo.plotH) {
                     val step = 6.dp.toPx()
                     var x = x0 - geo.plotH

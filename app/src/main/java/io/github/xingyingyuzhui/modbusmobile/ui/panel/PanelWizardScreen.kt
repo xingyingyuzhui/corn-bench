@@ -100,7 +100,7 @@ data class WizardActions(
     val onDeleteSeries: (Int) -> Unit = {},
 )
 
-private val Kinds = listOf(WidgetKinds.NUMBER, WidgetKinds.CURVE, WidgetKinds.LAMP, WidgetKinds.STATUS_TEXT, WidgetKinds.PROGRESS)
+private val Kinds = listOf(WidgetKinds.NUMBER, WidgetKinds.CURVE, WidgetKinds.LAMP, WidgetKinds.STATUS_TEXT, WidgetKinds.PROGRESS, WidgetKinds.GAUGE)
 private val AllTypes = listOf(
     DataType.BOOL, DataType.BIT, DataType.U16, DataType.S16, DataType.U32, DataType.S32, DataType.F32,
     DataType.U64, DataType.S64, DataType.F64, DataType.BCD16, DataType.BCD32, DataType.ASCII,
@@ -259,6 +259,7 @@ private fun titleRes(wizard: WizardState): Int = if (wizard.step == 1) {
         WidgetKinds.LAMP -> R.string.panel_wiz_title_lamp
         WidgetKinds.STATUS_TEXT -> R.string.panel_wiz_title_status
         WidgetKinds.PROGRESS -> R.string.panel_wiz_title_progress
+        WidgetKinds.GAUGE -> R.string.panel_wiz_title_gauge
         else -> R.string.panel_wiz_title_number
     }
 }
@@ -289,6 +290,7 @@ private fun KindCard(kind: String, selected: Boolean, onClick: () -> Unit, modif
         WidgetKinds.LAMP -> R.string.panel_wiz_kind_lamp to R.string.panel_wiz_kind_lamp_desc
         WidgetKinds.STATUS_TEXT -> R.string.panel_wiz_kind_status to R.string.panel_wiz_kind_status_desc
         WidgetKinds.PROGRESS -> R.string.panel_wiz_kind_progress to R.string.panel_wiz_kind_progress_desc
+        WidgetKinds.GAUGE -> R.string.panel_wiz_kind_gauge to R.string.panel_wiz_kind_gauge_desc
         else -> R.string.panel_wiz_kind_number to R.string.panel_wiz_kind_number_desc
     }
     Column(
@@ -327,10 +329,30 @@ private fun KindIllustration(kind: String) {
         WidgetKinds.PROGRESS -> Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.surface3)) {
             Box(Modifier.fillMaxWidth(0.62f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.accent))
         }
+        WidgetKinds.GAUGE -> GaugeIllustration()
         else -> Row(verticalAlignment = Alignment.Bottom) {
             Text("23.4", color = colors.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, fontFamily = JetBrainsMono)
             Text(" ℃", color = colors.muted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
         }
+    }
+}
+
+/** 仪表示意图：半圆底轨 + 琥珀值弧 + 外侧分段（只是示意，不是数据）。 */
+@Composable
+private fun GaugeIllustration() {
+    val colors = LocalModbusColors.current
+    androidx.compose.foundation.Canvas(Modifier.size(width = 64.dp, height = 40.dp)) {
+        val stroke = 8.dp.toPx()
+        val r = size.width / 2f - stroke
+        val c = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height - stroke / 2f)
+        fun arc(color: androidx.compose.ui.graphics.Color, from: Float, to: Float, radius: Float, w: Float, round: Boolean) = drawArc(
+            color, 180f + 180f * from, 180f * (to - from), false,
+            topLeft = androidx.compose.ui.geometry.Offset(c.x - radius, c.y - radius),
+            size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = if (round) androidx.compose.ui.graphics.StrokeCap.Round else androidx.compose.ui.graphics.StrokeCap.Butt),
+        )
+        arc(colors.surface3, 0f, 1f, r, stroke, true)
+        arc(colors.txText, 0f, 0.62f, r, stroke, true)
     }
 }
 
@@ -352,7 +374,7 @@ private fun ConfigStep(
         SourceSection(wizard, result, onForm)
     }
     when (form.kind) {
-        WidgetKinds.NUMBER, WidgetKinds.PROGRESS -> {
+        WidgetKinds.NUMBER, WidgetKinds.PROGRESS, WidgetKinds.GAUGE -> {
             SectionTitle(stringResource(R.string.panel_wiz_sec_convert))
             ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
                 ConvertSection(wizard, result, snapshot, onForm)
