@@ -48,7 +48,23 @@ data class UiSettings(
      * 时钟样式先只保存。报文只有 monotonicNs，日志仍显示相对毫秒。
      */
     val timeStyle: TimeStyle = TimeStyle.ELAPSED,
-)
+    /** 日志里 CRC 两字节用暗色（稿面“日志中 CRC 用暗色”）。默认开，与稿面一致。 */
+    val logCrcDim: Boolean = true,
+    /** 写线圈的确认弹窗里多一条提示（稿面“线圈写入额外提示”）。默认开。 */
+    val coilExtraWarning: Boolean = true,
+    /** 通信默认值：只是连接页高级设置的初始值，连接页仍可逐次修改。 */
+    val defaultResponseTimeoutMs: Long = DEFAULT_RESPONSE_TIMEOUT_MS,
+    val defaultInterRequestMs: Long = DEFAULT_INTER_REQUEST_MS,
+    /** 广播写之后等多久再发下一条（对应 SerialSettings.turnaroundMs）。 */
+    val defaultBroadcastWaitMs: Long = DEFAULT_BROADCAST_WAIT_MS,
+    val defaultEcho: EchoMode = EchoMode.OFF,
+) {
+    companion object {
+        const val DEFAULT_RESPONSE_TIMEOUT_MS = 1_000L
+        const val DEFAULT_INTER_REQUEST_MS = 20L
+        const val DEFAULT_BROADCAST_WAIT_MS = 150L
+    }
+}
 
 internal object UiSettingKeys {
     const val THEME = "theme"
@@ -62,8 +78,14 @@ internal object UiSettingKeys {
     const val NUMBER = "number_format"
     const val HEX = "hex_prefix"
     const val TIME = "time_style"
+    const val LOG_CRC_DIM = "log_crc_dim"
+    const val COIL_WARNING = "coil_extra_warning"
+    const val DEF_TIMEOUT = "default_response_timeout_ms"
+    const val DEF_INTERVAL = "default_inter_request_ms"
+    const val DEF_BROADCAST = "default_broadcast_wait_ms"
+    const val DEF_ECHO = "default_echo"
 
-    val booleans = setOf(KEEP, CURVE, VIBRATION, HEX)
+    val booleans = setOf(KEEP, CURVE, VIBRATION, HEX, LOG_CRC_DIM, COIL_WARNING)
 }
 
 fun UiSettings.toPreferenceMap(): Map<String, String> = mapOf(
@@ -78,6 +100,12 @@ fun UiSettings.toPreferenceMap(): Map<String, String> = mapOf(
     UiSettingKeys.NUMBER to numberFormat.name,
     UiSettingKeys.HEX to hexPrefix.toString(),
     UiSettingKeys.TIME to timeStyle.name,
+    UiSettingKeys.LOG_CRC_DIM to logCrcDim.toString(),
+    UiSettingKeys.COIL_WARNING to coilExtraWarning.toString(),
+    UiSettingKeys.DEF_TIMEOUT to defaultResponseTimeoutMs.toString(),
+    UiSettingKeys.DEF_INTERVAL to defaultInterRequestMs.toString(),
+    UiSettingKeys.DEF_BROADCAST to defaultBroadcastWaitMs.toString(),
+    UiSettingKeys.DEF_ECHO to defaultEcho.name,
 )
 
 fun uiSettingsFrom(map: Map<String, String>): UiSettings = UiSettings(
@@ -92,6 +120,18 @@ fun uiSettingsFrom(map: Map<String, String>): UiSettings = UiSettings(
     numberFormat = map.enum(UiSettingKeys.NUMBER, NumberFormat.U16),
     hexPrefix = map.bool(UiSettingKeys.HEX, true),
     timeStyle = map.enum(UiSettingKeys.TIME, TimeStyle.ELAPSED),
+    logCrcDim = map.bool(UiSettingKeys.LOG_CRC_DIM, true),
+    coilExtraWarning = map.bool(UiSettingKeys.COIL_WARNING, true),
+    defaultResponseTimeoutMs = map.long(
+        UiSettingKeys.DEF_TIMEOUT, UiSettings.DEFAULT_RESPONSE_TIMEOUT_MS, 1L..120_000L,
+    ),
+    defaultInterRequestMs = map.long(
+        UiSettingKeys.DEF_INTERVAL, UiSettings.DEFAULT_INTER_REQUEST_MS, 1L..120_000L,
+    ),
+    defaultBroadcastWaitMs = map.long(
+        UiSettingKeys.DEF_BROADCAST, UiSettings.DEFAULT_BROADCAST_WAIT_MS, 0L..120_000L,
+    ),
+    defaultEcho = map.enum(UiSettingKeys.DEF_ECHO, EchoMode.OFF),
 )
 
 private inline fun <reified T : Enum<T>> Map<String, String>.enum(key: String, default: T): T {
@@ -101,3 +141,7 @@ private inline fun <reified T : Enum<T>> Map<String, String>.enum(key: String, d
 
 private fun Map<String, String>.bool(key: String, default: Boolean): Boolean =
     this[key]?.toBooleanStrictOrNull() ?: default
+
+/** 超出范围或不是整数就回默认值：连接页的校验是 1..120000 / ≥1，存进来的值不能比它更宽。 */
+private fun Map<String, String>.long(key: String, default: Long, range: LongRange): Long =
+    this[key]?.toLongOrNull()?.takeIf { it in range } ?: default

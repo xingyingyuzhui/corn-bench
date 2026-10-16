@@ -59,16 +59,19 @@ fun TrafficKind.label(): String = androidx.compose.ui.res.stringResource(
 @Composable
 fun SemanticBadge(kind: SemanticKind, text: String, modifier: Modifier = Modifier) {
     val colors = LocalModbusColors.current
-    val tone = when (kind) {
-        SemanticKind.TX -> colors.txText
-        SemanticKind.RX_LOCAL -> colors.rxLocal
-        SemanticKind.ERROR -> colors.error
-        SemanticKind.FOREIGN -> colors.foreign
-        SemanticKind.ECHO -> colors.echo
-        SemanticKind.AMBIGUOUS -> colors.ambiguous
-        SemanticKind.DROPPED -> colors.dropped
-    }
+    val tone = colors.tone(kind)
     Badge(text, tone, colors.wash(tone), modifier)
+}
+
+/** 语义色：badge 文字色、日志左侧色条同一套。 */
+fun io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusColors.tone(kind: SemanticKind): Color = when (kind) {
+    SemanticKind.TX -> txText
+    SemanticKind.RX_LOCAL -> rxLocal
+    SemanticKind.ERROR -> error
+    SemanticKind.FOREIGN -> foreign
+    SemanticKind.ECHO -> echo
+    SemanticKind.AMBIGUOUS -> ambiguous
+    SemanticKind.DROPPED -> dropped
 }
 
 enum class Quality { OK, STALE, TIMEOUT, UNKNOWN }

@@ -136,3 +136,28 @@ fun ChevronIcon(color: Color, expanded: Boolean, modifier: Modifier = Modifier, 
         drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
     }
 }
+
+@Composable
+fun PauseIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        drawRect(color, Offset(w * 0.24f, h * 0.18f), Size(w * 0.17f, h * 0.64f))
+        drawRect(color, Offset(w * 0.59f, h * 0.18f), Size(w * 0.17f, h * 0.64f))
+    }
+}
+
+@Composable
+fun PlayIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val path = Path().apply {
+            moveTo(w * 0.28f, h * 0.15f)
+            lineTo(w * 0.8f, h * 0.5f)
+            lineTo(w * 0.28f, h * 0.85f)
+            close()
+        }
+        drawPath(path, color)
+    }
+}
