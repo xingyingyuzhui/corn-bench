@@ -6,6 +6,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,13 +30,33 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -78,39 +104,93 @@ fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
     }
 }
 
+/** 分段控件的单项高度：稿面单行分段整体 42（项 36）、sm 档 37（项 31）。默认保持 48dp 触控高度，旧页面不变。 */
+val SegItemDesign = 36.dp
+val SegItemSmall = 31.dp
+
+/** 稿面 `.seg`：外层圆角 12、内边距 3、项间距 3；选中块圆角 = 外层圆角 − 内边距 = 9（同心）。 */
+val SegContainerRadius = 12.dp
+val SegPadding = 3.dp
+val SegGap = 3.dp
+val SegItemRadius = SegContainerRadius - SegPadding
+
+const val SegContainerTag = "seg-container"
+const val SegItemTag = "seg-item"
+
 @Composable
 fun <T> SegmentedControl(
     options: List<T>,
     selected: T,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
+    itemHeight: Dp = MinTouch,
     label: @Composable (T) -> Unit,
 ) {
     val colors = LocalModbusColors.current
-    Row(
-        modifier
-            .fillMaxWidth()
-            .background(colors.surface2, RoundedCornerShape(12.dp))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        options.forEach { option ->
-            val on = option == selected
-            val shape = RoundedCornerShape(9.dp)
-            Box(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = MinTouch)
-                    .clip(shape)
-                    .background(if (on) if (colors.isDark) colors.surface3 else colors.surface1 else androidx.compose.ui.graphics.Color.Transparent)
-                    .then(if (on) Modifier.border(1.dp, colors.line, shape) else Modifier)
-                    .clickable { onSelect(option) }
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                label(option)
+    // 外层 Box 只负责 48dp 的触控占位（居中）；可见的底板就是内层 Row 本身：底板 = 项高 + 上下内边距，
+    // 底板高度由项真实高度决定（双行文字的项会让底板跟着变高），不再单独按“稿面高度”另画，
+    // 所以选中块与底板之间永远是均匀的 3dp，圆角同心。
+    Box(modifier.fillMaxWidth().minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier
+                .testTag(SegContainerTag)
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .background(colors.surface2, RoundedCornerShape(SegContainerRadius))
+                .padding(SegPadding),
+            horizontalArrangement = Arrangement.spacedBy(SegGap),
+        ) {
+            options.forEach { option ->
+                val on = option == selected
+                val shape = RoundedCornerShape(SegItemRadius)
+                // 稿面选中块：深色 s3 + 内描边 #3A4658；浅色 s1 + 1px line 环
+                val ring = if (colors.isDark) androidx.compose.ui.graphics.Color(0xFF3A4658) else colors.line
+                Box(
+                    Modifier
+                        .testTag(SegItemTag)
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .heightIn(min = itemHeight)
+                        .clip(shape)
+                        .background(if (on) if (colors.isDark) colors.surface3 else colors.surface1 else androidx.compose.ui.graphics.Color.Transparent)
+                        .then(if (on) Modifier.border(1.dp, ring, shape) else Modifier)
+                        .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(option) })
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    label(option)
+                }
             }
         }
+    }
+}
+
+/** 稿面尺寸的文字分段：项 14px（sm 12.5px），选中 600 + 主文字色，未选 muted。 */
+@Composable
+fun <T> SegmentedTextControl(
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    small: Boolean = false,
+    text: @Composable (T) -> String,
+) {
+    val colors = LocalModbusColors.current
+    SegmentedControl(
+        options,
+        selected,
+        onSelect,
+        modifier,
+        itemHeight = if (small) SegItemSmall else SegItemDesign,
+    ) { option ->
+        val on = option == selected
+        Text(
+            text(option),
+            color = if (on) colors.text else colors.muted,
+            fontSize = if (small) 12.5.sp else 14.sp,
+            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+        )
     }
 }
 
@@ -123,6 +203,7 @@ fun <T> ChipRow(
     onToggle: (T) -> Unit,
     modifier: Modifier = Modifier,
     scroll: Boolean = false,
+    xs: Boolean = false,
 ) {
     if (scroll) {
         Row(
@@ -130,7 +211,7 @@ fun <T> ChipRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option)) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
             }
         }
     } else {
@@ -140,27 +221,29 @@ fun <T> ChipRow(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option)) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
             }
         }
     }
 }
 
+/** [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。视觉保持稿面尺寸，触控区域用 minimumInteractiveComponentSize 补到 48dp。 */
 @Composable
-fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
+fun SelectChip(text: String, selected: Boolean, xs: Boolean = false, onClick: () -> Unit) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(ChipRadius)
     Box(
         Modifier
-            .heightIn(min = MinTouch)
+            .minimumInteractiveComponentSize()
+            .heightIn(min = if (xs) 25.dp else MinTouch)
             .clip(shape)
             .background(if (selected) colors.wash(colors.accent) else colors.surface1)
             .border(1.dp, if (selected) colors.accent else colors.line, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = if (xs) 8.dp else 12.dp, vertical = if (xs) 3.dp else 0.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = if (selected) colors.accentText else colors.muted, fontSize = 13.sp)
+        Text(text, color = if (selected) colors.accentText else colors.muted, fontSize = if (xs) 12.sp else 13.sp)
     }
 }
 
@@ -194,37 +277,119 @@ fun FieldTile(
     }
 }
 
+/**
+ * 输入格。[sub] 是右侧小字（例如 40001 参考号）；获得焦点时画 1.5dp 强调色描边（稿面 .f.on）。
+ *
+ * - 整个格子都能点（不只是文字那一行）：点格子任何位置都聚焦输入框。
+ * - 聚焦时全选，键入的新数字直接替换旧值（123 不会变成 0123）。
+ * - 值正好是“0”时再键入数字，丢掉前导 0（外部改值、软键盘把光标放在 0 后面的情况）。
+ */
 @Composable
 fun NumberInput(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
     error: String? = null,
+    sub: String? = null,
+    minHeight: Dp = 50.dp,
+    keyboardType: KeyboardType = KeyboardType.Number,
     onValue: (String) -> Unit,
 ) {
     val colors = LocalModbusColors.current
+    var focused by remember { mutableStateOf(false) }
+    var field by remember { mutableStateOf(TextFieldValue(value)) }
+    if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
+    val requester = remember { FocusRequester() }
+    val shape = RoundedCornerShape(FieldRadius)
+    LaunchedEffect(focused) {
+        if (focused) {
+            // 点击落点会在聚焦之后才把光标放下，等下一帧再全选，才不会被覆盖。
+            withFrameNanos { }
+            field = field.copy(selection = TextRange(0, field.text.length))
+        }
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 50.dp)
-                .background(colors.surface2, RoundedCornerShape(FieldRadius))
+                .heightIn(min = minHeight)
+                .clip(shape)
+                .background(colors.surface2, shape)
+                .then(if (focused) Modifier.border(1.5.dp, colors.accent, shape) else Modifier)
+                .pointerInput(Unit) { detectTapGestures { requester.requestFocus() } }
                 .padding(horizontal = 10.dp, vertical = 7.dp),
         ) {
-            Text(label, color = colors.muted, fontSize = 11.sp)
-            BasicTextField(
-                value = value,
-                onValueChange = onValue,
-                textStyle = Mono.copy(color = colors.text, fontSize = 17.sp),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                cursorBrush = SolidColor(colors.accent),
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-            )
+            Text(label, color = colors.muted, fontSize = 11.sp, maxLines = 1)
+            Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.Bottom) {
+                BasicTextField(
+                    value = field,
+                    onValueChange = { next ->
+                        val text = dropLeadingZero(field.text, next.text)
+                        field = if (text == next.text) next else TextFieldValue(text, TextRange(text.length))
+                        if (text != value) onValue(text)
+                    },
+                    textStyle = Mono.copy(color = colors.text, fontSize = 17.sp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                    cursorBrush = SolidColor(colors.accent),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(requester)
+                        .semantics { contentDescription = label }
+                        .onFocusChanged { focused = it.isFocused },
+                )
+                if (sub != null) {
+                    Text(sub, color = colors.dim, fontSize = 11.sp, fontFamily = JetBrainsMono, maxLines = 1)
+                }
+            }
         }
         if (error != null) {
             Text(error, color = colors.error, fontSize = 12.sp)
         }
+    }
+}
+
+/** 旧值正好是“0”、新值是“0”后面又跟了数字（“01”“07B”）时，去掉那个前导 0。其它情况原样返回。 */
+internal fun dropLeadingZero(previous: String, next: String): String =
+    if (previous == "0" && next.length > 1 && next[0] == '0' && next[1] != 'x' && next[1] != 'X' &&
+        next.all { it.isLetterOrDigit() }
+    ) {
+        val rest = next.drop(1)
+        if (rest.all { it == '0' }) "0" else rest
+    } else {
+        next
+    }
+
+/** 与输入格同形的可点击格（稿面“格式 十进制”、线圈值格）。 */
+@Composable
+fun ChoiceTile(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    minHeight: Dp = 50.dp,
+    mono: Boolean = false,
+    valueColor: androidx.compose.ui.graphics.Color = LocalModbusColors.current.text,
+) {
+    val colors = LocalModbusColors.current
+    Column(
+        modifier
+            .heightIn(min = minHeight)
+            .clip(RoundedCornerShape(FieldRadius))
+            .background(colors.surface2)
+            .semantics { role = androidx.compose.ui.semantics.Role.Button }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        Text(label, color = colors.muted, fontSize = 11.sp, maxLines = 1)
+        Text(
+            value,
+            color = valueColor,
+            fontSize = if (mono) 17.sp else 15.sp,
+            fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }
 

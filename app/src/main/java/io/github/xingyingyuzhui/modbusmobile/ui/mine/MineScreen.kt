@@ -189,6 +189,7 @@ private fun addressName(style: AddressStyle): String = stringResource(
     when (style) {
         AddressStyle.ZERO_BASED -> R.string.address_zero
         AddressStyle.MODICON -> R.string.address_modicon
+        AddressStyle.BOTH -> R.string.address_both
     },
 )
 

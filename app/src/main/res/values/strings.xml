@@ -77,7 +77,6 @@
     <string name="session_open_connection">回到连接页</string>
 
     <string name="workbench_need_session">先在连接页进入主站或从站。</string>
-    <string name="workbench_master">主站 · 单次读写</string>
     <string name="workbench_slave">从站 · Unit 1</string>
     <string name="workbench_no_result">还没有结果。</string>
     <string name="area_coil">线圈</string>
@@ -87,8 +86,6 @@
     <string name="field_unit">Unit</string>
     <string name="field_address">地址</string>
     <string name="field_quantity">数量</string>
-    <string name="field_write_value">写入值</string>
-    <string name="write_single_holding">写单个保持寄存器</string>
     <string name="slave_holding">保持寄存器</string>
     <string name="slave_coils">线圈</string>
     <string name="coil_state">线圈 %1$d · %2$s</string>
@@ -100,7 +97,6 @@
     <string name="result_timeout">超时</string>
     <string name="result_unknown">结果未知，写入可能已经生效</string>
     <string name="result_disconnected">连接已断开</string>
-    <string name="result_wrote">HR %1$d = %2$d</string>
     <string name="result_bit">%1$d: %2$s</string>
     <string name="ex_01">异常 01 非法功能</string>
     <string name="ex_02">异常 02 非法地址</string>
@@ -158,8 +154,9 @@
     <string name="density_comfortable">舒适</string>
     <string name="density_compact">紧凑</string>
     <string name="setting_address">地址显示</string>
-    <string name="address_zero">从 0 开始</string>
-    <string name="address_modicon">Modicon</string>
+    <string name="address_zero">0 基</string>
+    <string name="address_modicon">参考号</string>
+    <string name="address_both">两者</string>
     <string name="setting_number">默认数值格式</string>
     <string name="setting_hex">十六进制加 0x</string>
     <string name="setting_time">时间显示</string>
@@ -179,8 +176,76 @@
     <string name="quality_timeout">超时</string>
     <string name="quality_unknown">结果未知</string>
 
-    <string name="confirm_title">确认写入</string>
-    <string name="confirm_body">写入前会在这里核对当前值和新值。</string>
+
+    <!-- 主站工作台：读取 / 写入 -->
+    <string name="area_short_coil">线圈</string>
+    <string name="area_short_discrete">离散</string>
+    <string name="area_short_holding">保持</string>
+    <string name="area_short_input">输入</string>
+    <string name="field_start_address">起始地址</string>
+    <string name="field_format">格式</string>
+    <string name="format_dec">十进制</string>
+    <string name="format_hex">十六进制</string>
+    <string name="action_read_fc">读取 · %1$s</string>
+    <string name="poll_idle">每 %1$s s</string>
+    <string name="poll_running">停止 · %1$s s</string>
+    <string name="result_ok">成功</string>
+    <string name="result_stats">%1$d ms · %2$d 个</string>
+    <string name="result_stats_failed">%1$d ms</string>
+    <string name="badge_exception">异常 %1$02X</string>
+    <string name="badge_timeout">超时</string>
+    <string name="badge_unknown">未知</string>
+    <string name="badge_disconnected">已断开</string>
+    <string name="badge_invalid">无效</string>
+    <string name="badge_empty">空</string>
+    <string name="table_hex">HEX</string>
+    <string name="table_value_format">值 %1$s</string>
+    <string name="cd_cycle_format">切换数值格式</string>
+    <string name="menu_more">更多</string>
+    <string name="menu_poll_interval">轮询周期 · %1$s s</string>
+    <string name="menu_clear_result">清空结果</string>
+    <string name="menu_clear_recent">清空最近写入</string>
+    <string name="write_values_single">值（1 个 → 用 %1$s）</string>
+    <string name="write_values_auto">值（%1$d 个 → 自动用 %2$s）</string>
+    <string name="write_values_forced">值（%1$d 个 → 强制用 %2$s）</string>
+    <string name="write_add">＋ 添加</string>
+    <string name="write_remove">－ 删除</string>
+    <string name="write_preview">预览并写入 · %1$s</string>
+    <string name="write_force">强制%1$s</string>
+    <string name="recent_title">最近写入</string>
+    <string name="recent_clear">清空</string>
+    <string name="recent_empty">还没有写入记录。</string>
+    <string name="error_write_value">第 %1$d 个值无效：十进制 −32768..65535，十六进制 0..FFFF</string>
+    <string name="error_write_empty">至少要有一个值</string>
+    <string name="error_write_area">只能写线圈和保持寄存器</string>
+
+    <!-- 写入确认 -->
+    <string name="confirm_title_coil">写单个线圈</string>
+    <string name="confirm_title_coils">写多个线圈</string>
+    <string name="confirm_title_register">写单个寄存器</string>
+    <string name="confirm_title_registers">写多个寄存器</string>
+    <string name="confirm_badge">Unit %1$d · 地址 %2$d · %3$s</string>
+    <string name="confirm_current">当前</string>
+    <string name="confirm_label_read">读取值</string>
+    <string name="confirm_label_last_write">上次写入</string>
+    <string name="confirm_same_read">新值与读取值相同，写入不会改变数据。</string>
+    <string name="confirm_same_write">新值与上次写入的值相同。</string>
+    <string name="confirm_new">新值</string>
+    <string name="confirm_current_unknown">未读取</string>
+    <string name="confirm_frame_caption">将发送 %1$d 字节 · %2$s</string>
+    <string name="action_confirm_broadcast">发送广播</string>
+    <string name="confirm_badge_broadcast">广播 · 所有从站</string>
+    <string name="confirm_address">地址</string>
+    <string name="confirm_current_age_read">来自 %1$d 秒前的读取</string>
+    <string name="confirm_current_age_write">来自 %1$d 秒前的写入</string>
+    <string name="confirm_warning_broadcast">所有从站都会执行，且不会有回应，结果只能标为已发送</string>
+    <string name="confirm_warning_broadcast_coil">所有从站都会执行，且不会有回应，结果只能标为已发送。线圈可能直接驱动执行器，确认现场允许后再发送。</string>
+    <string name="badge_sent">已发送</string>
+    <string name="recent_broadcast">广播</string>
+    <string name="confirm_warning">写入超时不会自动重试，结果标记为「未知」。</string>
+    <string name="confirm_warning_coil">写入超时不会自动重试，结果标记为「未知」。线圈可能直接驱动执行器，确认现场允许后再发送。</string>
+    <string name="confirm_multi_head">起始地址 %1$d · 共 %2$d 个</string>
+    <string name="confirm_multi_more">… 共 %1$d 个</string>
 
     <string name="table_address">地址</string>
     <string name="table_value">值</string>

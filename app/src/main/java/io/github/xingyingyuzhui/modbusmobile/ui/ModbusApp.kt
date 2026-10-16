@@ -43,6 +43,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.panel.PanelScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.CurveRoute
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.Destination
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.DockInsets
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockBottomGap
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.FloatingDock
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.FloatingRail
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
@@ -61,6 +62,9 @@ val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
     error("SettingsRepository 还没有提供")
 }
 
+/** Activity 级的 ViewModelStoreOwner。工作台的表单、结果和轮询意图不随页面切换（含系统返回键）清空。 */
+val LocalAppViewModelStoreOwner = staticCompositionLocalOf<androidx.lifecycle.ViewModelStoreOwner?> { null }
+
 val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
     error("连接页回调还没有提供")
 }
@@ -69,6 +73,7 @@ val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
 @Composable
 fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val nav = rememberNavController()
+    val appStoreOwner = androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current
     val settings = LocalUiSettings.current
     val adaptive = currentWindowAdaptiveInfo()
     val portrait = adaptive.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.COMPACT &&
@@ -94,7 +99,8 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val bars = WindowInsets.navigationBars.asPaddingValues()
     val navBottom = bars.calculateBottomPadding()
     val navStart = bars.calculateStartPadding(LocalLayoutDirection.current)
-    val dockBottom = if (showDock) 14.dp + 64.dp + navBottom else 0.dp
+    val dockGap = dockBottomGap(navBottom)
+    val dockBottom = if (showDock) dockGap + 64.dp + navBottom else 0.dp
     val dockStart = if (showRail) 12.dp + 62.dp + 12.dp + navStart else 0.dp
     val openConnection: () -> Unit = {
         selectTab(nav, Destination.Connection)
@@ -109,6 +115,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
             LocalDockInsets provides DockInsets(start = dockStart, bottom = dockBottom),
             LocalShellMode provides if (portrait) ShellMode.PORTRAIT else ShellMode.LANDSCAPE,
             LocalOpenConnection provides openConnection,
+            LocalAppViewModelStoreOwner provides appStoreOwner,
         ) {
             NavHost(
                 navController = nav,
@@ -130,7 +137,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                    .padding(start = 14.dp, end = 14.dp, bottom = dockGap),
             )
         }
         if (showRail) {
