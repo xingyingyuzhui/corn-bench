@@ -37,6 +37,8 @@ class PollScheduler(
     private val nowMs: () -> Long,
     private val maxGap: Int = 0,
     private val wallMs: () -> Long = System::currentTimeMillis,
+    /** 曲线用的样本历史（只记被 track 登记过的点位）；为空 = 不记录。 */
+    private val history: SampleHistory? = null,
 ) {
     private val points = MutableStateFlow<List<PointDefinition>>(emptyList())
     private val active = MutableStateFlow(false)
@@ -150,7 +152,20 @@ class PollScheduler(
             }
         }
         store.apply(updates)
+        recordHistory(updates)
         return backoff
+    }
+
+    private fun recordHistory(updates: Map<String, PointSnapshot>) {
+        val h = history ?: return
+        val wall = wallMs()
+        for ((id, snap) in updates) {
+            when {
+                snap.quality == Quality.OK && snap.engineering != null -> h.record(id, snap.updatedWallMs ?: wall, snap.engineering)
+                snap.quality == Quality.OK || snap.quality == Quality.NO_DATA -> Unit
+                else -> h.recordFailure(id, wall)
+            }
+        }
     }
 
     private fun snapshotFor(m: ReadGroup.Member, response: ModbusResponse, now: Long): PointSnapshot {

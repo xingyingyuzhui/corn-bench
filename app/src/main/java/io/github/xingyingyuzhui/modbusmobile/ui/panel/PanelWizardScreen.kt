@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.panel.ByteWordOrder
+import io.github.xingyingyuzhui.modbusmobile.application.panel.CurveForm
+import io.github.xingyingyuzhui.modbusmobile.application.panel.SampleHistory
 import io.github.xingyingyuzhui.modbusmobile.application.panel.DataType
 import io.github.xingyingyuzhui.modbusmobile.application.panel.FormError
 import io.github.xingyingyuzhui.modbusmobile.application.panel.FormField
@@ -91,9 +93,14 @@ data class WizardActions(
     val onNext: () -> Unit = {},
     val onBack: () -> Unit = {},
     val onExit: () -> Unit = {},
+    val onCurve: (CurveForm) -> Unit = {},
+    val onAddSeries: () -> Unit = {},
+    val onOpenSeries: (Int) -> Unit = {},
+    val onOpenSeriesPoint: () -> Unit = {},
+    val onDeleteSeries: (Int) -> Unit = {},
 )
 
-private val Kinds = listOf(WidgetKinds.NUMBER, WidgetKinds.LAMP, WidgetKinds.STATUS_TEXT, WidgetKinds.PROGRESS)
+private val Kinds = listOf(WidgetKinds.NUMBER, WidgetKinds.CURVE, WidgetKinds.LAMP, WidgetKinds.STATUS_TEXT, WidgetKinds.PROGRESS)
 private val AllTypes = listOf(
     DataType.BOOL, DataType.BIT, DataType.U16, DataType.S16, DataType.U32, DataType.S32, DataType.F32,
     DataType.U64, DataType.S64, DataType.F64, DataType.BCD16, DataType.BCD32, DataType.ASCII,
@@ -113,25 +120,30 @@ fun PanelWizard(
     previewSnapshot: PointSnapshot?,
     live: Boolean,
     actions: WizardActions,
+    /** 曲线向导的预览样本历史 / 每个系列点位的预览读数（key = 点位 id）。 */
+    previewHistory: SampleHistory? = null,
+    seriesSnapshots: Map<String, PointSnapshot> = emptyMap(),
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
     val result = remember(wizard.form, wizard.widgetId, wizard.pointId) { wizard.result() }
     var confirmDiscard by remember { mutableStateOf(false) }
     val firstStep = if (wizard.editingWidgetId != null) 2 else 1
-    val needsConfirm = wizard.editingWidgetId != null && wizard.form != wizard.original
+    val needsConfirm = wizard.changed
+    val curveResult = remember(wizard.curve, wizard.widgetId) { if (wizard.curve != null) wizard.curveResult() else null }
     val goBack: () -> Unit = {
         when {
-            wizard.step > firstStep -> actions.onBack()
+            wizard.pointPage || wizard.sheet != null || wizard.step > firstStep -> actions.onBack()
             needsConfirm -> confirmDiscard = true
             else -> actions.onExit()
         }
     }
     BackHandler(onBack = goBack)
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         SubPageHeader(
-            title = stringResource(titleRes(wizard)),
+            title = stringResource(if (wizard.pointPage) R.string.panel_wiz_series_point_title else titleRes(wizard)),
             onBack = goBack,
             modifier = Modifier.padding(start = pageStart() - 8.dp, end = spacing.page),
             trailing = {
@@ -149,13 +161,35 @@ fun PanelWizard(
                 .padding(start = pageStart(), end = spacing.page, top = 4.dp, bottom = spacing.gapS),
             verticalArrangement = Arrangement.spacedBy(spacing.gapS),
         ) {
-            when (wizard.step) {
-                1 -> KindPicker(wizard.form.kind.takeIf { wizard.editingWidgetId != null }, actions.onKind)
-                2 -> ConfigStep(wizard, result, previewSnapshot, live, actions.onForm)
+            val curve = wizard.curve
+            val sheetSeries = wizard.sheet?.let { curve?.series?.getOrNull(it) }
+            when {
+                wizard.pointPage && sheetSeries != null && curve != null -> SeriesPointPage(
+                    wizard, sheetSeries, seriesSnapshots[sheetSeries.pointId], live,
+                ) { transform -> actions.onCurve(curve.updateSeries(wizard.sheet!!, transform)) }
+                wizard.step == 1 -> KindPicker(
+                    (if (wizard.curve != null) WidgetKinds.CURVE else wizard.form.kind).takeIf { wizard.editingWidgetId != null }, actions.onKind,
+                )
+                curve != null && curveResult != null -> if (wizard.step == 2) {
+                    CurveConfigStep(wizard, curveResult, previewHistory, live, actions.onCurve, actions.onAddSeries, actions.onOpenSeries)
+                } else {
+                    CurveLookStep(wizard, curveResult, previewHistory, live, actions.onCurve)
+                }
+                wizard.step == 2 -> ConfigStep(wizard, result, previewSnapshot, live, actions.onForm)
                 else -> LookStep(wizard, result, previewSnapshot, live, actions.onForm)
             }
         }
-        if (wizard.step >= 2) {
+        if (wizard.pointPage) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(colors.bg)
+                    .navigationBarsPadding()
+                    .padding(start = pageStart(), end = spacing.page, top = 10.dp, bottom = 14.dp),
+            ) {
+                PrimaryButton(stringResource(R.string.panel_edit_done), goBack, Modifier.fillMaxWidth().testTag("wiz-point-done"))
+            }
+        } else if (wizard.step >= 2) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -181,6 +215,19 @@ fun PanelWizard(
             }
         }
     }
+    val sheetCurve = wizard.curve
+    val sheetIndex = wizard.sheet
+    val sheetSeries = sheetIndex?.let { sheetCurve?.series?.getOrNull(it) }
+    if (sheetCurve != null && sheetIndex != null && sheetSeries != null && !wizard.pointPage) {
+        SeriesSheet(
+            sheetIndex, sheetSeries,
+            onChange = { transform -> actions.onCurve(sheetCurve.updateSeries(sheetIndex, transform)) },
+            onOpenPoint = actions.onOpenSeriesPoint,
+            onDelete = { actions.onDeleteSeries(sheetIndex) },
+            onClose = goBack,
+        )
+    }
+    }
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
@@ -205,6 +252,8 @@ fun PanelWizard(
 
 private fun titleRes(wizard: WizardState): Int = if (wizard.step == 1) {
     R.string.panel_wiz_title_pick
+} else if (wizard.curve != null) {
+    R.string.panel_wiz_title_curve
 } else {
     when (wizard.form.kind) {
         WidgetKinds.LAMP -> R.string.panel_wiz_title_lamp
@@ -236,6 +285,7 @@ private fun KindCard(kind: String, selected: Boolean, onClick: () -> Unit, modif
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
     val (title, desc) = when (kind) {
+        WidgetKinds.CURVE -> R.string.panel_wiz_kind_curve to R.string.panel_wiz_kind_curve_desc
         WidgetKinds.LAMP -> R.string.panel_wiz_kind_lamp to R.string.panel_wiz_kind_lamp_desc
         WidgetKinds.STATUS_TEXT -> R.string.panel_wiz_kind_status to R.string.panel_wiz_kind_status_desc
         WidgetKinds.PROGRESS -> R.string.panel_wiz_kind_progress to R.string.panel_wiz_kind_progress_desc
@@ -267,6 +317,7 @@ private fun KindCard(kind: String, selected: Boolean, onClick: () -> Unit, modif
 private fun KindIllustration(kind: String) {
     val colors = LocalModbusColors.current
     when (kind) {
+        WidgetKinds.CURVE -> CurveIllustration()
         WidgetKinds.LAMP -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.size(14.dp).clip(CircleShape).background(colors.rxLocal))
             Box(Modifier.size(14.dp).clip(CircleShape).background(colors.surface3))
@@ -344,7 +395,7 @@ private fun ConfigStep(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     val colors = LocalModbusColors.current
     Text(
         text, color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp,
@@ -353,7 +404,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun fieldError(wizard: WizardState, result: FormResult, field: FormField): String? {
+internal fun fieldError(wizard: WizardState, result: FormResult, field: FormField): String? {
     val err = result.errors[field] ?: return null
     if (err == FormError.REQUIRED && !wizard.showErrors) return null
     return stringResource(
@@ -375,13 +426,14 @@ private fun fieldError(wizard: WizardState, result: FormResult, field: FormField
             FormError.DUPLICATE -> R.string.panel_wiz_err_duplicate
             FormError.SPAN_OVERFLOW -> R.string.panel_wiz_err_overflow
             FormError.TOO_MANY -> R.string.panel_wiz_err_too_many
+            FormError.EXCEEDS_RETENTION -> R.string.panel_wiz_curve_err_exceeds
         },
     )
 }
 
 /** 实时预览卡：用和面板一样的卡片画（强调色描边）；表单还不完整时画只有名称和“—”的占位。 */
 @Composable
-private fun PreviewCard(wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, live: Boolean, modifier: Modifier = Modifier) {
+internal fun PreviewCard(wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, live: Boolean, modifier: Modifier = Modifier) {
     val colors = LocalModbusColors.current
     val widget = result.widget
     Column(modifier.fillMaxWidth().testTag("wiz-preview"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -411,7 +463,7 @@ private fun PreviewCard(wizard: WizardState, result: FormResult, snapshot: Point
 // ---- 数据源 ----
 
 @Composable
-private fun SourceSection(wizard: WizardState, result: FormResult, onForm: (WidgetForm) -> Unit) {
+internal fun SourceSection(wizard: WizardState, result: FormResult, onForm: (WidgetForm) -> Unit) {
     val colors = LocalModbusColors.current
     val form = wizard.form
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -503,7 +555,7 @@ private fun FlowRowChips(content: @Composable () -> Unit) {
 // ---- 换算与显示（数值 / 进度条）----
 
 @Composable
-private fun ConvertSection(wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, onForm: (WidgetForm) -> Unit) {
+internal fun ConvertSection(wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, onForm: (WidgetForm) -> Unit, compact: Boolean = false) {
     val colors = LocalModbusColors.current
     val form = wizard.form
     val text = form.type == DataType.ASCII
@@ -526,8 +578,8 @@ private fun ConvertSection(wizard: WizardState, result: FormResult, snapshot: Po
             Formula(form, snapshot)
             UnitChips(form, onForm)
         }
-        NameField(wizard, result, onForm)
-        if (form.usesRange && !text) {
+        if (!compact) NameField(wizard, result, onForm)
+        if (form.usesRange && !text && !compact) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NumberInput(
                     stringResource(R.string.panel_wiz_range_min), form.rangeMin, Modifier.weight(1f).testTag("wiz-range-min"),
@@ -539,7 +591,7 @@ private fun ConvertSection(wizard: WizardState, result: FormResult, snapshot: Po
                 ) { onForm(form.copy(rangeMax = it)) }
             }
         }
-        if (!text) ThresholdList(wizard, result, onForm)
+        if (!text && !compact) ThresholdList(wizard, result, onForm)
     }
 }
 
@@ -862,7 +914,14 @@ fun PanelWizardScreen(parent: androidx.lifecycle.ViewModelStoreOwner, onClose: (
         wizard = w,
         previewSnapshot = previews[PREVIEW_POINT_ID],
         live = master && model.hasPreview,
+        previewHistory = model.previewHistory,
+        seriesSnapshots = previews,
         actions = WizardActions(
+            onCurve = model::wizardCurve,
+            onAddSeries = model::wizardAddSeries,
+            onOpenSeries = model::wizardOpenSeries,
+            onOpenSeriesPoint = model::wizardOpenSeriesPoint,
+            onDeleteSeries = model::wizardDeleteSeries,
             onKind = model::wizardSelectKind,
             onForm = model::wizardForm,
             onNext = model::wizardNext,

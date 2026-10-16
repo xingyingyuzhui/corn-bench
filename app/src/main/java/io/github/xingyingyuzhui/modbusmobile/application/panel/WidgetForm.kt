@@ -11,6 +11,8 @@ enum class FormField { NAME, UNIT, ADDRESS, BIT, ASCII, SCALE, OFFSET, DECIMALS,
 
 enum class FormError {
     REQUIRED, NOT_A_NUMBER, NOT_INTEGER, OUT_OF_RANGE, ZERO_SCALE, RANGE_ORDER, DUPLICATE, SPAN_OVERFLOW, TOO_MANY,
+    /** 曲线：时间窗口比内存保留还长。 */
+    EXCEEDS_RETENTION,
 }
 
 /** 阈值方向：≥ = 区间 [值, ∞)；< = 区间 (−∞, 值)。 */

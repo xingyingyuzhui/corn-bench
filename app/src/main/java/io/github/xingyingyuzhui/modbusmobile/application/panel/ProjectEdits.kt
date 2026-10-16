@@ -42,7 +42,7 @@ object ProjectEdits {
         project.mapPanel(panelId) { panel ->
             panel.copy(
                 widgets = panel.widgets.map {
-                    if (it.id == widgetId && it.raw == null) it.copy(spanColumns = columns.coerceIn(1, 2), spanRows = rows.coerceIn(1, 2)) else it
+                    if (it.id == widgetId && it.raw == null) it.copy(spanColumns = columns.coerceIn(it.minColumns, 2), spanRows = rows.coerceIn(1, 2)) else it
                 },
             )
         }
@@ -72,7 +72,7 @@ object ProjectEdits {
     /** 全工程里没被占用的组件 id / 点位 id（成对生成：w-xxxxxxxx / p-xxxxxxxx）。 */
     fun newIds(project: Project, random: () -> String = { UUID.randomUUID().toString().take(8) }): Pair<String, String> {
         val usedWidgets = project.panels.flatMap { p -> p.widgets.map { it.id } }.toSet()
-        val usedPoints = project.panels.flatMap { p -> p.widgets.mapNotNull { it.point?.id } }.toSet()
+        val usedPoints = project.panels.flatMap { p -> p.widgets.flatMap { w -> w.points.map { it.id } } }.toSet()
         while (true) {
             val suffix = random()
             val widgetId = "w-$suffix"
@@ -81,13 +81,22 @@ object ProjectEdits {
         }
     }
 
+    /** 全工程（含 [extraUsed]）里没被占用的点位 id（曲线加系列时用）。 */
+    fun newPointId(project: Project, extraUsed: Set<String> = emptySet(), random: () -> String = { UUID.randomUUID().toString().take(8) }): String {
+        val used = project.panels.flatMap { p -> p.widgets.flatMap { w -> w.points.map { it.id } } }.toSet() + extraUsed
+        while (true) {
+            val id = "p-${random()}"
+            if (id !in used) return id
+        }
+    }
+
     /** 至少留一个面板：只剩一个时拒绝（原样返回）。 */
     fun deletePanel(project: Project, panelId: String): Project =
         if (project.panels.size <= 1 || project.panels.none { it.id == panelId }) project else project.copy(panels = project.panels.filterNot { it.id == panelId })
 
     /** 点一下右下角把手：1×1 → 2×1 → 2×2 → 1×2 → 1×1；只有 1 列（不可能）或列数不够 2 时跳过跨列的项。 */
-    fun nextSize(columns: Int, rows: Int, panelColumns: Int): Pair<Int, Int> {
-        val cycle = listOf(1 to 1, 2 to 1, 2 to 2, 1 to 2).filter { it.first <= panelColumns }
+    fun nextSize(columns: Int, rows: Int, panelColumns: Int, minColumns: Int = 1): Pair<Int, Int> {
+        val cycle = listOf(1 to 1, 2 to 1, 2 to 2, 1 to 2).filter { it.first <= panelColumns && it.first >= minColumns }
         val index = cycle.indexOf(columns to rows)
         return cycle[(if (index < 0) 0 else index + 1) % cycle.size]
     }
@@ -105,8 +114,9 @@ object ProjectEdits {
         rowHeight: Float,
         gap: Float,
         panelColumns: Int,
+        minColumns: Int = 1,
     ): Pair<Int, Int> {
-        val cols = (((width + dx + gap) / (cellWidth + gap)).roundToInt()).coerceIn(1, minOf(2, panelColumns))
+        val cols = (((width + dx + gap) / (cellWidth + gap)).roundToInt()).coerceIn(minColumns, minOf(2, panelColumns))
         val rows = (((height + dy + gap) / (rowHeight + gap)).roundToInt()).coerceIn(1, 2)
         return cols to rows
     }

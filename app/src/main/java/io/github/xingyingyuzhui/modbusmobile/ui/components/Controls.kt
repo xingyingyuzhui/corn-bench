@@ -45,6 +45,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -258,6 +259,8 @@ fun SelectChip(
     xs: Boolean = false,
     design: Boolean = true,
     description: String? = null,
+    /** 窄文字的芯片也要有可点的宽度（触控 ≥48dp）。 */
+    minWidth: Dp = 0.dp,
     onClick: () -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -267,6 +270,7 @@ fun SelectChip(
     Box(
         Modifier
             .minimumTouchHeight()
+            .widthIn(min = minWidth)
             .heightIn(min = minHeight)
             .clip(shape)
             .background(if (selected) colors.wash(colors.accent) else colors.surface1)
