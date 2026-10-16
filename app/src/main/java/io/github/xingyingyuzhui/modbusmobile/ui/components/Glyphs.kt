@@ -114,3 +114,25 @@ fun WarnIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) {
         drawCircle(color, stroke * 0.7f, Offset(w * 0.5f, h * 0.76f))
     }
 }
+
+/** 折叠行尾的 › / ⌄。文字符号 ⌄ 在不少系统字体里缺字，所以用 Canvas 画。 */
+@Composable
+fun ChevronIcon(color: Color, expanded: Boolean, modifier: Modifier = Modifier, size: Dp = 14.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = this.size.minDimension * 0.13f
+        val path = Path().apply {
+            if (expanded) {
+                moveTo(w * 0.22f, h * 0.38f)
+                lineTo(w * 0.5f, h * 0.66f)
+                lineTo(w * 0.78f, h * 0.38f)
+            } else {
+                moveTo(w * 0.38f, h * 0.22f)
+                lineTo(w * 0.66f, h * 0.5f)
+                lineTo(w * 0.38f, h * 0.78f)
+            }
+        }
+        drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    }
+}

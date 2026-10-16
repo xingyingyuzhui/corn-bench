@@ -3,7 +3,6 @@ package io.github.xingyingyuzhui.modbusmobile.ui.connection
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.EchoMode
 import io.github.xingyingyuzhui.modbusmobile.application.Parity
-import io.github.xingyingyuzhui.modbusmobile.application.SerialPreset
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
@@ -37,7 +36,7 @@ class ConnectionViewModelTest {
             val session = RecordingSession()
             val model = ConnectionViewModel(session)
             assertTrue(model.validation.ok)
-            assertEquals(SerialPreset.N9600, model.preset)
+            assertEquals(SerialPresetUi.N9600, model.preset)
 
             model.timeoutText = "0"
             assertFalse(model.validation.ok)
@@ -50,9 +49,9 @@ class ConnectionViewModelTest {
             assertFalse(model.validation.ok)
 
             model.gapText = "20"
-            model.selectPreset(SerialPreset.N115200)
+            model.selectPreset(SerialPresetUi.N115200)
             assertEquals(115200, model.baud)
-            assertEquals(SerialPreset.N115200, model.preset)
+            assertEquals(SerialPresetUi.N115200, model.preset)
 
             model.parity = Parity.EVEN
             model.selectCustom()
@@ -77,6 +76,20 @@ class ConnectionViewModelTest {
         assertEquals(0, session.refreshes)
         model.refresh()
         assertEquals(1, session.refreshes)
+    }
+
+    @Test
+    fun presetNineteenTwoHundredIsEvenParity() {
+        val model = ConnectionViewModel(RecordingSession())
+        model.selectPreset(SerialPresetUi.E19200)
+        assertEquals(19_200, model.baud)
+        assertEquals(Parity.EVEN, model.parity)
+        assertEquals(1, model.stopBits)
+        assertEquals("19200 8E1", model.wireLabel)
+        assertEquals(SerialPresetUi.E19200, model.preset)
+        // 19200 8N1 不再是预设，手动改成它就是自定义
+        model.parity = Parity.NONE
+        assertNull(model.preset)
     }
 }
 
@@ -103,4 +116,5 @@ private class RecordingSession : SessionManager {
     override fun refreshDevices() {
         refreshes += 1
     }
+
 }

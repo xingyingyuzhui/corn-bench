@@ -9,11 +9,9 @@ import io.github.xingyingyuzhui.modbusmobile.application.BusTopology
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.EchoMode
 import io.github.xingyingyuzhui.modbusmobile.application.Parity
-import io.github.xingyingyuzhui.modbusmobile.application.SerialPreset
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.TimeoutGapValidation
-import io.github.xingyingyuzhui.modbusmobile.application.matchingPreset
 import io.github.xingyingyuzhui.modbusmobile.application.validateTimeoutGap
 import io.github.xingyingyuzhui.modbusmobile.application.wireLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
@@ -35,10 +33,11 @@ class ConnectionViewModel(private val session: SessionManager) : ViewModel() {
     var timeoutText by mutableStateOf("1000")
     var gapText by mutableStateOf("20")
     var advancedOpen by mutableStateOf(false)
+    var helpOpen by mutableStateOf(false)
     var customPinned by mutableStateOf(false)
 
-    val preset: SerialPreset?
-        get() = if (customPinned) null else matchingPreset(baud, dataBits, parity, stopBits)
+    val preset: SerialPresetUi?
+        get() = if (customPinned) null else SerialPresetUi.matching(baud, dataBits, parity, stopBits)
 
     val validation: TimeoutGapValidation
         get() = validateTimeoutGap(timeoutText, gapText)
@@ -46,7 +45,7 @@ class ConnectionViewModel(private val session: SessionManager) : ViewModel() {
     val wireLabel: String
         get() = wireLabel(baud, dataBits, parity, stopBits)
 
-    fun selectPreset(preset: SerialPreset) {
+    fun selectPreset(preset: SerialPresetUi) {
         customPinned = false
         baud = preset.baudRate
         dataBits = preset.dataBits

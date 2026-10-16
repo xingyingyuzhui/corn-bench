@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -61,6 +62,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 @Composable
 fun ModbusCard(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(12.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -70,7 +72,7 @@ fun ModbusCard(
             .fillMaxWidth()
             .background(colors.surface1, shape)
             .border(1.dp, colors.line, shape)
-            .padding(12.dp),
+            .padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content,
     )
@@ -167,6 +169,8 @@ fun <T> ChipRow(
     modifier: Modifier = Modifier,
     scroll: Boolean = false,
     xs: Boolean = false,
+    design: Boolean = false,
+    description: (T) -> String? = { null },
 ) {
     if (scroll) {
         Row(
@@ -174,7 +178,7 @@ fun <T> ChipRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs, design = design, description = description(option)) { onToggle(option) }
             }
         }
     } else {
@@ -184,28 +188,47 @@ fun <T> ChipRow(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs, design = design, description = description(option)) { onToggle(option) }
             }
         }
     }
 }
 
-/** [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。点击热区由 Compose 默认的 48dp 最小触控目标补足。 */
+/**
+ * [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。
+ * [design] = 稿面普通 chip：高 33、字 12.5、内边距 9（G#1，只在显式开启的页面生效，全局默认仍是 48dp）。
+ * [description] 给只有符号的 chip（例如“…”）补读屏文字。
+ * 点击热区由 Compose 默认的 48dp 最小触控目标补足（真机未验证）。
+ */
 @Composable
-fun SelectChip(text: String, selected: Boolean, xs: Boolean = false, onClick: () -> Unit) {
+fun SelectChip(
+    text: String,
+    selected: Boolean,
+    xs: Boolean = false,
+    design: Boolean = false,
+    description: String? = null,
+    onClick: () -> Unit,
+) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(ChipRadius)
+    val minHeight = if (xs) 25.dp else if (design) 33.dp else MinTouch
+    val horizontal = if (xs) 8.dp else if (design) 9.dp else 12.dp
     Box(
         Modifier
-            .heightIn(min = if (xs) 25.dp else MinTouch)
+            .heightIn(min = minHeight)
             .clip(shape)
             .background(if (selected) colors.wash(colors.accent) else colors.surface1)
             .border(1.dp, if (selected) colors.accent else colors.line, shape)
+            .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
             .clickable(onClick = onClick)
-            .padding(horizontal = if (xs) 8.dp else 12.dp, vertical = if (xs) 3.dp else 0.dp),
+            .padding(horizontal = horizontal, vertical = if (xs) 3.dp else if (design) 6.dp else 0.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = if (selected) colors.accentText else colors.muted, fontSize = if (xs) 12.sp else 13.sp)
+        Text(
+            text,
+            color = if (selected) colors.accentText else colors.muted,
+            fontSize = if (xs) 12.sp else if (design) 12.5.sp else 13.sp,
+        )
     }
 }
 
@@ -224,12 +247,13 @@ fun FieldTile(
             .background(colors.surface2, RoundedCornerShape(FieldRadius))
             .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
-        Text(label, color = colors.muted, fontSize = 11.sp)
+        Text(label, color = colors.muted, fontSize = 11.sp, lineHeight = 13.sp)
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 value,
                 color = colors.text,
                 fontSize = if (mono) 17.sp else 15.sp,
+                lineHeight = 22.sp,
                 fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
             )
             if (sub != null) {
