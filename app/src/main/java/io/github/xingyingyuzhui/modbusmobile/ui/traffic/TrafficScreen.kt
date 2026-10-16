@@ -35,6 +35,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.label
 import io.github.xingyingyuzhui.modbusmobile.ui.components.semanticKind
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
@@ -98,7 +99,7 @@ private fun FrameList(
     val reversed = events.asReversed()
     LazyColumn(
         modifier,
-        contentPadding = PaddingValues(bottom = spacing.gapS),
+        contentPadding = PaddingValues(bottom = dockClearance().takeIf { it > 0.dp } ?: spacing.gapS),
         verticalArrangement = Arrangement.spacedBy(spacing.gapS),
     ) {
         itemsIndexed(reversed) { index, event ->

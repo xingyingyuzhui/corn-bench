@@ -36,6 +36,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SettingRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SettingTrailing
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
@@ -67,12 +68,15 @@ fun MineScreen() {
                         )
                     }
                 }
-                Column(Modifier.weight(0.6f).verticalScroll(rememberScrollState())) {
+                Column(Modifier.weight(0.6f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance())) {
                     if (group == MineGroup.DISPLAY) DisplaySettings(model, settings) else SessionSettings(model, settings)
                 }
             }
         } else {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(spacing.gapM)) {
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
+                verticalArrangement = Arrangement.spacedBy(spacing.gapM),
+            ) {
                 Text(stringResource(R.string.mine_display), color = colors.muted, fontSize = 12.sp)
                 DisplaySettings(model, settings)
                 Text(stringResource(R.string.mine_session), color = colors.muted, fontSize = 12.sp)

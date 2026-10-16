@@ -32,6 +32,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
 import io.github.xingyingyuzhui.modbusmobile.ui.resolve
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
@@ -70,15 +71,24 @@ fun WorkbenchScreen() {
         )
         if (landscape) {
             Row(Modifier.weight(1f).fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(spacing.gapM)) {
-                Column(Modifier.weight(1f).verticalScroll(formScroll), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+                Column(
+                    Modifier.weight(1f).verticalScroll(formScroll).padding(bottom = dockClearance()),
+                    verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+                ) {
                     if (running.role == Role.MASTER) MasterForm(model) else SlaveForm(model)
                 }
-                Column(Modifier.weight(1f).verticalScroll(resultScroll), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+                Column(
+                    Modifier.weight(1f).verticalScroll(resultScroll).padding(bottom = dockClearance()),
+                    verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+                ) {
                     if (running.role == Role.MASTER) MasterResult(model) else SlaveResult(model)
                 }
             }
         } else {
-            Column(Modifier.weight(1f).verticalScroll(formScroll), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+            Column(
+                Modifier.weight(1f).verticalScroll(formScroll).padding(bottom = dockClearance()),
+                verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+            ) {
                 if (running.role == Role.MASTER) {
                     MasterForm(model)
                     MasterResult(model)

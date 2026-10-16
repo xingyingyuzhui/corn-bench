@@ -35,22 +35,28 @@ fun pageStart(): Dp {
 @Composable
 fun Modifier.screenFrame(): Modifier {
     val spacing = LocalSpacing.current
-    val dock = LocalDockInsets.current
     return this
         .fillMaxSize()
         .statusBarsPadding()
-        .padding(start = pageStart(), end = spacing.page, bottom = dock.bottom)
+        .padding(start = pageStart(), end = spacing.page)
+}
+
+/** Space that keeps the last row above the floating dock. Apply it after verticalScroll, inside the scroll. */
+@Composable
+fun dockClearance(): Dp {
+    val dock = LocalDockInsets.current
+    val spacing = LocalSpacing.current
+    return if (dock.bottom > 0.dp) dock.bottom + spacing.gapS else 0.dp
 }
 
 @Composable
 fun pagePadding(): PaddingValues {
-    val dock = LocalDockInsets.current
     val spacing = LocalSpacing.current
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     return PaddingValues(
         start = pageStart(),
         end = spacing.page,
         top = top,
-        bottom = dock.bottom,
+        bottom = dockClearance(),
     )
 }

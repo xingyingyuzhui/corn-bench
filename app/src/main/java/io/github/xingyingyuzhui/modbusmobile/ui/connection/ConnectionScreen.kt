@@ -51,6 +51,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SecondaryButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SectionLabel
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SegmentedControl
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
@@ -73,7 +74,8 @@ fun ConnectionScreen() {
         state is SessionState.Opening ||
         state is SessionState.Stopping
     val roleName = stringResource(if (model.role == Role.MASTER) R.string.role_master else R.string.role_slave)
-    Column(Modifier.screenFrame().padding(top = spacing.gapS, bottom = spacing.gapS)) {
+    val bottomInset = dockClearance().let { if (it > 0.dp) it else spacing.gapS }
+    Column(Modifier.screenFrame().padding(top = spacing.gapS, bottom = bottomInset)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
                 stringResource(R.string.title_connection),
