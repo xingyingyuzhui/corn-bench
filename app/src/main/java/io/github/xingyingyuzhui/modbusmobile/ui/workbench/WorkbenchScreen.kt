@@ -1,5 +1,6 @@
 package io.github.xingyingyuzhui.modbusmobile.ui.workbench
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,8 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +35,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
@@ -45,6 +46,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.application.modiconLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalAppViewModelStoreOwner
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChoiceTile
@@ -52,6 +54,8 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.ConfirmSheet
 import io.github.xingyingyuzhui.modbusmobile.ui.components.GearIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.HexFrame
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusMenu
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusMenuItem
 import io.github.xingyingyuzhui.modbusmobile.ui.components.MoreIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PageHeader
@@ -64,6 +68,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SegmentedTextControl
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SemanticBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SemanticKind
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
+import io.github.xingyingyuzhui.modbusmobile.ui.components.TextLink
 import io.github.xingyingyuzhui.modbusmobile.ui.resolve
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
@@ -73,6 +78,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -90,7 +96,14 @@ private val WriteAreas = listOf(RegisterArea.COIL, RegisterArea.HOLDING_REGISTER
 @Composable
 fun WorkbenchScreen() {
     val session = LocalSession.current
-    val model = viewModel { WorkbenchViewModel(session) }
+    // 用 Activity 级的 store：切页、系统返回键都不会把工作台的表单和结果清空。
+    val owner = LocalAppViewModelStoreOwner.current ?: checkNotNull(LocalViewModelStoreOwner.current)
+    val model = viewModel(viewModelStoreOwner = owner) { WorkbenchViewModel(session) }
+    // 页面不可见（切到别的 tab、应用退到后台）时轮询暂停，回来继续。
+    LifecycleResumeEffect(model) {
+        model.setVisible(true)
+        onPauseOrDispose { model.setVisible(false) }
+    }
     val sessionState by model.sessionState.collectAsStateWithLifecycle()
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val running = sessionState as? SessionState.Running
@@ -110,6 +123,10 @@ fun WorkbenchScreen() {
 private fun MasterWorkbench(model: WorkbenchViewModel, landscape: Boolean) {
     val settings = LocalUiSettings.current
     val format = model.formatOverride ?: settings.numberFormat
+    // 系统返回键：写入页先回读取页（上一层），不直接退到连接页。确认弹层自己处理返回。
+    BackHandler(enabled = model.mode == WorkbenchMode.WRITE && model.pending == null) {
+        model.selectMode(WorkbenchMode.READ)
+    }
     if (landscape) {
         MasterLandscape(model, settings, format)
     } else {
@@ -149,13 +166,17 @@ private fun MasterLandscape(model: WorkbenchViewModel, settings: UiSettings, for
         Modifier.screenFrame().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(
-            Modifier.width(280.dp).fillMaxHeight().verticalScroll(leftScroll),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SessionStrip()
-            RequestCard(model, settings, landscape = true)
-            model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 2.dp)) }
+        Column(Modifier.width(280.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                Modifier.weight(1f).verticalScroll(leftScroll),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SessionStrip()
+                RequestCard(model, settings, landscape = true)
+                model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 2.dp)) }
+            }
+            // 读取页：主按钮固定在左栏底部，不随表单滚出屏幕。写入页的主按钮在右栏（帧预览下面）。
+            if (model.mode == WorkbenchMode.READ) ReadButtons(model)
         }
         Column(
             Modifier.weight(1f).fillMaxHeight().verticalScroll(rightScroll),
@@ -164,6 +185,9 @@ private fun MasterLandscape(model: WorkbenchViewModel, settings: UiSettings, for
             if (model.mode == WorkbenchMode.READ) {
                 ReadSection(model, settings, format, landscape = true)
             } else {
+                // 写入页右栏：帧预览 → 预览并写入 → 最近写入。不再显示读取结果表。
+                WritePreview(model)
+                WriteButtons(model)
                 RecentSection(model)
             }
         }
@@ -176,17 +200,11 @@ private fun WorkbenchMenu(model: WorkbenchViewModel) {
     var open by remember { mutableStateOf(false) }
     Box {
         HeaderIconButton(stringResource(R.string.menu_more), { open = true }) { MoreIcon(colors.muted) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        ModbusMenu(expanded = open, onDismiss = { open = false }) {
             PollIntervalsMs.forEach { ms ->
-                val on = ms == model.pollIntervalMs
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(R.string.menu_poll_interval, secondsLabel(ms)),
-                            color = if (on) colors.accentText else colors.text,
-                            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    },
+                ModbusMenuItem(
+                    text = stringResource(R.string.menu_poll_interval, secondsLabel(ms)),
+                    selected = ms == model.pollIntervalMs,
                     onClick = {
                         model.setPollInterval(ms)
                         open = false
@@ -194,15 +212,15 @@ private fun WorkbenchMenu(model: WorkbenchViewModel) {
                 )
             }
             HorizontalDivider(color = colors.line)
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.menu_clear_result), color = colors.text) },
+            ModbusMenuItem(
+                text = stringResource(R.string.menu_clear_result),
                 onClick = {
                     model.clearResult()
                     open = false
                 },
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.menu_clear_recent), color = colors.text) },
+            ModbusMenuItem(
+                text = stringResource(R.string.menu_clear_recent),
                 onClick = {
                     model.clearRecentWrites()
                     open = false
@@ -229,8 +247,9 @@ private fun readFunctionCode(area: RegisterArea): Int = when (area) {
     RegisterArea.INPUT_REGISTER -> 0x04
 }
 
+/** 起始地址输入格右侧的参考号小字：“0 基”模式不显示，“参考号”“两者”显示。 */
 private fun referenceLabel(settings: UiSettings, area: RegisterArea, addressText: String): String? {
-    if (settings.addressStyle != AddressStyle.MODICON) return null
+    if (settings.addressStyle == AddressStyle.ZERO_BASED) return null
     val address = addressText.trim().toIntOrNull() ?: return null
     if (address !in 0..0xFFFF) return null
     return modiconLabel(area, address)
@@ -240,7 +259,7 @@ private fun referenceLabel(settings: UiSettings, area: RegisterArea, addressText
 private fun RequestCard(model: WorkbenchViewModel, settings: UiSettings, landscape: Boolean) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
-    val tileMin = if (landscape) 44.dp else 50.dp
+    val tileMin = if (landscape) MinTouch else 50.dp
     val writing = model.mode == WorkbenchMode.WRITE
     val activeArea = if (writing) model.writeArea else model.area
     Column(
@@ -299,7 +318,11 @@ private fun RequestCard(model: WorkbenchViewModel, settings: UiSettings, landsca
             }
         }
 
-        if (writing) WriteValues(model, landscape) else ReadButtons(model)
+        if (writing) WriteValues(model, landscape) else if (!landscape) ReadButtons(model)
+        if (writing && !landscape) {
+            WritePreview(model)
+            WriteButtons(model)
+        }
     }
 }
 
@@ -344,23 +367,11 @@ private fun WriteValues(model: WorkbenchViewModel, landscape: Boolean) {
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-        if (count > 1) {
-            Text(
-                stringResource(R.string.write_remove),
-                color = colors.muted,
-                fontSize = 12.sp,
-                modifier = Modifier.clickable(onClick = model::removeValue).padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-            )
-        }
-        Text(
-            stringResource(R.string.write_add),
-            color = colors.txText,
-            fontSize = 12.sp,
-            modifier = Modifier.clickable(onClick = model::addValue).padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
-        )
+        if (count > 1) TextLink(stringResource(R.string.write_remove), model::removeValue)
+        TextLink(stringResource(R.string.write_add), model::addValue, color = colors.txText)
     }
     val start = model.address.trim().toIntOrNull()
-    val tileMin = if (landscape) 44.dp else 50.dp
+    val tileMin = if (landscape) MinTouch else 50.dp
     val indices = (0 until count).toList()
     indices.chunked(3).forEach { chunk ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -390,8 +401,28 @@ private fun WriteValues(model: WorkbenchViewModel, landscape: Boolean) {
             repeat(3 - chunk.size) { Spacer(Modifier.weight(1f)) }
         }
     }
+}
+
+/** 将要发送的整帧（变化字节琥珀色、CRC 灰）。输入不合法时不显示。 */
+@Composable
+private fun WritePreview(model: WorkbenchViewModel) {
     val planned = model.currentPlan()
     if (planned is PlanResult.Ok) HexFrame(planned.plan.frame, highlight = planned.plan.payload, compact = true)
+}
+
+/** “预览并写入 · FCxx” + “强制 16/15”。 */
+@Composable
+private fun WriteButtons(model: WorkbenchViewModel) {
+    val colors = LocalModbusColors.current
+    val coil = model.writeArea == RegisterArea.COIL
+    val count = if (coil) model.writeCoils.size else model.writeWords.size
+    val multi = count > 1 || model.forceMultiple
+    val fc = when {
+        coil && multi -> 0x0F
+        coil -> 0x05
+        multi -> 0x10
+        else -> 0x06
+    }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PrimaryButton(
             stringResource(R.string.write_preview, fcLabel(fc)),
@@ -475,8 +506,9 @@ private fun ResultTable(
         val address = result.start + index
         RegisterRow(
             address = address,
+            addressText = if (settings.addressStyle == AddressStyle.MODICON) modiconLabel(result.area, address) else null,
             value = if (result.isBits) (if (value != 0) on else off) else formatted[index],
-            sub = if (settings.addressStyle == AddressStyle.MODICON) modiconLabel(result.area, address) else null,
+            sub = if (settings.addressStyle == AddressStyle.BOTH) modiconLabel(result.area, address) else null,
             hex = if (result.isBits) null else hexWord(value, settings.hexPrefix),
             flashAt = result.changedAt[address],
             editable = editable,
@@ -510,12 +542,7 @@ private fun RecentSection(model: WorkbenchViewModel) {
     val shape = RoundedCornerShape(CardRadius)
     Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.recent_title), color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-        Text(
-            stringResource(R.string.recent_clear),
-            color = colors.muted,
-            fontSize = 12.sp,
-            modifier = Modifier.clickable(onClick = model::clearRecentWrites).padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
-        )
+        TextLink(stringResource(R.string.recent_clear), model::clearRecentWrites)
     }
     Column(
         Modifier
@@ -543,11 +570,12 @@ private fun RecentSection(model: WorkbenchViewModel) {
             ) {
                 val kind = when (entry.outcome) {
                     WriteOutcome.OK -> SemanticKind.RX_LOCAL
+                    WriteOutcome.SENT -> SemanticKind.DROPPED
                     WriteOutcome.UNKNOWN -> SemanticKind.AMBIGUOUS
                     else -> SemanticKind.ERROR
                 }
                 SemanticBadge(kind, outcomeLabel(entry))
-                Text(writeSummary(entry), style = Mono, color = colors.text, maxLines = 1, modifier = Modifier.weight(1f))
+                Text(writeSummary(entry, stringResource(R.string.recent_broadcast)), style = Mono, color = colors.text, maxLines = 1, modifier = Modifier.weight(1f))
                 Text(
                     ClockFormat.get()!!.format(Date(entry.atMillis)),
                     style = Mono,
@@ -563,6 +591,7 @@ private fun RecentSection(model: WorkbenchViewModel) {
 @Composable
 private fun outcomeLabel(entry: RecentWrite): String = when (entry.outcome) {
     WriteOutcome.OK -> stringResource(R.string.result_ok)
+    WriteOutcome.SENT -> stringResource(R.string.badge_sent)
     WriteOutcome.EXCEPTION -> stringResource(R.string.badge_exception, entry.exceptionCode ?: 0)
     WriteOutcome.TIMEOUT -> stringResource(R.string.badge_timeout)
     WriteOutcome.UNKNOWN -> stringResource(R.string.badge_unknown)
@@ -570,9 +599,10 @@ private fun outcomeLabel(entry: RecentWrite): String = when (entry.outcome) {
     WriteOutcome.INVALID -> stringResource(R.string.badge_invalid)
 }
 
-/** “FC06 U1 5 = 123”；多个值：“FC16 U1 100 × 3”。 */
-private fun writeSummary(entry: RecentWrite): String {
-    val head = "${fcLabel(entry.functionCode)} U${entry.unit} ${entry.address}"
+/** “FC06 U1 5 = 123”；多个值：“FC16 U1 100 × 3”；广播（Unit 0）写“FC06 广播 5 = 123”。 */
+private fun writeSummary(entry: RecentWrite, broadcastLabel: String): String {
+    val target = if (entry.unit == 0) broadcastLabel else "U${entry.unit}"
+    val head = "${fcLabel(entry.functionCode)} $target ${entry.address}"
     val count = entry.words.size + entry.bits.size
     return when {
         count != 1 -> "$head × $count"
@@ -598,18 +628,29 @@ private fun WriteConfirm(pending: PendingWrite, model: WorkbenchViewModel, setti
                 else -> R.string.confirm_title_register
             },
         ),
-        confirmLabel = stringResource(R.string.action_confirm),
+        confirmLabel = stringResource(if (pending.broadcast) R.string.action_confirm_broadcast else R.string.action_confirm),
         dismissLabel = stringResource(R.string.action_cancel),
         onConfirm = {
             if (settings.vibration) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             model.confirmWrite()
         },
         onDismiss = model::dismissPending,
-        badge = stringResource(R.string.confirm_badge, plan.unit, plan.address, modiconLabel(plan.area, plan.address)),
+        // Unit 0 = 广播：红色“广播 · 所有从站”，不再显示某个 Unit。
+        badge = if (pending.broadcast) {
+            stringResource(R.string.confirm_badge_broadcast)
+        } else {
+            stringResource(R.string.confirm_badge, plan.unit, plan.address, modiconLabel(plan.area, plan.address))
+        },
+        badgeKind = if (pending.broadcast) SemanticKind.ERROR else SemanticKind.DROPPED,
         frame = plan.frame,
         frameHighlight = plan.payload,
         frameCaption = stringResource(R.string.confirm_frame_caption, plan.frame.size, fcLabel(plan.functionCode)),
-        warning = stringResource(if (coil) R.string.confirm_warning_coil else R.string.confirm_warning),
+        warning = when {
+            pending.broadcast && coil -> stringResource(R.string.confirm_warning_broadcast_coil)
+            pending.broadcast -> stringResource(R.string.confirm_warning_broadcast)
+            coil -> stringResource(R.string.confirm_warning_coil)
+            else -> stringResource(R.string.confirm_warning)
+        },
     ) {
         ConfirmValues(pending, model)
     }
@@ -621,6 +662,10 @@ private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
     val plan = pending.plan
     val coil = plan.area == RegisterArea.COIL
     val unknown = stringResource(R.string.confirm_current_unknown)
+    val ageSeconds = pending.currentAgeMs?.let { (it / 1000L).toInt() }
+    val ageText = ageSeconds?.let {
+        stringResource(if (pending.currentFromRead) R.string.confirm_current_age_read else R.string.confirm_current_age_write, it)
+    }
     fun show(value: Int?, isCoil: Boolean): String = when {
         value == null -> "—"
         isCoil -> if (value != 0) "ON" else "OFF"
@@ -632,10 +677,22 @@ private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
-            Column {
-                Text(stringResource(R.string.confirm_current), color = colors.muted, fontSize = 11.sp)
-                Text(show(pending.current.firstOrNull(), coil), style = Mono.copy(fontSize = 22.sp), color = colors.muted)
-                if (pending.current.firstOrNull() == null) Text(unknown, color = colors.dim, fontSize = 11.sp)
+            if (pending.broadcast) {
+                // 广播没有“当前值”：不显示“未读取”，只显示地址与新值。
+                Column {
+                    Text(stringResource(R.string.confirm_address), color = colors.muted, fontSize = 11.sp)
+                    Text(plan.address.toString(), style = Mono.copy(fontSize = 22.sp), color = colors.muted)
+                }
+            } else {
+                Column {
+                    Text(stringResource(R.string.confirm_current), color = colors.muted, fontSize = 11.sp)
+                    Text(show(pending.current.firstOrNull(), coil), style = Mono.copy(fontSize = 22.sp), color = colors.muted)
+                    if (pending.current.firstOrNull() == null) {
+                        Text(unknown, color = colors.dim, fontSize = 11.sp)
+                    } else if (ageText != null) {
+                        Text(ageText, color = colors.dim, fontSize = 11.sp)
+                    }
+                }
             }
             Text("→", color = colors.dim, fontSize = 20.sp, modifier = Modifier.padding(bottom = 4.dp))
             if (coil) {
@@ -660,6 +717,7 @@ private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
         Column(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             val total = plan.words.size + plan.bits.size
             Text(stringResource(R.string.confirm_multi_head, plan.address, total), color = colors.muted, fontSize = 12.sp)
+            if (!pending.broadcast && ageText != null) Text(ageText, color = colors.dim, fontSize = 11.sp)
             val shown = minOf(total, 6)
             repeat(shown) { index ->
                 val new = if (coil) (if (plan.bits[index]) 1 else 0) else plan.words[index]

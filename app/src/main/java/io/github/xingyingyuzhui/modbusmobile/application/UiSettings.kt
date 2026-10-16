@@ -21,7 +21,8 @@ enum class DensityMode(val scale: Float) {
     COMPACT(0.75f),
 }
 
-enum class AddressStyle { ZERO_BASED, MODICON }
+/** 地址显示：只显示 0 基地址 / 只显示参考号（40001）/ 两者（0 基为主，参考号小字）。默认“两者”，与稿面一致。 */
+enum class AddressStyle { ZERO_BASED, MODICON, BOTH }
 
 enum class NumberFormat { U16, S16, HEX, F32 }
 
@@ -39,9 +40,10 @@ data class UiSettings(
      * 先只保存。写入确认才是第一次震动，那是工作台阶段的事。
      */
     val vibration: Boolean = false,
-    val addressStyle: AddressStyle = AddressStyle.ZERO_BASED,
+    val addressStyle: AddressStyle = AddressStyle.BOTH,
     val numberFormat: NumberFormat = NumberFormat.U16,
-    val hexPrefix: Boolean = false,
+    /** 默认开：稿面的 HEX 一律写成 0x007B。 */
+    val hexPrefix: Boolean = true,
     /**
      * 时钟样式先只保存。报文只有 monotonicNs，日志仍显示相对毫秒。
      */
@@ -86,9 +88,9 @@ fun uiSettingsFrom(map: Map<String, String>): UiSettings = UiSettings(
     keepScreenOn = map.bool(UiSettingKeys.KEEP, false),
     landscapeCurveFullscreen = map.bool(UiSettingKeys.CURVE, false),
     vibration = map.bool(UiSettingKeys.VIBRATION, false),
-    addressStyle = map.enum(UiSettingKeys.ADDRESS, AddressStyle.ZERO_BASED),
+    addressStyle = map.enum(UiSettingKeys.ADDRESS, AddressStyle.BOTH),
     numberFormat = map.enum(UiSettingKeys.NUMBER, NumberFormat.U16),
-    hexPrefix = map.bool(UiSettingKeys.HEX, false),
+    hexPrefix = map.bool(UiSettingKeys.HEX, true),
     timeStyle = map.enum(UiSettingKeys.TIME, TimeStyle.ELAPSED),
 )
 
