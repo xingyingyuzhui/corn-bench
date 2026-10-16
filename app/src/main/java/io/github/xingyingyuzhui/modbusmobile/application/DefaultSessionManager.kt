@@ -7,6 +7,7 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoTracker
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.ScannerConfig
 import io.github.xingyingyuzhui.modbusmobile.core.slave.DefaultSlaveEngine
 import io.github.xingyingyuzhui.modbusmobile.core.slave.InMemoryRegisterBank
@@ -139,13 +140,13 @@ class DefaultSessionManager(
             )
             peer.start(scope)
             slaveEngine = peer
-            masterEngine = newMaster(bus.left, serial, publishTraffic = true)
+            masterEngine = newMaster(bus.left, serial, publishTraffic = true, reportEcho = true)
             closeTransport = { bus.left.close(); bus.right.close() }
         } else {
             val localSlave = phoneSlave(bus.left, bank, serial)
             localSlave.start(scope)
             slaveEngine = localSlave
-            val peerMaster = newMaster(bus.right, serial, publishTraffic = false)
+            val peerMaster = newMaster(bus.right, serial, publishTraffic = false, reportEcho = false)
             masterEngine = null
             demoJob = scope.launch { runDemoMaster(peerMaster) }
             _slaveBank.value = bank
@@ -173,7 +174,7 @@ class DefaultSessionManager(
         }
         val bank = InMemoryRegisterBank().also { preset(it, Role.SLAVE) }
         if (role == Role.MASTER) {
-            masterEngine = newMaster(transport, serial, publishTraffic = true)
+            masterEngine = newMaster(transport, serial, publishTraffic = true, reportEcho = true)
         } else {
             val slave = phoneSlave(transport, bank, serial)
             slave.start(scope)
@@ -223,16 +224,36 @@ class DefaultSessionManager(
         _echoDetected.value = null
     }
 
-    private fun newMaster(transport: ByteTransport, serial: SerialSettings, publishTraffic: Boolean): DefaultMasterEngine =
-        DefaultMasterEngine(
+    private fun newMaster(
+        transport: ByteTransport,
+        serial: SerialSettings,
+        publishTraffic: Boolean,
+        reportEcho: Boolean,
+    ): DefaultMasterEngine {
+        val bits = serial.bitsPerChar().coerceAtLeast(1)
+        val baud = serial.baudRate.coerceAtLeast(1)
+        val echo = EchoTracker(
+            mode = serial.echoMode,
+            wireNs = { bytes -> bytes * bits * 1_000_000_000L / baud },
+            slackNs = 100_000_000L,
+        )
+        if (reportEcho) _echoDetected.value = echo.detected
+        return DefaultMasterEngine(
             transport = transport,
             clock = clock,
             scope = scope,
             responseTimeout = serial.responseTimeoutMs.milliseconds,
             turnaround = serial.turnaroundMs.milliseconds,
             interRequestDelay = serial.interRequestDelayMs.milliseconds,
+            echo = echo,
             onTraffic = if (publishTraffic) ::publish else ({}),
+            onEchoDetected = if (reportEcho) {
+                { detected -> _echoDetected.value = detected }
+            } else {
+                {}
+            },
         )
+    }
 
     private fun phoneSlave(transport: ByteTransport, bank: InMemoryRegisterBank, serial: SerialSettings): DefaultSlaveEngine {
         val units = setOf(SLAVE_UNIT)

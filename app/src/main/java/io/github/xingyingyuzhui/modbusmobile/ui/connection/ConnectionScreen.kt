@@ -66,15 +66,15 @@ fun ConnectionScreen() {
                     label = { Text("多站总线") },
                 )
             }
-            Text("回显", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = model.echoMode == EchoMode.OFF, onClick = { model.echoMode = EchoMode.OFF }, label = { Text("关") })
-                FilterChip(selected = model.echoMode == EchoMode.ON, onClick = { model.echoMode = EchoMode.ON }, label = { Text("开") })
-                FilterChip(selected = model.echoMode == EchoMode.AUTO, onClick = { model.echoMode = EchoMode.AUTO }, label = { Text("自动") })
-            }
-            if (state is SessionState.Running) {
-                Text("回显检测：${echoDetected.caption()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        }
+        Text("回显", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = model.echoMode == EchoMode.OFF, onClick = { model.echoMode = EchoMode.OFF }, label = { Text("关") })
+            FilterChip(selected = model.echoMode == EchoMode.ON, onClick = { model.echoMode = EchoMode.ON }, label = { Text("开") })
+            FilterChip(selected = model.echoMode == EchoMode.AUTO, onClick = { model.echoMode = EchoMode.AUTO }, label = { Text("自动") })
+        }
+        if (state is SessionState.Running) {
+            Text("回显检测：${echoDetected.caption()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text("串口", style = MaterialTheme.typography.titleMedium)
         OptionRow("波特率", listOf(1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200), model.baud) { model.baud = it }

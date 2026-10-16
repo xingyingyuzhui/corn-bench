@@ -9,6 +9,8 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficDirection
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficKind
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.DecodedResponse
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoMode
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoTracker
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.PointToPointScanner
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.RtuCodec
 import io.github.xingyingyuzhui.modbusmobile.core.rtu.ScanEvent
@@ -41,8 +43,10 @@ interface MasterEngine {
 /**
  * 单在途主站。
  *
- * 两笔完全相同的 RTU 请求无法和迟到响应区分，响应里没有事务号。这是协议本身的限制。
+ * 发送前会丢掉接收队列里已经到达的字节。请求发出之后才到达的、与本次请求完全相同的迟到响应仍然无法区分，
+ * 响应里没有事务号。这是协议本身的限制。
  * 站号、功能码、数量或写入回显对不上的帧只记一条接收日志，然后继续等到本笔截止时间。
+ * 回显只吞掉最后一次发送的那一帧；FC05/06 的请求和应答字节相同，关掉回显时适配器回显会被当成写入成功。
  */
 class DefaultMasterEngine(
     private val transport: ByteTransport,
@@ -50,13 +54,18 @@ class DefaultMasterEngine(
     private val scope: CoroutineScope,
     private val responseTimeout: Duration = 1_000.milliseconds,
     private val turnaround: Duration = 150.milliseconds,
-    private val suppressEcho: Boolean = false,
     private val interRequestDelay: Duration = 20.milliseconds,
+    private val echo: EchoTracker = EchoTracker(
+        mode = EchoMode.OFF,
+        wireNs = { 0L },
+        slackNs = Long.MAX_VALUE / 4,
+    ),
     private val onTraffic: (TrafficEvent) -> Unit = {},
+    private val onEchoDetected: (Boolean?) -> Unit = {},
 ) : MasterEngine {
     private val mutex = Mutex()
     private val inbox = Channel<io.github.xingyingyuzhui.modbusmobile.core.transport.ByteChunk>(capacity = 1024)
-    private val scanner = PointToPointScanner()
+    private val scanner = PointToPointScanner(echo)
     private val events = MutableSharedFlow<TrafficEvent>(replay = 64, extraBufferCapacity = 64)
     private val collector = scope.launch {
         transport.received.collect { chunk -> inbox.send(chunk) }
@@ -75,10 +84,16 @@ class DefaultMasterEngine(
             }
             val epoch = transport.connectionEpoch
             yield()
+            while (true) {
+                val stale = inbox.tryReceive().getOrNull() ?: break
+                publish(TrafficDirection.RX, stale.bytes, TrafficKind.RX_RESPONSE)
+            }
+            echo.abandon()
+            noteEcho()
             scanner.reset(epoch)
             scanner.expectResponse(request.function)
             val frame = RtuCodec.encodeRequest(request)
-            if (suppressEcho) scanner.armEcho(frame)
+            echo.arm(frame, clock.nowNs())
             publish(TrafficDirection.TX, frame, TrafficKind.TX_REQUEST)
             when (val send = transport.send(frame)) {
                 is SendResult.Failed -> {
@@ -103,6 +118,7 @@ class DefaultMasterEngine(
                 if (chunk.connectionEpoch != epoch) {
                     return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
                 }
+                scanner.onClockTick(clock.nowNs())
                 for (event in scanner.accept(chunk)) {
                     when (event) {
                         is ScanEvent.Response -> {
@@ -112,10 +128,13 @@ class DefaultMasterEngine(
                                 return outcome
                             }
                         }
+                        is ScanEvent.Echo -> {
+                            publish(TrafficDirection.RX, event.raw, TrafficKind.ECHO)
+                            noteEcho()
+                        }
                         is ScanEvent.LocalRequest,
                         is ScanEvent.ForeignRequest,
                         is ScanEvent.ForeignResponse,
-                        is ScanEvent.Echo,
                         is ScanEvent.Ambiguous,
                         is ScanEvent.Dropped,
                         is ScanEvent.TransactionClosed,
@@ -124,6 +143,8 @@ class DefaultMasterEngine(
                     }
                 }
             }
+            scanner.onClockTick(clock.nowNs())
+            noteEcho()
             awaitSilence()
             return if (request.isWrite) ModbusResult.UnknownOutcome else ModbusResult.Timeout
         } catch (cancelled: CancellationException) {
@@ -131,6 +152,7 @@ class DefaultMasterEngine(
         } catch (_: Exception) {
             return if (request.isWrite && sent) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
         } finally {
+            noteEcho()
             lastEndNs = clock.nowNs()
         }
     }
@@ -155,6 +177,10 @@ class DefaultMasterEngine(
             lastByte = clock.nowNs()
             publish(TrafficDirection.RX, chunk.bytes, TrafficKind.RX_RESPONSE)
         }
+    }
+
+    private fun noteEcho() {
+        onEchoDetected(echo.detected)
     }
 
     private fun publish(direction: TrafficDirection, bytes: ByteArray, kind: TrafficKind) {

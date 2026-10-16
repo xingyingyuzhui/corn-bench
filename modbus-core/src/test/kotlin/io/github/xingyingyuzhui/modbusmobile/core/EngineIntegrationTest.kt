@@ -3,6 +3,8 @@
 package io.github.xingyingyuzhui.modbusmobile.core
 
 import io.github.xingyingyuzhui.modbusmobile.core.master.DefaultMasterEngine
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoMode
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoTracker
 import io.github.xingyingyuzhui.modbusmobile.core.model.ExceptionCode
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
@@ -117,7 +119,11 @@ class EngineIntegrationTest {
             scope = backgroundScope,
             responseTimeout = timeoutMs.milliseconds,
             turnaround = turnaroundMs.milliseconds,
-            suppressEcho = echo,
+            echo = EchoTracker(
+                mode = if (echo) EchoMode.ON else EchoMode.OFF,
+                wireNs = { 0L },
+                slackNs = Long.MAX_VALUE / 4,
+            ),
         )
         return Harness(bus, bank, master, slave)
     }

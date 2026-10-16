@@ -65,6 +65,14 @@ class EchoTracker(
         }
     }
 
+    /** 上一笔已经结束，回显仍未匹配。记一次未出现，避免被下一笔请求清掉后失去计数。 */
+    fun abandon() {
+        if (tx != null) {
+            tx = null
+            miss()
+        }
+    }
+
     fun clear() {
         tx = null
     }
