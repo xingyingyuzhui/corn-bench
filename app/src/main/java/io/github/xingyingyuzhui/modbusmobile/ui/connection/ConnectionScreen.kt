@@ -33,6 +33,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.platform.testTag
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +76,12 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 
+/** 稿面文字行高 = 1.4 × 字号。 */
+val DesignLineHeight = 1.4.em
+
+/** 稿面 `.seg.big`：整体 60 = 项 54 + 上下内边距 3。 */
+private val RoleSegItemHeight = 54.dp
+
 private val baudChoices = listOf(1_200, 2_400, 4_800, 9_600, 19_200, 38_400, 57_600, 115_200)
 
 @Composable
@@ -83,6 +93,9 @@ fun ConnectionScreen() {
     val echoDetected by model.echoDetected.collectAsStateWithLifecycle()
     val spacing = LocalSpacing.current
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
+    // 稿面文字行高 ≈ 字号 × 1.4（12px → 17，14px → 20）；Material 默认 bodyLarge 行高 24sp，
+    // 会把每个小字行撑到 24：标题行→内容的间距、设备行、“高级”折叠行都因此偏大。
+    ProvideTextStyle(LocalTextStyle.current.copy(lineHeight = DesignLineHeight)) {
     if (landscape) {
         ConnectionLandscape(model, state, devices, echoDetected)
     } else {
@@ -90,7 +103,7 @@ fun ConnectionScreen() {
         val bottomInset = dockClearance().let { if (it > 0.dp) it + spacing.gapM else spacing.gapS }
         Column(Modifier.screenFrame().padding(bottom = bottomInset)) {
             PageHeader(stringResource(R.string.title_connection)) { HelpButton(model) }
-            StateCaption(state)
+            ErrorCaption(state)
             FadedScroll(Modifier.weight(1f)) {
                 DeviceCard(model, devices)
                 RoleCard(model)
@@ -99,6 +112,7 @@ fun ConnectionScreen() {
             }
             ActionButton(model, state, compact = false, modifier = Modifier.padding(top = spacing.gapS))
         }
+    }
     }
     if (model.helpOpen) HelpDialog { model.helpOpen = false }
 }
@@ -119,7 +133,7 @@ private fun ConnectionLandscape(
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FadedScroll(Modifier.weight(1f).fillMaxHeight()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) { StateCaption(state) }
+                    Box(Modifier.weight(1f)) { ErrorCaption(state) }
                     HelpButton(model)
                 }
                 DeviceCard(model, devices)
@@ -142,15 +156,15 @@ private fun HelpButton(model: ConnectionViewModel) {
     }
 }
 
+/**
+ * 页头下面不再放“主站 · 运行中”之类的状态副标题（老板反馈，已删）。
+ * 只保留一个例外：连接失败的原因（红字）——不显示就没人知道为什么连不上。
+ */
 @Composable
-private fun StateCaption(state: SessionState) {
+private fun ErrorCaption(state: SessionState) {
     val colors = LocalModbusColors.current
-    if (state !is SessionState.Idle) {
-        Text(
-            state.caption(),
-            color = if (state is SessionState.Error) colors.error else colors.muted,
-            fontSize = 13.sp,
-        )
+    if (state is SessionState.Error) {
+        Text(state.reason, color = colors.error, fontSize = 13.sp, modifier = Modifier.testTag("error-caption"))
     }
 }
 
@@ -208,7 +222,7 @@ private fun ActionButton(
 @Composable
 private fun DeviceCard(model: ConnectionViewModel, devices: List<UsbDeviceSummary>) {
     val colors = LocalModbusColors.current
-    ModbusCard {
+    ModbusCard(Modifier.testTag("card-device")) {
         SectionLabel(stringResource(R.string.section_device)) {
             // 稿面：一行 12px 文字，不撑高卡头。点击热区靠 Compose 最小触控目标补足（真机未验证）。
             Text(
@@ -241,12 +255,13 @@ private fun DeviceCard(model: ConnectionViewModel, devices: List<UsbDeviceSummar
 @Composable
 private fun RoleCard(model: ConnectionViewModel) {
     val colors = LocalModbusColors.current
-    ModbusCard {
+    ModbusCard(Modifier.testTag("card-role")) {
         SectionLabel(stringResource(R.string.section_role))
         SegmentedControl(
             options = listOf(Role.MASTER, Role.SLAVE),
             selected = model.role,
             onSelect = { model.role = it },
+            itemHeight = RoleSegItemHeight,
         ) { role ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -268,7 +283,7 @@ private fun RoleCard(model: ConnectionViewModel) {
 @Composable
 private fun SerialCard(model: ConnectionViewModel) {
     val colors = LocalModbusColors.current
-    ModbusCard {
+    ModbusCard(Modifier.testTag("card-serial")) {
         SectionLabel(stringResource(R.string.section_serial)) {
             Text(framingLabel(model.dataBits, model.parity, model.stopBits), style = Mono, color = colors.muted)
         }
@@ -279,6 +294,7 @@ private fun SerialCard(model: ConnectionViewModel) {
         val customDescription = stringResource(R.string.preset_custom_description)
         // 稿面：3 个预设 + “…”，一行放下（字号太大时才换行，不横向滚动）。
         ChipRow(
+            modifier = Modifier.testTag("serial-chips"),
             options = presets,
             isSelected = { option -> if (option == null) model.preset == null else model.preset == option },
             label = { option -> option?.label ?: stringResource(R.string.preset_custom) },
@@ -317,9 +333,9 @@ private fun SerialCard(model: ConnectionViewModel) {
 @Composable
 private fun AdvancedCard(model: ConnectionViewModel, state: SessionState, echoDetected: Boolean?) {
     val colors = LocalModbusColors.current
-    ModbusCard(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) {
+    ModbusCard(Modifier.testTag("card-advanced"), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) {
         Row(
-            Modifier.fillMaxWidth().clickable { model.advancedOpen = !model.advancedOpen },
+            Modifier.testTag("advanced-row").fillMaxWidth().clickable { model.advancedOpen = !model.advancedOpen },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -411,6 +427,7 @@ private fun DeviceRow(
     val shape = RoundedCornerShape(12.dp)
     Row(
         Modifier
+            .testTag("device-row")
             .fillMaxWidth()
             .heightIn(min = MinTouch)
             .clip(shape)
@@ -418,7 +435,8 @@ private fun DeviceRow(
             .border(1.dp, if (selected) colors.accent else colors.line, shape)
             .semantics { this.selected = selected }
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+            // 稿面 `.dev`：padding 10 + border 1，图标从外缘 11 起；border 在 Compose 里不占位，所以内边距取 11。
+            .padding(11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -438,7 +456,7 @@ private fun DeviceRow(
         }
         Column(Modifier.weight(1f)) {
             Text(title, color = colors.text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(subtitle, style = Mono.copy(fontSize = 12.sp), color = colors.muted)
+            Text(subtitle, style = Mono.copy(fontSize = 11.5.sp, lineHeight = 16.sp), color = colors.muted)
         }
         Box(
             Modifier
@@ -498,17 +516,3 @@ private fun Boolean?.caption(): String = stringResource(
         null -> R.string.echo_detected_pending
     },
 )
-
-@Composable
-private fun SessionState.caption(): String = when (this) {
-    SessionState.Idle -> stringResource(R.string.session_idle)
-    SessionState.RequestingPermission -> stringResource(R.string.session_permission)
-    SessionState.Opening -> stringResource(R.string.session_opening)
-    is SessionState.Running -> if (role == Role.MASTER) {
-        stringResource(R.string.session_master)
-    } else {
-        stringResource(R.string.session_slave)
-    }
-    SessionState.Stopping -> stringResource(R.string.session_stopping)
-    is SessionState.Error -> reason
-}

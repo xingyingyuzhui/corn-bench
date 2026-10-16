@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
@@ -92,6 +93,8 @@ fun ModbusCard(
             .fillMaxWidth()
             .background(colors.surface1, shape)
             .border(1.dp, colors.line, shape)
+            // 稿面 `.card` 是 border-box：1px 边框在 12px 内边距之外占位，内容离外缘 13；Compose 的 border 不占位，补 1dp。
+            .padding(1.dp)
             .padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content,
@@ -101,8 +104,9 @@ fun ModbusCard(
 @Composable
 fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
     val colors = LocalModbusColors.current
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(text, color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+    // 稿面 `.lbl`：12px、行高 ≈ 17（1.4 倍）、下边距 8；不用 Material 默认的 24sp 行高。
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("section-label").fillMaxWidth()) {
+        Text(text, color = colors.muted, fontSize = 12.sp, lineHeight = 1.4.em, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }
