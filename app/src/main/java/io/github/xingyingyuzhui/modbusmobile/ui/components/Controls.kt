@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -273,7 +274,10 @@ fun NumberInput(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                     cursorBrush = SolidColor(colors.accent),
-                    modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = label }
+                        .onFocusChanged { focused = it.isFocused },
                 )
                 if (sub != null) {
                     Text(sub, color = colors.dim, fontSize = 11.sp, fontFamily = JetBrainsMono, maxLines = 1)
@@ -303,6 +307,7 @@ fun ChoiceTile(
             .heightIn(min = minHeight)
             .clip(RoundedCornerShape(FieldRadius))
             .background(colors.surface2)
+            .semantics { role = androidx.compose.ui.semantics.Role.Button }
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
