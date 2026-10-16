@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureRoboImage
-import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.MemorySettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
@@ -102,7 +101,7 @@ class SlaveScreenshotTest {
 
     private fun show(theme: ThemeMode, target: ConnectionTarget, bank: VirtualRegisterBank) {
         val session = SlaveShotSession(target, bank)
-        val settings = UiSettings(theme = theme, addressStyle = AddressStyle.MODICON, hexPrefix = true)
+        val settings = UiSettings(theme = theme)
         val repository = MemorySettingsRepository(settings)
         compose.setContent {
             CompositionLocalProvider(

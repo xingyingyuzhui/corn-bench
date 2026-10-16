@@ -7,6 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
@@ -40,6 +41,26 @@ fun ModbusTheme(
             onError = colors.text,
             outline = colors.line,
             outlineVariant = colors.rowLine,
+            // Material 组件（菜单、对话框、底部弹层、Snackbar）按层级取这些槽位，全部映射到我们的 token，
+            // 否则会落回 Material 默认的浅紫色调色板。
+            surfaceTint = Color.Transparent,
+            surfaceBright = colors.surface1,
+            surfaceDim = colors.bg,
+            surfaceContainerLowest = colors.bg,
+            surfaceContainerLow = colors.surface1,
+            surfaceContainer = colors.surface1,
+            surfaceContainerHigh = colors.surface2,
+            surfaceContainerHighest = colors.surface3,
+            inverseSurface = colors.surface3,
+            inverseOnSurface = colors.text,
+            inversePrimary = colors.accent,
+            secondary = colors.muted,
+            onSecondary = colors.surface1,
+            secondaryContainer = colors.wash(colors.accent),
+            onSecondaryContainer = colors.accentText,
+            primaryContainer = colors.wash(colors.accent),
+            onPrimaryContainer = colors.accentText,
+            scrim = Color(0x99010306),
         )
     } else {
         lightColorScheme(
@@ -55,6 +76,26 @@ fun ModbusTheme(
             onError = colors.surface1,
             outline = colors.line,
             outlineVariant = colors.rowLine,
+            // Material 组件（菜单、对话框、底部弹层、Snackbar）按层级取这些槽位，全部映射到我们的 token，
+            // 否则会落回 Material 默认的浅紫色调色板。
+            surfaceTint = Color.Transparent,
+            surfaceBright = colors.surface1,
+            surfaceDim = colors.bg,
+            surfaceContainerLowest = colors.bg,
+            surfaceContainerLow = colors.surface1,
+            surfaceContainer = colors.surface1,
+            surfaceContainerHigh = colors.surface2,
+            surfaceContainerHighest = colors.surface3,
+            inverseSurface = colors.surface3,
+            inverseOnSurface = colors.text,
+            inversePrimary = colors.accent,
+            secondary = colors.muted,
+            onSecondary = colors.surface1,
+            secondaryContainer = colors.wash(colors.accent),
+            onSecondaryContainer = colors.accentText,
+            primaryContainer = colors.wash(colors.accent),
+            onPrimaryContainer = colors.accentText,
+            scrim = Color(0x99010306),
         )
     }
     CompositionLocalProvider(

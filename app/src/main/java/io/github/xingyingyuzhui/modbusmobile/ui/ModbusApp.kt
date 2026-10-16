@@ -61,6 +61,9 @@ val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
     error("SettingsRepository 还没有提供")
 }
 
+/** Activity 级的 ViewModelStoreOwner。工作台的表单、结果和轮询意图不随页面切换（含系统返回键）清空。 */
+val LocalAppViewModelStoreOwner = staticCompositionLocalOf<androidx.lifecycle.ViewModelStoreOwner?> { null }
+
 val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
     error("连接页回调还没有提供")
 }
@@ -69,6 +72,7 @@ val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
 @Composable
 fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val nav = rememberNavController()
+    val appStoreOwner = androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current
     val settings = LocalUiSettings.current
     val adaptive = currentWindowAdaptiveInfo()
     val portrait = adaptive.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.COMPACT &&
@@ -109,6 +113,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
             LocalDockInsets provides DockInsets(start = dockStart, bottom = dockBottom),
             LocalShellMode provides if (portrait) ShellMode.PORTRAIT else ShellMode.LANDSCAPE,
             LocalOpenConnection provides openConnection,
+            LocalAppViewModelStoreOwner provides appStoreOwner,
         ) {
             NavHost(
                 navController = nav,

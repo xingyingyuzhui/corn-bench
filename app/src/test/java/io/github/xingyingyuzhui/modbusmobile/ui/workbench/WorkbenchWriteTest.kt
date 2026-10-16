@@ -19,6 +19,7 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
+import io.github.xingyingyuzhui.modbusmobile.ui.components.dropLeadingZero
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -237,6 +238,155 @@ class WorkbenchWriteTest {
         assertTrue("写入模式下轮询不发读请求", session.requests.isEmpty())
         model.changePolling(false)
         advanceUntilIdle()
+    }
+
+    @Test
+    fun broadcastWriteIsMarkedSentAndHasNoCurrentValue() = withModel { model, session ->
+        model.unit = "0"
+        model.setWordText(0, "7")
+        model.requestWrite()
+        val pending = model.pending!!
+        assertTrue(pending.broadcast)
+        assertEquals(listOf<Int?>(null), pending.current)
+        model.confirmWrite()
+        advanceUntilIdle()
+        assertEquals(listOf<ModbusRequest>(ModbusRequest.WriteSingleRegister(0, 0, 7)), session.requests)
+        val entry = model.recentWrites.single()
+        // 引擎对广播返回合成的成功；界面只能说“已发送”。
+        assertEquals(WriteOutcome.SENT, entry.outcome)
+        // 广播不更新“当前值”缓存。
+        model.unit = "0"
+        model.requestWrite()
+        assertEquals(listOf<Int?>(null), model.pending!!.current)
+    }
+
+    @Test
+    fun pollingStopsOnlyAfterThreeInvalidResponsesInARow() = withModel { model, session ->
+        val bad = ModbusResult.InvalidResponse("noise")
+        session.next += listOf(bad, bad, readOf(listOf(1)), bad, bad)
+        model.changePolling(true)
+        testScheduler.advanceTimeBy(20_000)
+        testScheduler.runCurrent()
+        // 两次无效 → 一次成功（计数清零）→ 两次无效 → 队列空，后面是 Disconnected 才停：一共 6 次读取。
+        assertEquals(6, session.requests.size)
+        assertFalse(model.polling)
+    }
+
+    @Test
+    fun threeInvalidResponsesStopPolling() = withModel { model, session ->
+        val bad = ModbusResult.InvalidResponse("noise")
+        session.next += listOf(bad, bad, bad)
+        model.changePolling(true)
+        testScheduler.advanceTimeBy(20_000)
+        testScheduler.runCurrent()
+        assertEquals(3, session.requests.size)
+        assertFalse(model.polling)
+    }
+
+    @Test
+    fun pollingPausesWhileThePageIsHiddenAndResumesAfterwards() = withModel { model, session ->
+        session.next += List(50) { readOf(listOf(1)) }
+        model.setVisible(false)
+        model.changePolling(true)
+        testScheduler.advanceTimeBy(3_000)
+        testScheduler.runCurrent()
+        assertTrue("页面不可见时不读", session.requests.isEmpty())
+        assertTrue("轮询意图保留", model.polling)
+        model.setVisible(true)
+        testScheduler.advanceTimeBy(1_500)
+        testScheduler.runCurrent()
+        assertTrue("回来后继续读", session.requests.isNotEmpty())
+        model.changePolling(false)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun confirmShowsWhereTheCurrentValueCameFrom() = withModel { model, session ->
+        session.next += readOf(listOf(5, 6))
+        model.quantity = "2"
+        model.read()
+        advanceUntilIdle()
+        model.selectMode(WorkbenchMode.WRITE)
+        model.requestWrite()
+        val pending = model.pending!!
+        assertEquals(listOf<Int?>(5), pending.current)
+        assertTrue(pending.currentFromRead)
+        assertNotNull(pending.currentAgeMs)
+    }
+
+    @Test
+    fun newSessionClearsCacheResultFormAndRecentWrites() = withModel { model, session ->
+        session.next += readOf(listOf(5, 6))
+        model.quantity = "2"
+        model.read()
+        advanceUntilIdle()
+        model.selectMode(WorkbenchMode.WRITE)
+        model.address = "9"
+        model.requestWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        assertEquals(1, model.recentWrites.size)
+
+        session.state.value = SessionState.Running(Role.SLAVE, ConnectionTarget.Demo, 2)
+        advanceUntilIdle()
+        assertEquals(ReadState.None, model.readState)
+        assertTrue(model.recentWrites.isEmpty())
+        assertEquals(WorkbenchMode.READ, model.mode)
+        assertEquals("0", model.address)
+        model.selectMode(WorkbenchMode.WRITE)
+        model.requestWrite()
+        assertEquals("换了会话，旧缓存不能再当“当前值”", listOf<Int?>(null), model.pending!!.current)
+    }
+
+    @Test
+    fun disconnectingClearsTheWorkbench() = withModel { model, session ->
+        model.selectMode(WorkbenchMode.WRITE)
+        model.setWordText(0, "42")
+        model.requestWrite()
+        assertNotNull(model.pending)
+        session.state.value = SessionState.Idle
+        advanceUntilIdle()
+        assertNull(model.pending)
+        assertEquals(listOf("0"), model.writeWords)
+        assertEquals(WorkbenchMode.READ, model.mode)
+    }
+
+    @Test
+    fun successfulWriteUpdatesTheShownResultAndFlashesWithoutReading() = withModel { model, session ->
+        session.next += readOf(listOf(1, 2, 3, 4, 5))
+        model.quantity = "5"
+        model.read()
+        advanceUntilIdle()
+        val readsBefore = session.requests.size
+        model.selectMode(WorkbenchMode.WRITE)
+        model.address = "2"
+        model.setWordText(0, "99")
+        model.requestWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        val shown = (model.readState as ReadState.Ok).result
+        assertEquals(listOf(1, 2, 99, 4, 5), shown.values)
+        assertEquals(setOf(2), shown.changedAt.keys)
+        assertEquals("写入后不自动再发读取", readsBefore + 1, session.requests.size)
+
+        // 地址在结果表之外：表不变。
+        model.address = "20"
+        model.setWordText(0, "7")
+        model.requestWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        assertEquals(listOf(1, 2, 99, 4, 5), (model.readState as ReadState.Ok).result.values)
+    }
+
+    @Test
+    fun leadingZeroIsDroppedOnlyWhenTypingAfterASingleZero() {
+        assertEquals("1", dropLeadingZero("0", "01"))
+        assertEquals("0", dropLeadingZero("0", "00"))
+        assertEquals("7B", dropLeadingZero("0", "07B"))
+        assertEquals("0x", dropLeadingZero("0", "0x"))
+        assertEquals("10", dropLeadingZero("0", "10"))
+        assertEquals("102", dropLeadingZero("10", "102"))
+        assertEquals("05", dropLeadingZero("5", "05"))
     }
 
     private fun readOf(values: List<Int>) =

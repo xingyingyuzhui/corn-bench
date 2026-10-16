@@ -156,8 +156,9 @@
     <string name="density_comfortable">舒适</string>
     <string name="density_compact">紧凑</string>
     <string name="setting_address">地址显示</string>
-    <string name="address_zero">从 0 开始</string>
-    <string name="address_modicon">Modicon</string>
+    <string name="address_zero">0 基</string>
+    <string name="address_modicon">参考号</string>
+    <string name="address_both">两者</string>
     <string name="setting_number">默认数值格式</string>
     <string name="setting_hex">十六进制加 0x</string>
     <string name="setting_time">时间显示</string>
@@ -230,6 +231,15 @@
     <string name="confirm_new">新值</string>
     <string name="confirm_current_unknown">未读取</string>
     <string name="confirm_frame_caption">将发送 %1$d 字节 · %2$s</string>
+    <string name="action_confirm_broadcast">发送广播</string>
+    <string name="confirm_badge_broadcast">广播 · 所有从站</string>
+    <string name="confirm_address">地址</string>
+    <string name="confirm_current_age_read">来自 %1$d 秒前的读取</string>
+    <string name="confirm_current_age_write">来自 %1$d 秒前的写入</string>
+    <string name="confirm_warning_broadcast">所有从站都会执行，且不会有回应，结果只能标为已发送</string>
+    <string name="confirm_warning_broadcast_coil">所有从站都会执行，且不会有回应，结果只能标为已发送。线圈可能直接驱动执行器，确认现场允许后再发送。</string>
+    <string name="badge_sent">已发送</string>
+    <string name="recent_broadcast">广播</string>
     <string name="confirm_warning">写入超时不会自动重试，结果标记为「未知」。</string>
     <string name="confirm_warning_coil">写入超时不会自动重试，结果标记为「未知」。线圈可能直接驱动执行器，确认现场允许后再发送。</string>
     <string name="confirm_multi_head">起始地址 %1$d · 共 %2$d 个</string>

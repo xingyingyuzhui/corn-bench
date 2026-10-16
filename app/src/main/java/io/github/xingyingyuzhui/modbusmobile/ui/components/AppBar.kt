@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +45,7 @@ fun PageHeader(
     }
 }
 
-/** 36×36 圆形图标钮；点击热区由 Compose 默认的 48dp 最小触控目标补足。 */
+/** 36×36 圆形图标钮；触控区域用 minimumInteractiveComponentSize 补到 48×48（页头本身高 52，不会变高）。 */
 @Composable
 fun HeaderIconButton(
     description: String,
@@ -54,6 +55,7 @@ fun HeaderIconButton(
 ) {
     Box(
         modifier
+            .minimumInteractiveComponentSize()
             .size(36.dp)
             .clip(CircleShape)
             .background(androidx.compose.ui.graphics.Color.Transparent)

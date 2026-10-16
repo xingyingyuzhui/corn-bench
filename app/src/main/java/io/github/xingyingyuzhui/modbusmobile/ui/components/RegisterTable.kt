@@ -41,6 +41,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 
@@ -54,6 +55,8 @@ const val FlashDurationMs = 2_000L
  */
 data class RegisterRow(
     val address: Int,
+    /** 地址列主行文字；null = 直接显示 [address]（“参考号”模式下传 40001 这样的参考号）。 */
+    val addressText: String? = null,
     val value: String,
     val sub: String? = null,
     val hex: String? = null,
@@ -87,7 +90,7 @@ fun RegisterTable(
             .border(1.dp, colors.line, shape),
     ) {
         Row(
-            Modifier.fillMaxWidth().height(30.dp).padding(horizontal = 12.dp),
+            Modifier.fillMaxWidth().height(if (onHeaderValueClick != null) MinTouch else 30.dp).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(stringResource(R.string.table_address), color = colors.dim, fontSize = 11.sp, modifier = Modifier.width(addressWidth))
@@ -142,7 +145,8 @@ private fun RegisterRowView(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(rowHeight)
+            // 能点的行（✎ 写入）按触控优先补到 48dp，比稿面的 40 / 36 高；不能点的行保持稿面行高。
+            .height(if (clickable) maxOf(rowHeight, MinTouch) else rowHeight)
             .drawBehind {
                 val fraction = flash.value
                 if (fraction > 0f) {
@@ -160,7 +164,7 @@ private fun RegisterRowView(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.width(addressWidth)) {
-            Text(row.address.toString(), style = Mono, color = colors.text)
+            Text(row.addressText ?: row.address.toString(), style = Mono, color = colors.text)
             if (row.sub != null) Text(row.sub, color = colors.dim, fontSize = 10.sp, lineHeight = 10.sp, style = Mono.copy(fontSize = 10.sp))
         }
         Text(

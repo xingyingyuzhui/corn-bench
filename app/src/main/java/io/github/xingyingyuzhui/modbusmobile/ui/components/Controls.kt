@@ -25,16 +25,30 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -104,9 +118,19 @@ fun <T> SegmentedControl(
     Row(
         modifier
             .fillMaxWidth()
-            .background(colors.surface2, RoundedCornerShape(12.dp))
+            // 底板只画稿面高度（项高 + 上下内边距 3），居中；项自己补到 48dp 的触控区域落在底板上下的透明带里。
+            .drawBehind {
+                val height = (itemHeight + 6.dp).toPx().coerceAtMost(size.height)
+                drawRoundRect(
+                    color = colors.surface2,
+                    topLeft = Offset(0f, (size.height - height) / 2f),
+                    size = Size(size.width, height),
+                    cornerRadius = CornerRadius(12.dp.toPx()),
+                )
+            }
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         options.forEach { option ->
             val on = option == selected
@@ -116,6 +140,8 @@ fun <T> SegmentedControl(
             Box(
                 Modifier
                     .weight(1f)
+                    // 自写的 Box + clickable 不会自动补触控目标，这里显式补到 48dp；视觉块仍是 itemHeight。
+                    .minimumInteractiveComponentSize()
                     .heightIn(min = itemHeight)
                     .clip(shape)
                     .background(if (on) if (colors.isDark) colors.surface3 else colors.surface1 else androidx.compose.ui.graphics.Color.Transparent)
@@ -195,10 +221,20 @@ fun <T> ChipRow(
 }
 
 /**
+ * 只把高度补到 [min]（默认 48dp），宽度不动。chip 成排放时不能像 minimumInteractiveComponentSize 那样把窄 chip（“…”）也撑到 48 宽，
+ * 否则 4 个预设挤不进一行。窄 chip 的横向热区靠 Compose 默认的触控目标扩展（真机未验证）。
+ */
+private fun Modifier.minimumTouchHeight(min: Dp = MinTouch): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val height = maxOf(placeable.height, min.roundToPx())
+    layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
+}
+
+/**
  * [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。
  * [design] = 稿面普通 chip：高 33、字 12.5、内边距 9（G#1，只在显式开启的页面生效，全局默认仍是 48dp）。
  * [description] 给只有符号的 chip（例如“…”）补读屏文字。
- * 点击热区由 Compose 默认的 48dp 最小触控目标补足（真机未验证）。
+ * 视觉保持稿面尺寸，触控高度用 [minimumTouchHeight] 补到 48dp（真机未验证）。
  */
 @Composable
 fun SelectChip(
@@ -215,6 +251,7 @@ fun SelectChip(
     val horizontal = if (xs) 8.dp else if (design) 9.dp else 12.dp
     Box(
         Modifier
+            .minimumTouchHeight()
             .heightIn(min = minHeight)
             .clip(shape)
             .background(if (selected) colors.wash(colors.accent) else colors.surface1)
@@ -265,6 +302,10 @@ fun FieldTile(
 
 /**
  * 输入格。[sub] 是右侧小字（例如 40001 参考号）；获得焦点时画 1.5dp 强调色描边（稿面 .f.on）。
+ *
+ * - 整个格子都能点（不只是文字那一行）：点格子任何位置都聚焦输入框。
+ * - 聚焦时全选，键入的新数字直接替换旧值（123 不会变成 0123）。
+ * - 值正好是“0”时再键入数字，丢掉前导 0（外部改值、软键盘把光标放在 0 后面的情况）。
  */
 @Composable
 fun NumberInput(
@@ -279,27 +320,44 @@ fun NumberInput(
 ) {
     val colors = LocalModbusColors.current
     var focused by remember { mutableStateOf(false) }
+    var field by remember { mutableStateOf(TextFieldValue(value)) }
+    if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
+    val requester = remember { FocusRequester() }
     val shape = RoundedCornerShape(FieldRadius)
+    LaunchedEffect(focused) {
+        if (focused) {
+            // 点击落点会在聚焦之后才把光标放下，等下一帧再全选，才不会被覆盖。
+            withFrameNanos { }
+            field = field.copy(selection = TextRange(0, field.text.length))
+        }
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = minHeight)
+                .clip(shape)
                 .background(colors.surface2, shape)
                 .then(if (focused) Modifier.border(1.5.dp, colors.accent, shape) else Modifier)
+                .pointerInput(Unit) { detectTapGestures { requester.requestFocus() } }
                 .padding(horizontal = 10.dp, vertical = 7.dp),
         ) {
             Text(label, color = colors.muted, fontSize = 11.sp, maxLines = 1)
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.Bottom) {
                 BasicTextField(
-                    value = value,
-                    onValueChange = onValue,
+                    value = field,
+                    onValueChange = { next ->
+                        val text = dropLeadingZero(field.text, next.text)
+                        field = if (text == next.text) next else TextFieldValue(text, TextRange(text.length))
+                        if (text != value) onValue(text)
+                    },
                     textStyle = Mono.copy(color = colors.text, fontSize = 17.sp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                     cursorBrush = SolidColor(colors.accent),
                     modifier = Modifier
                         .weight(1f)
+                        .focusRequester(requester)
                         .semantics { contentDescription = label }
                         .onFocusChanged { focused = it.isFocused },
                 )
@@ -313,6 +371,17 @@ fun NumberInput(
         }
     }
 }
+
+/** 旧值正好是“0”、新值是“0”后面又跟了数字（“01”“07B”）时，去掉那个前导 0。其它情况原样返回。 */
+internal fun dropLeadingZero(previous: String, next: String): String =
+    if (previous == "0" && next.length > 1 && next[0] == '0' && next[1] != 'x' && next[1] != 'X' &&
+        next.all { it.isLetterOrDigit() }
+    ) {
+        val rest = next.drop(1)
+        if (rest.all { it == '0' }) "0" else rest
+    } else {
+        next
+    }
 
 /** 与输入格同形的可点击格（稿面“格式 十进制”、线圈值格）。 */
 @Composable

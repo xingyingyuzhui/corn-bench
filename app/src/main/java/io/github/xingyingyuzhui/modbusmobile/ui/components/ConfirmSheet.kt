@@ -55,6 +55,7 @@ fun ConfirmSheet(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     badge: String? = null,
+    badgeKind: SemanticKind = SemanticKind.DROPPED,
     frame: ByteArray? = null,
     frameHighlight: IntRange? = null,
     frameCaption: String? = null,
@@ -74,6 +75,7 @@ fun ConfirmSheet(
         ConfirmSheetBody(
             title, confirmLabel, dismissLabel, onConfirm, onDismiss,
             badge = badge,
+            badgeKind = badgeKind,
             frame = frame,
             frameHighlight = frameHighlight,
             frameCaption = frameCaption,
@@ -104,6 +106,7 @@ fun ConfirmSheetBody(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     badge: String? = null,
+    badgeKind: SemanticKind = SemanticKind.DROPPED,
     frame: ByteArray? = null,
     frameHighlight: IntRange? = null,
     frameCaption: String? = null,
@@ -120,7 +123,7 @@ fun ConfirmSheetBody(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            if (badge != null) SemanticBadge(SemanticKind.DROPPED, badge, Modifier.padding(start = 8.dp))
+            if (badge != null) SemanticBadge(badgeKind, badge, Modifier.padding(start = 8.dp))
         }
         content()
         if (frame != null) {

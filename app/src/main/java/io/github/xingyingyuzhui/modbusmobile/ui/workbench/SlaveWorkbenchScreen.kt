@@ -174,7 +174,8 @@ private fun AreaTable(model: SlaveViewModel, settings: UiSettings, landscape: Bo
         RegisterRow(
             address = row.address,
             value = if (bit) (if (row.value != 0) on else off) else row.value.toString(),
-            sub = if (settings.addressStyle == AddressStyle.MODICON) modiconLabel(area, row.address) else null,
+            addressText = if (settings.addressStyle == AddressStyle.MODICON) modiconLabel(area, row.address) else null,
+            sub = if (settings.addressStyle == AddressStyle.BOTH) modiconLabel(area, row.address) else null,
             hex = if (bit) null else hexWord(row.value, settings.hexPrefix),
             flashAt = row.changedAt,
             editable = true,

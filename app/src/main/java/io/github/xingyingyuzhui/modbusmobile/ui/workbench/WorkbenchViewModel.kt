@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.NumberFormat
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
+import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
@@ -43,7 +44,8 @@ sealed interface ReadState {
     data class Failed(val badge: UiText, val message: UiText, val elapsedMs: Long) : ReadState
 }
 
-enum class WriteOutcome { OK, EXCEPTION, TIMEOUT, UNKNOWN, DISCONNECTED, INVALID }
+/** [SENT]：广播（Unit 0）写入。从站不回应，只能说“已发送”，不能说“成功”。 */
+enum class WriteOutcome { OK, SENT, EXCEPTION, TIMEOUT, UNKNOWN, DISCONNECTED, INVALID }
 
 data class RecentWrite(
     val area: RegisterArea,
@@ -57,14 +59,31 @@ data class RecentWrite(
     val atMillis: Long,
 )
 
-/** 等待用户在确认弹窗里点“发送写入”的写请求。[current] 是写入前已知的当前值（没读过为 null）。 */
-data class PendingWrite(val plan: WritePlan, val current: List<Int?>)
+/**
+ * 等待用户在确认弹窗里点“发送写入”的写请求。
+ *
+ * [current] 是写入前已知的当前值（没读过为 null）；这些值来自本次连接里最近一次读取（或确认成功的写入），
+ * [currentAgeMs] 是其中最旧的一个距现在多久，[currentFromRead] 表示其中有来自读取的值。广播写入没有“当前值”。
+ */
+data class PendingWrite(
+    val plan: WritePlan,
+    val current: List<Int?>,
+    val currentAgeMs: Long? = null,
+    val currentFromRead: Boolean = true,
+) {
+    val broadcast: Boolean get() = plan.unit == 0
+}
 
 private data class ValueKey(val unit: Int, val area: RegisterArea, val address: Int)
+
+private data class KnownValue(val value: Int, val atMs: Long, val fromRead: Boolean)
 
 val PollIntervalsMs = listOf(500L, 1_000L, 2_000L, 5_000L)
 
 private const val MaxRecentWrites = 5
+
+/** 轮询里连续收到这么多次无效响应才停；一次噪声帧不该让轮询永久停掉。 */
+const val MaxInvalidStreak = 3
 
 class WorkbenchViewModel(
     private val session: SessionManager,
@@ -116,8 +135,58 @@ class WorkbenchViewModel(
         private set
     private var writing by mutableStateOf(false)
 
-    private val known = HashMap<ValueKey, Int>()
+    private val known = HashMap<ValueKey, KnownValue>()
     private var pollJob: Job? = null
+    private var invalidStreak = 0
+    private var lastEpoch: Long? = null
+
+    /** 工作台页面当前是否可见。不可见时轮询暂停（保留“轮询已开”的意图，回来后继续）。 */
+    @Volatile
+    private var visible = true
+
+    init {
+        // 换了一次连接（epoch 变化）或断开：上一次连接读到的“当前值”、结果表和待确认的写入都不再可信，清掉。
+        viewModelScope.launch {
+            session.state.collect { state ->
+                val epoch = (state as? SessionState.Running)?.epoch
+                if (epoch != lastEpoch) {
+                    lastEpoch = epoch
+                    resetForNewSession()
+                }
+            }
+        }
+    }
+
+    /**
+     * 断开、重连或切换角色（epoch 变化）：表单、读取结果、最近写入、待确认的写入和“当前值”缓存都属于上一次会话，全部清空。
+     * 轮询意图也一并取消。
+     */
+    private fun resetForNewSession() {
+        pollJob?.cancel()
+        pollJob = null
+        polling = false
+        known.clear()
+        invalidStreak = 0
+        readState = ReadState.None
+        pending = null
+        recentWrites = emptyList()
+        mode = WorkbenchMode.READ
+        area = RegisterArea.HOLDING_REGISTER
+        writeArea = RegisterArea.HOLDING_REGISTER
+        unit = "1"
+        address = "0"
+        quantity = "10"
+        writeFormat = WriteFormat.DEC
+        writeWords = listOf("0")
+        writeCoils = listOf(false)
+        forceMultiple = false
+        formOverrideReset()
+        formError = null
+    }
+
+    private fun formOverrideReset() {
+        formatOverride = null
+    }
 
     // ---- 模式、区域、值格 ----
 
@@ -185,15 +254,21 @@ class WorkbenchViewModel(
         viewModelScope.launch { performRead(params) }
     }
 
+    /** 页面可见性由界面报告（离开工作台 / 应用退到后台 = 不可见）。 */
+    fun setVisible(value: Boolean) {
+        visible = value
+    }
+
     fun changePolling(enabled: Boolean) {
         pollJob?.cancel()
         pollJob = null
         polling = enabled
         if (!enabled) return
+        invalidStreak = 0
         pollJob = viewModelScope.launch {
             while (isActive) {
-                // 手动写入优先：写模式、有待确认的写入、写入在途时，轮询让路。
-                if (mode == WorkbenchMode.WRITE || pending != null || writing) {
+                // 手动写入优先：写模式、有待确认的写入、写入在途时，轮询让路；页面不可见时也暂停。
+                if (!visible || mode == WorkbenchMode.WRITE || pending != null || writing) {
                     delay(100)
                     continue
                 }
@@ -245,7 +320,7 @@ class WorkbenchViewModel(
         return ReadParams(request, area, unitId, start)
     }
 
-    /** 返回 true 表示轮询应该停（没有会话 / 连接已断开）。 */
+    /** 返回 true 表示轮询应该停（连接已断开，或连续多次无效响应）。 */
     private suspend fun performRead(params: ReadParams): Boolean {
         val began = clock()
         val result = session.execute(params.request)
@@ -262,7 +337,7 @@ class WorkbenchViewModel(
                     is ModbusResponse.ReadBits -> response.values.map { if (it) 1 else 0 } to true
                     else -> {
                         readState = ReadState.Failed(UiText.Of(R.string.badge_invalid), UiText.Of(R.string.result_done), elapsed)
-                        return false
+                        return noteInvalid()
                     }
                 }
                 val now = clock()
@@ -283,8 +358,9 @@ class WorkbenchViewModel(
                         }
                     }
                 }
+                invalidStreak = 0
                 values.forEachIndexed { index, value ->
-                    known[ValueKey(params.unit, params.area, params.start + index)] = value
+                    known[ValueKey(params.unit, params.area, params.start + index)] = KnownValue(value, now, fromRead = true)
                 }
                 readState = if (values.isEmpty()) {
                     ReadState.Failed(UiText.Of(R.string.badge_empty), UiText.Of(R.string.result_empty), elapsed)
@@ -312,10 +388,17 @@ class WorkbenchViewModel(
             }
             is ModbusResult.InvalidResponse -> {
                 readState = ReadState.Failed(UiText.Of(R.string.badge_invalid), UiText.Plain(result.detail), elapsed)
-                return true
+                return noteInvalid()
             }
         }
+        invalidStreak = 0
         return false
+    }
+
+    /** 记一次无效响应；连续 [MaxInvalidStreak] 次才让轮询停。 */
+    private fun noteInvalid(): Boolean {
+        invalidStreak += 1
+        return invalidStreak >= MaxInvalidStreak
     }
 
     // ---- 写入 ----
@@ -344,7 +427,7 @@ class WorkbenchViewModel(
             ModbusRequest.WriteMultipleCoils(plan.unit, plan.address, listOf(value))
         }
         val next = WritePlan(request, plan.area, plan.unit, plan.address, emptyList(), listOf(value))
-        pending = PendingWrite(next, current.current)
+        pending = current.copy(plan = next)
         writeCoils = listOf(value)
     }
 
@@ -409,16 +492,49 @@ class WorkbenchViewModel(
         formError = null
     }
 
+    /**
+     * 写入成功后，如果被写的地址落在当前结果表的范围内，就把表里对应的值改成新值并标记变化时刻（复用 2 秒闪烁）。
+     * 这是设备已经确认的值（写响应回显），不是猜的；**不会**自动再发读取。
+     */
+    private fun applyWriteToResult(plan: WritePlan, now: Long) {
+        val current = (readState as? ReadState.Ok)?.result ?: return
+        if (current.area != plan.area || current.unit != plan.unit) return
+        val values = current.values.toMutableList()
+        val changed = HashMap(current.changedAt)
+        val written = if (plan.area == RegisterArea.COIL) plan.bits.map { if (it) 1 else 0 } else plan.words
+        var touched = false
+        written.forEachIndexed { index, value ->
+            val address = plan.address + index
+            val slot = address - current.start
+            if (slot in values.indices) {
+                values[slot] = value
+                changed[address] = now
+                touched = true
+            }
+        }
+        if (touched) readState = ReadState.Ok(current.copy(values = values, changedAt = changed))
+    }
+
     private fun pendingFor(plan: WritePlan): PendingWrite {
         val count = plan.words.size + plan.bits.size
-        val current = List(count) { index -> known[ValueKey(plan.unit, plan.area, plan.address + index)] }
-        return PendingWrite(plan, current)
+        // 广播写入对应 0 个具体从站，没有“当前值”。
+        if (plan.unit == 0) return PendingWrite(plan, List(count) { null })
+        val entries = List(count) { index -> known[ValueKey(plan.unit, plan.area, plan.address + index)] }
+        val now = clock()
+        val oldest = entries.filterNotNull().maxOfOrNull { now - it.atMs }
+        return PendingWrite(
+            plan = plan,
+            current = entries.map { it?.value },
+            currentAgeMs = oldest,
+            currentFromRead = entries.any { it?.fromRead == true },
+        )
     }
 
     private fun recordWrite(plan: WritePlan, result: ModbusResult) {
         var exceptionCode: Int? = null
         val outcome = when (result) {
-            is ModbusResult.Success -> WriteOutcome.OK
+            // 广播没有响应：引擎返回的是合成的成功，界面上只能写“已发送”。
+            is ModbusResult.Success -> if (plan.unit == 0) WriteOutcome.SENT else WriteOutcome.OK
             is ModbusResult.Exception -> {
                 exceptionCode = result.code.code
                 WriteOutcome.EXCEPTION
@@ -429,8 +545,14 @@ class WorkbenchViewModel(
             is ModbusResult.InvalidResponse -> WriteOutcome.INVALID
         }
         if (outcome == WriteOutcome.OK) {
-            plan.words.forEachIndexed { index, word -> known[ValueKey(plan.unit, plan.area, plan.address + index)] = word }
-            plan.bits.forEachIndexed { index, bit -> known[ValueKey(plan.unit, plan.area, plan.address + index)] = if (bit) 1 else 0 }
+            val now = clock()
+            applyWriteToResult(plan, now)
+            plan.words.forEachIndexed { index, word ->
+                known[ValueKey(plan.unit, plan.area, plan.address + index)] = KnownValue(word, now, fromRead = false)
+            }
+            plan.bits.forEachIndexed { index, bit ->
+                known[ValueKey(plan.unit, plan.area, plan.address + index)] = KnownValue(if (bit) 1 else 0, now, fromRead = false)
+            }
         }
         val entry = RecentWrite(
             area = plan.area,

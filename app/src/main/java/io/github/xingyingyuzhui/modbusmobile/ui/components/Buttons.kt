@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +44,7 @@ fun PrimaryButton(
     Box(
         modifier
             .fillMaxWidth()
+            .then(if (compact) Modifier.minimumInteractiveComponentSize() else Modifier)
             .height(if (compact) 44.dp else 52.dp)
             .clip(shape)
             .background(if (enabled) colors.accent else colors.surface3)
@@ -78,7 +81,7 @@ fun SecondaryButton(
     Box(
         modifier
             .fillMaxWidth()
-            .then(if (compact) Modifier.height(44.dp) else Modifier.heightIn(min = MinTouch))
+            .then(if (compact) Modifier.minimumInteractiveComponentSize().height(44.dp) else Modifier.heightIn(min = MinTouch))
             .clip(shape)
             .background(if (active) colors.wash(colors.accent) else colors.surface1)
             .border(if (active) 1.5.dp else 1.dp, if (active) colors.accent else colors.line, shape)
@@ -121,5 +124,25 @@ fun SmallButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = colors.text, fontSize = 13.sp)
+    }
+}
+
+/** 行内的文字链接（“＋ 添加”“清空”）。视觉是一行小字，触控区域至少 48×48，文字靠右。 */
+@Composable
+fun TextLink(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color = LocalModbusColors.current.muted,
+) {
+    Box(
+        modifier
+            .sizeIn(minWidth = MinTouch, minHeight = MinTouch)
+            .semantics { role = Role.Button }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        Text(text, color = color, fontSize = 12.sp)
     }
 }
