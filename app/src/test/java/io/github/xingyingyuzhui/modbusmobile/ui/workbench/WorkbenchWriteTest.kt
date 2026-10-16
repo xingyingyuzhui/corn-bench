@@ -82,7 +82,7 @@ class WorkbenchWriteTest {
         model.confirmWrite()
         advanceUntilIdle()
         assertEquals(listOf<ModbusRequest>(ModbusRequest.WriteMultipleRegisters(1, 100, listOf(100, 300, 500))), session.requests)
-        assertEquals("FC10", fcLabel(model.recentWrites.single().functionCode))
+        assertEquals("FC16", fcLabel(model.recentWrites.single().functionCode))
     }
 
     @Test

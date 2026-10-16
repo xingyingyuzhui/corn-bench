@@ -46,7 +46,7 @@ fun parseWord(text: String, format: WriteFormat): Int? {
 }
 
 /**
- * 1 个值走 FC05 / FC06；多个值自动走 FC0F / FC10；[forceMultiple] 把单个值也按 FC0F / FC10 发。
+ * 1 个值走 FC05 / FC06；多个值自动走 FC15 / FC16；[forceMultiple] 把单个值也按 FC15 / FC16 发。
  * 只支持线圈和保持寄存器。
  */
 fun planWrite(

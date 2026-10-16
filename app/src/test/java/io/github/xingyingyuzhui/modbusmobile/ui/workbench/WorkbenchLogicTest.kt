@@ -69,7 +69,7 @@ class WorkbenchLogicTest {
     }
 
     @Test
-    fun coilsUseFc05AndFc0F() {
+    fun coilsUseFc05AndFc15() {
         val single = ok(planWrite(RegisterArea.COIL, "1", "2", emptyList(), listOf(true), WriteFormat.DEC, false))
         assertEquals(0x05, single.functionCode)
         // 稿面 b1-4：01 05 00 02 FF 00 | 2D FA
@@ -95,7 +95,7 @@ class WorkbenchLogicTest {
         assertEquals("1", secondsLabel(1000))
         assertEquals("0.5", secondsLabel(500))
         assertEquals("FC03", fcLabel(3))
-        assertEquals("FC10", fcLabel(0x10))
+        assertEquals("FC16", fcLabel(0x10))
     }
 
     private fun ok(result: PlanResult): WritePlan = (result as PlanResult.Ok).plan

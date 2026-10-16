@@ -41,4 +41,4 @@ fun secondsLabel(ms: Long): String =
     if (ms % 1000L == 0L) (ms / 1000L).toString() else String.format(Locale.ROOT, "%.1f", ms / 1000.0)
 
 /** 功能码文字，例如 3 → “FC03”。 */
-fun fcLabel(code: Int): String = "FC%02X".format(Locale.ROOT, code)
+fun fcLabel(code: Int): String = "FC%02d".format(Locale.ROOT, code)

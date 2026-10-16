@@ -400,7 +400,7 @@ private fun WriteValues(model: WorkbenchViewModel, landscape: Boolean) {
             compact = true,
         )
         SecondaryButton(
-            stringResource(R.string.write_force, if (coil) "0F" else "16"),
+            stringResource(R.string.write_force, if (coil) "15" else "16"),
             model::toggleForceMultiple,
             Modifier.width(92.dp),
             compact = true,
@@ -570,7 +570,7 @@ private fun outcomeLabel(entry: RecentWrite): String = when (entry.outcome) {
     WriteOutcome.INVALID -> stringResource(R.string.badge_invalid)
 }
 
-/** “FC06 U1 5 = 123”；多个值：“FC10 U1 100 × 3”。 */
+/** “FC06 U1 5 = 123”；多个值：“FC16 U1 100 × 3”。 */
 private fun writeSummary(entry: RecentWrite): String {
     val head = "${fcLabel(entry.functionCode)} U${entry.unit} ${entry.address}"
     val count = entry.words.size + entry.bits.size
