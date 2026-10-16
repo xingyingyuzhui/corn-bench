@@ -45,7 +45,13 @@
     <string name="role_master_hint">主动读写外部从站</string>
     <string name="role_slave_hint">响应外部主站</string>
 
-    <string name="preset_custom">自定义</string>
+    <string name="preset_custom">…</string>
+    <string name="preset_custom_description">自定义</string>
+    <string name="action_help">帮助</string>
+    <string name="help_title">连接说明</string>
+    <string name="help_role">主站：手机主动读写外部从站设备。\n从站：手机模拟从站，响应外部主站的请求。</string>
+    <string name="help_serial">串口预设一键填入波特率和数据格式；选“…”可自定义波特率、数据位、校验和停止位。</string>
+    <string name="help_echo">回显：部分 USB-RS485 转换器会把自己发出的字节原样收回。在“高级”里设置：自动由应用检测，开按有回显处理，关则不处理。</string>
     <string name="field_baud">波特率</string>
     <string name="field_data_bits">数据位</string>
     <string name="field_parity">校验</string>
@@ -77,7 +83,6 @@
     <string name="session_open_connection">回到连接页</string>
 
     <string name="workbench_need_session">先在连接页进入主站或从站。</string>
-    <string name="workbench_slave">从站 · Unit 1</string>
     <string name="workbench_no_result">还没有结果。</string>
     <string name="area_coil">线圈</string>
     <string name="area_discrete">离散量</string>
@@ -86,9 +91,6 @@
     <string name="field_unit">Unit</string>
     <string name="field_address">地址</string>
     <string name="field_quantity">数量</string>
-    <string name="slave_holding">保持寄存器</string>
-    <string name="slave_coils">线圈</string>
-    <string name="coil_state">线圈 %1$d · %2$s</string>
     <string name="coil_on">开</string>
     <string name="coil_off">关</string>
     <string name="need_integer">请输入整数</string>
@@ -251,4 +253,20 @@
     <string name="table_value">值</string>
     <string name="cd_bit">第 %1$d 位</string>
     <string name="cd_accent">强调色 %1$s</string>
+    <string name="title_slave_workbench">虚拟从站</string>
+    <string name="slave_demo_note">演示设备：对端演示主站每秒读取 HR0–9，并每 5 秒把 HR0 改写成递增值。你在这里手动改的 HR0 会在几秒内被覆盖。</string>
+    <string name="slave_area_count">%1$s %2$d</string>
+    <string name="slave_empty">这个区还没有地址。点下面的“＋ 添加地址段”创建。</string>
+    <string name="slave_bit_on">ON</string>
+    <string name="slave_bit_off">OFF</string>
+    <string name="slave_add_range">＋ 添加地址段</string>
+    <string name="slave_add_title">添加地址段</string>
+    <string name="slave_add_start">起始地址</string>
+    <string name="slave_add_count">数量</string>
+    <string name="slave_add_confirm">添加</string>
+    <string name="slave_apply">应用</string>
+    <string name="slave_edit_title">修改 %1$s %2$d</string>
+    <string name="slave_edit_value">值</string>
+    <string name="error_slave_value">请输入 −32768 到 65535 的整数</string>
+    <string name="error_slave_range">起始地址 0–65535，数量 1–%1$d，且不能超过地址 65535</string>
 </resources>

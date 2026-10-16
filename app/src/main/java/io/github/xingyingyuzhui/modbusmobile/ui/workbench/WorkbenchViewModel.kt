@@ -15,12 +15,10 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
-import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
 import io.github.xingyingyuzhui.modbusmobile.ui.UiText
 import io.github.xingyingyuzhui.modbusmobile.ui.components.FlashDurationMs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -140,8 +138,6 @@ class WorkbenchViewModel(
         private set
     private var writing by mutableStateOf(false)
 
-    var slaveRows by mutableStateOf(SlaveRows())
-
     private val known = HashMap<ValueKey, KnownValue>()
     private var pollJob: Job? = null
     private var invalidStreak = 0
@@ -160,16 +156,6 @@ class WorkbenchViewModel(
                     lastEpoch = epoch
                     resetForNewSession()
                 }
-            }
-        }
-        viewModelScope.launch {
-            session.slaveBank.collectLatest { bank ->
-                if (bank == null) {
-                    slaveRows = SlaveRows()
-                    return@collectLatest
-                }
-                publish(bank)
-                bank.changes.collect { publish(bank) }
             }
         }
     }
@@ -611,30 +597,6 @@ class WorkbenchViewModel(
         recentWrites = (listOf(entry) + recentWrites).take(MaxRecentWrites)
     }
 
-    // ---- 从站（本轮不改，PR-7 再做） ----
-
-    fun editHolding(address: Int, text: String) {
-        slaveRows = slaveRows.copy(
-            holding = slaveRows.holding.map { cell ->
-                if (cell.address == address) cell.copy(draft = text) else cell
-            },
-        )
-        val value = text.toIntOrNull() ?: return
-        if (value !in 0..0xFFFF) return
-        session.slaveBank.value?.putWord(1, RegisterArea.HOLDING_REGISTER, address, value)
-    }
-
-    fun editCoil(address: Int, value: Boolean) {
-        session.slaveBank.value?.putBit(1, RegisterArea.COIL, address, value)
-    }
-
-    private fun publish(bank: VirtualRegisterBank) {
-        slaveRows = SlaveRows(
-            holding = bank.words(1, RegisterArea.HOLDING_REGISTER).map { CellDraft(it.address, it.value.toString(), false) },
-            coils = bank.bits(1, RegisterArea.COIL).map { CoilDraft(it.address, it.value) },
-        )
-    }
-
     private companion object {
         /** 写入表单里的值格上限。协议上限更大（123 个寄存器 / 1968 个线圈），但一屏手写这么多没有意义。 */
         const val MaxFormValues = 16
@@ -652,12 +614,3 @@ private fun exceptionText(code: Int): UiText = when (code) {
     0x0B -> UiText.Of(R.string.ex_0b)
     else -> UiText.Of(R.string.ex_unknown, listOf(code))
 }
-
-data class SlaveRows(
-    val holding: List<CellDraft> = emptyList(),
-    val coils: List<CoilDraft> = emptyList(),
-)
-
-data class CellDraft(val address: Int, val draft: String, val editing: Boolean)
-
-data class CoilDraft(val address: Int, val value: Boolean)

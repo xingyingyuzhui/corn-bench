@@ -3,6 +3,11 @@ package io.github.xingyingyuzhui.modbusmobile.ui.panel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import io.github.xingyingyuzhui.modbusmobile.ui.components.PageHeader
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -42,11 +47,23 @@ fun PanelScreen() {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
     val dock = LocalDockInsets.current
-    val columns = if (LocalShellMode.current == ShellMode.LANDSCAPE) 4 else 2
+    val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
+    val columns = if (landscape) 4 else 2
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Column(Modifier.padding(start = pageStart(), end = spacing.page, top = spacing.gapS)) {
-            Text(stringResource(R.string.title_panel), color = colors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            SessionStrip(Modifier.padding(top = spacing.gapS, bottom = spacing.gapS))
+        Column(Modifier.padding(start = pageStart(), end = spacing.page)) {
+            if (landscape) {
+                // 稿面横屏：页头一行（面板 16/700），没有会话条，把高度还给卡片区（b4-3#1）。
+                Text(
+                    stringResource(R.string.title_panel),
+                    color = colors.text,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 8.dp, start = 2.dp),
+                )
+            } else {
+                PageHeader(stringResource(R.string.title_panel))
+                SessionStrip(Modifier.padding(bottom = spacing.gapS))
+            }
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
@@ -60,11 +77,20 @@ fun PanelScreen() {
             verticalArrangement = Arrangement.spacedBy(spacing.gapS),
         ) {
             items(samples) { sample ->
-                ModbusCard {
-                    Text(stringResource(sample.name), color = colors.muted, fontSize = 13.sp)
-                    Text(stringResource(sample.value), style = Mono.copy(fontSize = 26.sp), color = colors.text)
-                    val unit = sample.unit
-                    if (unit != null) Text(stringResource(unit), color = colors.dim, fontSize = 12.sp)
+                // 同一行卡片等高（稿面 164×145 / 164×140）：给统一最小高度。
+                ModbusCard(
+                    Modifier.heightIn(min = if (landscape) 130.dp else 108.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    Text(stringResource(sample.name), color = colors.muted, fontSize = 12.5.sp)
+                    // 稿面：值与单位同一行，单位 12sp。
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(sample.value), style = Mono.copy(fontSize = 26.sp), color = colors.text)
+                        val unit = sample.unit
+                        if (unit != null) {
+                            Text(stringResource(unit), color = colors.dim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
+                        }
+                    }
                     SemanticBadge(SemanticKind.DROPPED, stringResource(R.string.panel_sample))
                 }
             }

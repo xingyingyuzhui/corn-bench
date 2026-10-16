@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
@@ -80,6 +83,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 @Composable
 fun ModbusCard(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(12.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -89,7 +93,9 @@ fun ModbusCard(
             .fillMaxWidth()
             .background(colors.surface1, shape)
             .border(1.dp, colors.line, shape)
-            .padding(12.dp),
+            // 稿面 `.card` 是 border-box：1px 边框在 12px 内边距之外占位，内容离外缘 13；Compose 的 border 不占位，补 1dp。
+            .padding(1.dp)
+            .padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content,
     )
@@ -98,8 +104,9 @@ fun ModbusCard(
 @Composable
 fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
     val colors = LocalModbusColors.current
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(text, color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+    // 稿面 `.lbl`：12px、行高 ≈ 17（1.4 倍）、下边距 8；不用 Material 默认的 24sp 行高。
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("section-label").fillMaxWidth()) {
+        Text(text, color = colors.muted, fontSize = 12.sp, lineHeight = 1.4.em, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }
@@ -204,6 +211,8 @@ fun <T> ChipRow(
     modifier: Modifier = Modifier,
     scroll: Boolean = false,
     xs: Boolean = false,
+    design: Boolean = false,
+    description: (T) -> String? = { null },
 ) {
     if (scroll) {
         Row(
@@ -211,7 +220,7 @@ fun <T> ChipRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs, design = design, description = description(option)) { onToggle(option) }
             }
         }
     } else {
@@ -221,29 +230,58 @@ fun <T> ChipRow(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs, design = design, description = description(option)) { onToggle(option) }
             }
         }
     }
 }
 
-/** [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。视觉保持稿面尺寸，触控区域用 minimumInteractiveComponentSize 补到 48dp。 */
+/**
+ * 只把高度补到 [min]（默认 48dp），宽度不动。chip 成排放时不能像 minimumInteractiveComponentSize 那样把窄 chip（“…”）也撑到 48 宽，
+ * 否则 4 个预设挤不进一行。窄 chip 的横向热区靠 Compose 默认的触控目标扩展（真机未验证）。
+ */
+private fun Modifier.minimumTouchHeight(min: Dp = MinTouch): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val height = maxOf(placeable.height, min.roundToPx())
+    layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
+}
+
+/**
+ * [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。
+ * [design] = 稿面普通 chip：高 33、字 12.5、内边距 9（G#1，只在显式开启的页面生效，全局默认仍是 48dp）。
+ * [description] 给只有符号的 chip（例如“…”）补读屏文字。
+ * 视觉保持稿面尺寸，触控高度用 [minimumTouchHeight] 补到 48dp（真机未验证）。
+ */
 @Composable
-fun SelectChip(text: String, selected: Boolean, xs: Boolean = false, onClick: () -> Unit) {
+fun SelectChip(
+    text: String,
+    selected: Boolean,
+    xs: Boolean = false,
+    design: Boolean = false,
+    description: String? = null,
+    onClick: () -> Unit,
+) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(ChipRadius)
+    val minHeight = if (xs) 25.dp else if (design) 33.dp else MinTouch
+    val horizontal = if (xs) 8.dp else if (design) 9.dp else 12.dp
     Box(
         Modifier
-            .minimumInteractiveComponentSize()
-            .heightIn(min = if (xs) 25.dp else MinTouch)
+            .minimumTouchHeight()
+            .heightIn(min = minHeight)
             .clip(shape)
             .background(if (selected) colors.wash(colors.accent) else colors.surface1)
             .border(1.dp, if (selected) colors.accent else colors.line, shape)
+            .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
             .clickable(onClick = onClick)
-            .padding(horizontal = if (xs) 8.dp else 12.dp, vertical = if (xs) 3.dp else 0.dp),
+            .padding(horizontal = horizontal, vertical = if (xs) 3.dp else if (design) 6.dp else 0.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = if (selected) colors.accentText else colors.muted, fontSize = if (xs) 12.sp else 13.sp)
+        Text(
+            text,
+            color = if (selected) colors.accentText else colors.muted,
+            fontSize = if (xs) 12.sp else if (design) 12.5.sp else 13.sp,
+        )
     }
 }
 
@@ -262,12 +300,13 @@ fun FieldTile(
             .background(colors.surface2, RoundedCornerShape(FieldRadius))
             .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
-        Text(label, color = colors.muted, fontSize = 11.sp)
+        Text(label, color = colors.muted, fontSize = 11.sp, lineHeight = 13.sp)
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 value,
                 color = colors.text,
                 fontSize = if (mono) 17.sp else 15.sp,
+                lineHeight = 22.sp,
                 fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
             )
             if (sub != null) {
