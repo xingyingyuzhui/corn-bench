@@ -30,6 +30,8 @@ fun HexFrameText(
     highlight: IntRange? = null,
     crcBytes: Int = 2,
     style: TextStyle = Mono,
+    /** false = CRC 两字节和其他字节同色（设置“日志中 CRC 用暗色”关闭时）。 */
+    dimCrc: Boolean = true,
 ) {
     val colors = LocalModbusColors.current
     val crcStart = (bytes.size - crcBytes).coerceAtLeast(0)
@@ -38,7 +40,7 @@ fun HexFrameText(
             val token = "%02X".format(byte.toInt() and 0xFF)
             val style = when {
                 highlight != null && index in highlight -> SpanStyle(color = colors.txText)
-                index >= crcStart && bytes.size >= crcBytes -> SpanStyle(color = colors.dim)
+                dimCrc && index >= crcStart && bytes.size >= crcBytes -> SpanStyle(color = colors.dim)
                 else -> SpanStyle(color = colors.text)
             }
             withStyle(style) { append(token) }

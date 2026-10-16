@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -28,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xingyingyuzhui.modbusmobile.R
+import io.github.xingyingyuzhui.modbusmobile.application.BusTopology
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
@@ -41,12 +44,23 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 
+/**
+ * 稿面 .sess：高 56、圆点 10 + 4 外圈浅底光晕、标题 14/600、副行 11.5 mono。
+ * [trailing] = 右侧文字区（日志的“1,000 条上限 / 已暂停滚动”等，由页面给）。
+ * [showEcho] = 副行末尾加“回显 有 / 无”（从站页；回显还没判出来时不写）。
+ * 从站副行写“总线拓扑 · 串口参数”，主站写“设备名 · 串口参数”。
+ */
 @Composable
-fun SessionStrip(modifier: Modifier = Modifier) {
+fun SessionStrip(
+    modifier: Modifier = Modifier,
+    showEcho: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val session = LocalSession.current
     val state by session.state.collectAsStateWithLifecycle()
     val serial by session.serial.collectAsStateWithLifecycle()
     val devices by session.usbDevices.collectAsStateWithLifecycle()
+    val echoDetected by session.echoDetected.collectAsStateWithLifecycle()
     val open = LocalOpenConnection.current
     val deviceName = (state as? SessionState.Running)?.let { running ->
         when (val target = running.target) {
@@ -56,7 +70,11 @@ fun SessionStrip(modifier: Modifier = Modifier) {
             }?.productName ?: stringResource(R.string.device_usb)
         }
     }
-    SessionStripContent(state, serial, deviceName, open, modifier)
+    SessionStripContent(
+        state, serial, deviceName, open, modifier,
+        echoDetected = if (showEcho) echoDetected else null,
+        trailing = trailing,
+    )
 }
 
 @Composable
@@ -66,6 +84,8 @@ fun SessionStripContent(
     deviceName: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    echoDetected: Boolean? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
     val title = when (state) {
@@ -80,11 +100,20 @@ fun SessionStripContent(
         SessionState.Stopping -> stringResource(R.string.session_stopping)
         is SessionState.Error -> state.reason
     }
-    val detail = when {
-        deviceName != null && serial != null -> "$deviceName · ${serial.wireLabel()}"
-        serial != null -> serial.wireLabel()
-        else -> ""
+    val slave = state is SessionState.Running && state.role == Role.SLAVE
+    val lead = if (slave && serial != null) {
+        stringResource(
+            if (serial.topology == BusTopology.MULTIDROP) R.string.topology_multi else R.string.topology_ptp,
+        )
+    } else {
+        deviceName
     }
+    val echoText = when (echoDetected) {
+        true -> stringResource(R.string.strip_echo_yes)
+        false -> stringResource(R.string.strip_echo_none)
+        null -> null
+    }
+    val detail = listOfNotNull(lead, serial?.wireLabel(), echoText).joinToString(" · ")
     val dot = when (state) {
         is SessionState.Running -> colors.rxLocal
         is SessionState.Error -> colors.error
@@ -100,17 +129,26 @@ fun SessionStripContent(
             .border(1.dp, colors.line, shape)
             .semantics { contentDescription = back }
             .clickable(onClick = onClick)
+            .heightIn(min = 56.dp)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
-        Column {
+        // 光晕：外圈 4dp 同色浅底，画在圆点外面，不占布局。
+        Box(
+            Modifier
+                .size(10.dp)
+                .drawBehind { drawCircle(dot.copy(alpha = if (colors.isDark) 0.14f else 0.12f), radius = 9.dp.toPx()) }
+                .clip(CircleShape)
+                .background(dot),
+        )
+        Column(Modifier.weight(1f)) {
             Text(title, color = colors.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             if (detail.isNotEmpty()) {
-                Text(detail, style = Mono.copy(fontSize = 12.sp), color = colors.muted)
+                Text(detail, style = Mono.copy(fontSize = 11.5.sp), color = colors.muted, modifier = Modifier.padding(top = 1.dp))
             }
         }
+        if (trailing != null) trailing()
     }
 }
 

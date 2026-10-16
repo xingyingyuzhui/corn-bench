@@ -153,7 +153,7 @@ private fun running() = ScreenshotSession(
         TrafficEvent(
             monotonicNs = 38_000_000L,
             direction = TrafficDirection.RX,
-            bytes = byteArrayOf(0x01, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x14, 0xDB.toByte(), 0xF4.toByte()),
+            bytes = byteArrayOf(0x01, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x14, 0xDA.toByte(), 0x3E),
             kind = TrafficKind.RX_RESPONSE,
         ),
     ),

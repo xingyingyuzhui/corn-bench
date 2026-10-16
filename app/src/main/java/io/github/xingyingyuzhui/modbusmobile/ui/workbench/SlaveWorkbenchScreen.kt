@@ -73,7 +73,7 @@ fun SlaveWorkbench(target: ConnectionTarget, landscape: Boolean) {
 private fun SlavePortrait(model: SlaveViewModel, settings: UiSettings, target: ConnectionTarget) {
     Column(Modifier.screenFrame()) {
         PageHeader(stringResource(R.string.title_slave_workbench))
-        SessionStrip(Modifier.padding(bottom = 8.dp))
+        SessionStrip(Modifier.padding(bottom = 8.dp), showEcho = true)
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -96,7 +96,7 @@ private fun SlaveLandscape(model: SlaveViewModel, settings: UiSettings, target: 
             Modifier.width(280.dp).fillMaxHeight().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SessionStrip()
+            SessionStrip(showEcho = true)
             if (target == ConnectionTarget.Demo) DemoNote()
             AreaSegment(model)
             SecondaryButton(stringResource(R.string.slave_add_range), model::openAddRange, Modifier.fillMaxWidth(), compact = true)
