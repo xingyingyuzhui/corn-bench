@@ -5,11 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +54,8 @@ fun WorkbenchScreen() {
     val spacing = LocalSpacing.current
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val running = sessionState as? SessionState.Running
+    val formScroll = remember { ScrollState(0) }
+    val resultScroll = remember { ScrollState(0) }
     Column(Modifier.screenFrame().padding(top = spacing.gapS), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
         Text(stringResource(R.string.title_workbench), color = colors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         SessionStrip()
@@ -67,15 +70,15 @@ fun WorkbenchScreen() {
         )
         if (landscape) {
             Row(Modifier.weight(1f).fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(spacing.gapM)) {
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+                Column(Modifier.weight(1f).verticalScroll(formScroll), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
                     if (running.role == Role.MASTER) MasterForm(model) else SlaveForm(model)
                 }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+                Column(Modifier.weight(1f).verticalScroll(resultScroll), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
                     if (running.role == Role.MASTER) MasterResult(model) else SlaveResult(model)
                 }
             }
         } else {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+            Column(Modifier.weight(1f).verticalScroll(formScroll), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
                 if (running.role == Role.MASTER) {
                     MasterForm(model)
                     MasterResult(model)

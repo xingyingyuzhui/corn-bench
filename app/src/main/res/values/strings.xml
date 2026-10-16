@@ -91,9 +91,9 @@
     <string name="write_single_holding">写单个保持寄存器</string>
     <string name="slave_holding">保持寄存器</string>
     <string name="slave_coils">线圈</string>
-    <string name="coil_state">Coil %1$d = %2$s</string>
-    <string name="coil_on">ON</string>
-    <string name="coil_off">OFF</string>
+    <string name="coil_state">线圈 %1$d · %2$s</string>
+    <string name="coil_on">开</string>
+    <string name="coil_off">关</string>
     <string name="need_integer">请输入整数</string>
     <string name="result_empty">空</string>
     <string name="result_done">完成</string>
