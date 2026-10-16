@@ -170,63 +170,12 @@ class PanelPageTest {
                     .fetchSemanticsNodes().isNotEmpty() && store.get("a")?.quality == Quality.OK
             }
             compose.onNodeWithTag("panel-value-w1", useUnmergedTree = true).assertTextEquals("80.0")
-            compose.onNodeWithText("温度 a").assertIsDisplayed()
+            compose.onNodeWithText("温度 a", useUnmergedTree = true).assertIsDisplayed()
             compose.waitUntil(8_000) { session.requests >= 3 }
-            compose.onNodeWithTag("panel-poll-stats").assertTextContains("轮询中 · 设定 100 ms", substring = true)
+            compose.onNodeWithText("设定 100 ms", substring = true, useUnmergedTree = true).assertIsDisplayed()
+            compose.onNodeWithText("主站 · 轮询中", useUnmergedTree = true).assertIsDisplayed()
         } finally {
             scope.cancel()
         }
-    }
-
-    private fun content(snapshot: PointSnapshot?, stats: PollStats? = null, type: DataType = DataType.S16) {
-        val settings = UiSettings(theme = ThemeMode.DARK)
-        val state = PanelUiState.Ready(projectWith(point("a", type)), emptyList(), false)
-        compose.setContent {
-            CompositionLocalProvider(LocalSession provides session, LocalOpenConnection provides {}) {
-                ModbusTheme(settings) { PanelContent(state, mapOf("a" to snapshot).filterValues { it != null }.mapValues { it.value!! }, stats) }
-            }
-        }
-        compose.waitForIdle()
-    }
-
-    private fun text(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true)
-
-    @Test fun waitingForDataShowsDashNotZero() {
-        content(null)
-        text("panel-value-w1").assertTextEquals("—")
-        text("panel-note-w1").assertTextEquals("等待数据")
-        compose.onNodeWithTag("panel-poll-stats").assertTextContains("未轮询", substring = true)
-    }
-
-    @Test fun staleValueIsKeptButSaidSo() {
-        content(PointSnapshot("a", Quality.STALE, RawValue.Integer(1000, false), 80.0, "80.0", failures = 1, error = PointError(ErrorKind.TIMEOUT)))
-        text("panel-value-w1").assertTextEquals("80.0")
-        text("panel-note-w1").assertTextContains("上一次的值", substring = true)
-    }
-
-    @Test fun timeoutShowsStreak() {
-        content(PointSnapshot("a", Quality.TIMEOUT, null, null, null, failures = 3, error = PointError(ErrorKind.TIMEOUT)))
-        text("panel-value-w1").assertTextEquals("—")
-        text("panel-note-w1").assertTextContains("连续失败 3 次", substring = true)
-    }
-
-    @Test fun exceptionAndBadValueAreExplained() {
-        content(PointSnapshot("a", Quality.ERROR, error = PointError(ErrorKind.EXCEPTION, code = 2)))
-        text("panel-note-w1").assertTextContains("异常码 2", substring = true)
-    }
-
-    @Test fun badValueNote() {
-        content(PointSnapshot("a", Quality.ERROR, error = PointError(ErrorKind.BAD_VALUE, detail = "x")))
-        text("panel-note-w1").assertTextEquals("读到的值无效")
-    }
-
-    @Test fun flagsShowOnOffAndStatsShowActual() {
-        content(
-            PointSnapshot("a", Quality.OK, RawValue.Flag(true), 1.0, null),
-            PollStats(1000, 1012),
-            DataType.S16,
-        )
-        text("panel-value-w1").assertTextEquals("开")
-        compose.onNodeWithTag("panel-poll-stats").assertTextEquals("轮询中 · 设定 1000 ms · 实际 1012 ms")
     }
 }

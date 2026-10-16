@@ -30,6 +30,8 @@ data class PointSnapshot(
     val level: ThresholdLevel = ThresholdLevel.NORMAL,
     /** 最近一次成功读取的时间（调度器的单调毫秒时钟）。 */
     val updatedAtMs: Long? = null,
+    /** 同一时刻的墙钟（毫秒），界面显示“10:21:07”用。 */
+    val updatedWallMs: Long? = null,
     /** 连续失败次数（成功后清零）。 */
     val failures: Int = 0,
     val error: PointError? = null,

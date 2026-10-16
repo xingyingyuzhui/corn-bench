@@ -36,6 +36,21 @@ class PanelViewModel(
     val snapshots: StateFlow<Map<String, PointSnapshot>> = runtime?.store?.snapshots ?: MutableStateFlow(emptyMap())
     val stats: StateFlow<PollStats?> = runtime?.scheduler?.stats ?: MutableStateFlow(null)
 
+    val paused: StateFlow<Boolean> = runtime?.scheduler?.paused ?: MutableStateFlow(false)
+
+    private val _selectedPanelId = MutableStateFlow<String?>(null)
+
+    /** 当前选中的面板 id；还没选或已不存在时由界面回落到第一个面板。 */
+    val selectedPanelId: StateFlow<String?> = _selectedPanelId.asStateFlow()
+
+    fun selectPanel(id: String) {
+        _selectedPanelId.value = id
+    }
+
+    fun togglePause() {
+        runtime?.scheduler?.setPaused(!paused.value)
+    }
+
     /** 页面可见（且应用在前台）时才轮询。 */
     fun setActive(value: Boolean) {
         runtime?.scheduler?.setActive(value)

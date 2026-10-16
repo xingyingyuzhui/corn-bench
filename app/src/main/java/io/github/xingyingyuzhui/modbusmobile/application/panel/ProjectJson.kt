@@ -64,6 +64,18 @@ object ProjectJson {
             put("title", w.title)
             put("spanColumns", w.spanColumns)
             put("spanRows", w.spanRows)
+            if (w.onLabel.isNotEmpty()) put("onLabel", w.onLabel)
+            if (w.offLabel.isNotEmpty()) put("offLabel", w.offLabel)
+            if (w.states.isNotEmpty()) {
+                put(
+                    "states",
+                    JSONArray().also { arr ->
+                        w.states.forEach {
+                            arr.put(JSONObject().put("value", it.value).put("label", it.label).put("tone", it.tone.name))
+                        }
+                    },
+                )
+            }
             w.point?.let { put("point", point(it)) }
         }
     }
@@ -140,7 +152,28 @@ object ProjectJson {
             point = point,
             spanColumns = obj.optInt("spanColumns", 1).coerceIn(1, 2),
             spanRows = obj.optInt("spanRows", 1).coerceIn(1, 2),
+            onLabel = obj.optString("onLabel", ""),
+            offLabel = obj.optString("offLabel", ""),
+            states = decodeStates(obj, warnings),
         )
+    }
+
+    private fun decodeStates(obj: JSONObject, warnings: MutableList<String>): List<StateMapping> {
+        val arr = obj.optJSONArray("states") ?: return emptyList()
+        val result = mutableListOf<StateMapping>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i)
+            if (o == null || !o.has("value") || o.optString("label", "").isEmpty()) {
+                warnings += "组件“${obj.optString("title", obj.optString("id"))}”的第 ${i + 1} 条状态映射不完整，已忽略"
+                continue
+            }
+            result += StateMapping(
+                o.optLong("value"),
+                o.optString("label"),
+                enumOrNull<StateTone>(o.optString("tone")) ?: StateTone.BLUE,
+            )
+        }
+        return result
     }
 
     private fun decodePoint(o: JSONObject): PointDefinition? {
