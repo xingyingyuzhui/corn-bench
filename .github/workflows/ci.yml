@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-37.2" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test, lint, and assemble
+        run: ./gradlew :modbus-core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Reject INTERNET permission
+        run: |
+          set -euo pipefail
+          mapfile -t manifests < <(find app/build/intermediates/merged_manifests/debug -name AndroidManifest.xml)
+          test "${#manifests[@]}" -gt 0
+          for manifest in "${manifests[@]}"; do
+            if grep -q 'android.permission.INTERNET' "$manifest"; then
+              echo "INTERNET permission found in $manifest"
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
