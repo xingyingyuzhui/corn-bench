@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,6 +23,14 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +42,13 @@ import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
+
+/** 文字行框内垂直居中（默认是按上沿比例分配，CJK 字会比旁边的徽标偏低 1dp 左右）。 */
+val CenteredText = TextStyle(
+    platformStyle = PlatformTextStyle(includeFontPadding = false),
+    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+)
 
 private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 
@@ -56,6 +75,7 @@ fun ConfirmSheet(
     onDismiss: () -> Unit,
     badge: String? = null,
     badgeKind: SemanticKind = SemanticKind.DROPPED,
+    confirmDanger: Boolean = false,
     frame: ByteArray? = null,
     frameHighlight: IntRange? = null,
     frameCaption: String? = null,
@@ -76,6 +96,7 @@ fun ConfirmSheet(
             title, confirmLabel, dismissLabel, onConfirm, onDismiss,
             badge = badge,
             badgeKind = badgeKind,
+            confirmDanger = confirmDanger,
             frame = frame,
             frameHighlight = frameHighlight,
             frameCaption = frameCaption,
@@ -107,6 +128,7 @@ fun ConfirmSheetBody(
     modifier: Modifier = Modifier,
     badge: String? = null,
     badgeKind: SemanticKind = SemanticKind.DROPPED,
+    confirmDanger: Boolean = false,
     frame: ByteArray? = null,
     frameHighlight: IntRange? = null,
     frameCaption: String? = null,
@@ -119,11 +141,10 @@ fun ConfirmSheetBody(
             Text(
                 title,
                 color = colors.text,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
+                style = CenteredText.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
+                modifier = Modifier.weight(1f).testTag("confirm-title"),
             )
-            if (badge != null) SemanticBadge(badgeKind, badge, Modifier.padding(start = 8.dp))
+            if (badge != null) SemanticBadge(badgeKind, badge, Modifier.padding(start = 8.dp).testTag("confirm-badge"))
         }
         content()
         if (frame != null) {
@@ -133,19 +154,27 @@ fun ConfirmSheetBody(
             HexFrame(frame, highlight = frameHighlight)
         }
         if (warning != null) {
+            val lineHeight = with(LocalDensity.current) { 16.sp.toDp() }
             Row(
                 Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                WarnIcon(colors.txText, Modifier.padding(top = 1.dp))
-                Text(warning, color = colors.muted, fontSize = 12.sp)
+                // 图标占第一行文字的行高并居中，不再用写死的 1dp 偏移（放大字体后会错位）。
+                Box(Modifier.height(lineHeight), contentAlignment = Alignment.Center) { WarnIcon(colors.txText) }
+                Text(
+                    warning,
+                    color = colors.muted,
+                    style = CenteredText.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                    modifier = Modifier.weight(1f),
+                )
             }
         } else {
             Box(Modifier.size(14.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            SecondaryButton(dismissLabel, onDismiss, modifier = Modifier.weight(1f))
-            PrimaryButton(confirmLabel, onConfirm, modifier = Modifier.weight(1.6f))
+            // 主按钮 52 高，取消键也要 52（Secondary 默认最小 48，并排时会矮一截、文字不在同一水平线）。
+            SecondaryButton(dismissLabel, onDismiss, modifier = Modifier.weight(1f), height = 52.dp)
+            PrimaryButton(confirmLabel, onConfirm, modifier = Modifier.weight(1.6f), danger = confirmDanger)
         }
     }
 }
@@ -173,5 +202,85 @@ private fun SheetPreview(dark: Boolean) {
             frameCaption = stringResource(R.string.confirm_frame_caption, 8, "FC06"),
             warning = stringResource(R.string.confirm_warning),
         )
+    }
+}
+
+/**
+ * “当前 → 新值”这一行。稿面 b1-3/b1-4：标签 11、值 mono 22、箭头 20 dim。
+ *
+ * 对齐规则（有测试断言）：
+ * - 左右两列结构完全相同：标签行（高 14sp）+ 值行（高 28sp），所以两个值的基线、字号、顶部一致；
+ * - 箭头占值行的高度并居中，和两个值同一条垂直中线（线圈时右侧是分段控件，值行取 48dp 高，三者仍同中线）；
+ * - “来自 N 秒前……”“新值与……相同”放在整行下面，不放进任何一列，所以不会把某一列撑高。
+ */
+@Composable
+fun ConfirmValueRow(
+    leftLabel: String,
+    leftValue: String,
+    modifier: Modifier = Modifier,
+    leftNote: String? = null,
+    rightLabel: String? = null,
+    rightValue: String? = null,
+    rightControl: (@Composable () -> Unit)? = null,
+    hint: String? = null,
+) {
+    val colors = LocalModbusColors.current
+    val density = LocalDensity.current
+    val labelHeight = with(density) { 14.sp.toDp() }
+    val valueHeight = if (rightControl != null) 48.dp else with(density) { 28.sp.toDp() }
+    val labelStyle = CenteredText.copy(fontSize = 11.sp, lineHeight = 14.sp)
+    val valueStyle = Mono.copy(
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        lineHeightStyle = CenteredText.lineHeightStyle,
+        platformStyle = CenteredText.platformStyle,
+    )
+    Column(modifier.fillMaxWidth().padding(bottom = 14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
+            Column {
+                Text(leftLabel, color = colors.muted, style = labelStyle, modifier = Modifier.height(labelHeight).testTag("confirm-left-label"))
+                Box(Modifier.height(valueHeight), contentAlignment = Alignment.CenterStart) {
+                    Text(leftValue, style = valueStyle, color = colors.muted, modifier = Modifier.testTag("confirm-left-value"))
+                }
+            }
+            Column {
+                Spacer(Modifier.height(labelHeight))
+                Box(Modifier.height(valueHeight).testTag("confirm-arrow"), contentAlignment = Alignment.Center) {
+                    ArrowGlyph(colors.dim)
+                }
+            }
+            if (rightControl != null) {
+                Column(Modifier.weight(1f)) {
+                    Spacer(Modifier.height(labelHeight))
+                    Box(Modifier.height(valueHeight).fillMaxWidth(), contentAlignment = Alignment.Center) { rightControl() }
+                }
+            } else {
+                Column {
+                    Text(rightLabel.orEmpty(), color = colors.muted, style = labelStyle, modifier = Modifier.height(labelHeight).testTag("confirm-right-label"))
+                    Box(Modifier.height(valueHeight), contentAlignment = Alignment.CenterStart) {
+                        Text(rightValue.orEmpty(), style = valueStyle, color = colors.txText, modifier = Modifier.testTag("confirm-right-value"))
+                    }
+                }
+            }
+        }
+        if (leftNote != null) {
+            Text(leftNote, color = colors.dim, style = CenteredText.copy(fontSize = 11.sp, lineHeight = 14.sp), modifier = Modifier.padding(top = 6.dp).testTag("confirm-note"))
+        }
+        if (hint != null) {
+            Text(hint, color = colors.muted, style = CenteredText.copy(fontSize = 11.sp, lineHeight = 14.sp), modifier = Modifier.padding(top = if (leftNote != null) 2.dp else 6.dp).testTag("confirm-hint"))
+        }
+    }
+}
+
+/** 画出来的 →（字体里的 → 字形大小和基线各家不同，不能保证落在数值的垂直中线上）。 */
+@Composable
+fun ArrowGlyph(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(width = 18.dp, height = 12.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.6.dp.toPx()
+        drawLine(color, Offset(0f, h / 2), Offset(w - stroke / 2, h / 2), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.64f, h * 0.1f), Offset(w - stroke / 2, h / 2), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.64f, h * 0.9f), Offset(w - stroke / 2, h / 2), stroke, StrokeCap.Round)
     }
 }

@@ -5,6 +5,7 @@ package io.github.xingyingyuzhui.modbusmobile.ui.workbench
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
+import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
@@ -376,6 +377,72 @@ class WorkbenchWriteTest {
         model.confirmWrite()
         advanceUntilIdle()
         assertEquals(listOf(1, 2, 99, 4, 5), (model.readState as ReadState.Ok).result.values)
+    }
+
+    @Test
+    fun aWriteDoneOnTheWritePageStartsItsFlashWhenTheTableIsShownAgain() = withModel { _, session ->
+        var now = 1_000L
+        val model = WorkbenchViewModel(session, clock = { now })
+        session.next += readOf(listOf(1, 2, 3, 4, 5))
+        model.quantity = "5"
+        model.read()
+        advanceUntilIdle()
+        model.selectMode(WorkbenchMode.WRITE)
+        model.address = "2"
+        model.setWordText(0, "99")
+        model.requestWrite()
+        now = 2_000L
+        model.confirmWrite()
+        advanceUntilIdle()
+        // 写入成功：值已更新，变化时刻是写入时刻。
+        assertEquals(2_000L, (model.readState as ReadState.Ok).result.changedAt[2])
+
+        // 用户在写入页停留 30 秒后才回到读取页：闪烁的起点重置为“现在”，不是 30 秒前（那时 2 秒早过了）。
+        now = 32_000L
+        model.selectMode(WorkbenchMode.READ)
+        assertEquals(32_000L, (model.readState as ReadState.Ok).result.changedAt[2])
+        assertEquals(listOf(1, 2, 99, 4, 5), (model.readState as ReadState.Ok).result.values)
+
+        // 只重置一次：再切一轮，时刻不变。
+        now = 60_000L
+        model.selectMode(WorkbenchMode.WRITE)
+        model.selectMode(WorkbenchMode.READ)
+        assertEquals(32_000L, (model.readState as ReadState.Ok).result.changedAt[2])
+        model.onClearedForTest()
+    }
+
+    @Test
+    fun aFreshReadDropsThePendingFlashRestamp() = withModel { _, session ->
+        var now = 1_000L
+        val model = WorkbenchViewModel(session, clock = { now })
+        session.next += readOf(listOf(1, 2, 3, 4, 5))
+        model.quantity = "5"
+        model.read()
+        advanceUntilIdle()
+        model.selectMode(WorkbenchMode.WRITE)
+        model.address = "2"
+        model.setWordText(0, "99")
+        model.requestWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        // 读回来的值和写入的值一样：没有变化，也就没有闪烁；回到读取页不能凭空再闪一次。
+        session.next += readOf(listOf(1, 2, 99, 4, 5))
+        model.selectMode(WorkbenchMode.READ)
+        now = 50_000L
+        model.read()
+        advanceUntilIdle()
+        assertTrue((model.readState as ReadState.Ok).result.changedAt.isEmpty())
+        model.onClearedForTest()
+    }
+
+    @Test
+    fun recentWriteSummaryFollowsTheAddressStyle() {
+        fun entry(address: Int, area: RegisterArea = RegisterArea.HOLDING_REGISTER, words: List<Int> = listOf(123), unit: Int = 1) =
+            RecentWrite(area, unit, address, words, emptyList(), 0x06, WriteOutcome.OK, null, 0L)
+        assertEquals("FC06 U1 0 · 40001 = 123", writeSummary(entry(0), "广播", AddressStyle.BOTH))
+        assertEquals("FC06 U1 40006 = 123", writeSummary(entry(5), "广播", AddressStyle.MODICON))
+        assertEquals("FC06 U1 5 = 123", writeSummary(entry(5), "广播", AddressStyle.ZERO_BASED))
+        assertEquals("FC06 广播 5 · 40006 = 123", writeSummary(entry(5, unit = 0), "广播", AddressStyle.BOTH))
     }
 
     @Test

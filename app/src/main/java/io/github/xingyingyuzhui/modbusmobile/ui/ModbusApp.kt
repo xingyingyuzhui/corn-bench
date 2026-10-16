@@ -43,6 +43,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.panel.PanelScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.CurveRoute
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.Destination
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.DockInsets
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockBottomGap
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.FloatingDock
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.FloatingRail
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
@@ -98,7 +99,8 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val bars = WindowInsets.navigationBars.asPaddingValues()
     val navBottom = bars.calculateBottomPadding()
     val navStart = bars.calculateStartPadding(LocalLayoutDirection.current)
-    val dockBottom = if (showDock) 14.dp + 64.dp + navBottom else 0.dp
+    val dockGap = dockBottomGap(navBottom)
+    val dockBottom = if (showDock) dockGap + 64.dp + navBottom else 0.dp
     val dockStart = if (showRail) 12.dp + 62.dp + 12.dp + navStart else 0.dp
     val openConnection: () -> Unit = {
         selectTab(nav, Destination.Connection)
@@ -135,7 +137,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                    .padding(start = 14.dp, end = 14.dp, bottom = dockGap),
             )
         }
         if (showRail) {
