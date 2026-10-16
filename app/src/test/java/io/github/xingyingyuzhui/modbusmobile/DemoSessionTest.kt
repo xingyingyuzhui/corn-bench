@@ -54,7 +54,8 @@ class DemoSessionTest {
         session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.SLAVE)
         val bank = session.slaveBank.value ?: error("从站寄存器库为空")
         assertEquals(0, bank.words(1, RegisterArea.HOLDING_REGISTER).first { it.address == 0 }.value)
-        advanceTimeBy(5_000)
+        // 第 5 拍先读再写。写请求还要等 SerialSettings 默认的 20ms 请求间隔。
+        advanceTimeBy(5_100)
         runCurrent()
         val value = bank.words(1, RegisterArea.HOLDING_REGISTER).first { it.address == 0 }.value
         assertTrue("HR0=$value", value >= 1)

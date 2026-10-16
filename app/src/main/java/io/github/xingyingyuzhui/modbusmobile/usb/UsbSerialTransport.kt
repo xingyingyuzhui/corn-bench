@@ -5,11 +5,13 @@ import io.github.xingyingyuzhui.modbusmobile.core.transport.ByteChunk
 import io.github.xingyingyuzhui.modbusmobile.core.transport.ConnectionState
 import io.github.xingyingyuzhui.modbusmobile.core.transport.SendResult
 import io.github.xingyingyuzhui.modbusmobile.io.SerialIoWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.withContext
 
 class UsbSerialTransport(
     private val worker: SerialIoWorker,
@@ -31,7 +33,8 @@ class UsbSerialTransport(
         incoming.close()
     }
 
-    override suspend fun send(frame: ByteArray): SendResult = worker.write(frame, WRITE_TIMEOUT_MS)
+    override suspend fun send(frame: ByteArray): SendResult =
+        withContext(Dispatchers.IO) { worker.write(frame, WRITE_TIMEOUT_MS) }
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return

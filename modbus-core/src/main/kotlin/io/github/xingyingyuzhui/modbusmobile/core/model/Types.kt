@@ -36,14 +36,21 @@ enum class FunctionCode(val code: Int) {
     }
 }
 
-enum class ExceptionCode(val code: Int) {
-    ILLEGAL_FUNCTION(0x01),
-    ILLEGAL_DATA_ADDRESS(0x02),
-    ILLEGAL_DATA_VALUE(0x03),
-    ;
+@JvmInline
+value class ExceptionCode(val code: Int) {
+    init {
+        require(code in 1..255) { "异常码超出 1..255" }
+    }
 
     companion object {
-        fun fromCode(code: Int): ExceptionCode? = entries.firstOrNull { it.code == code }
+        val ILLEGAL_FUNCTION = ExceptionCode(0x01)
+        val ILLEGAL_DATA_ADDRESS = ExceptionCode(0x02)
+        val ILLEGAL_DATA_VALUE = ExceptionCode(0x03)
+        val SLAVE_DEVICE_FAILURE = ExceptionCode(0x04)
+        val ACKNOWLEDGE = ExceptionCode(0x05)
+        val SLAVE_DEVICE_BUSY = ExceptionCode(0x06)
+        val GATEWAY_PATH_UNAVAILABLE = ExceptionCode(0x0A)
+        val GATEWAY_TARGET_FAILED = ExceptionCode(0x0B)
     }
 }
 
@@ -52,10 +59,23 @@ enum class TrafficDirection {
     RX,
 }
 
+enum class TrafficKind {
+    TX_REQUEST,
+    TX_RESPONSE,
+    RX_LOCAL_REQUEST,
+    RX_FOREIGN_REQUEST,
+    RX_FOREIGN_RESPONSE,
+    RX_RESPONSE,
+    ECHO,
+    AMBIGUOUS,
+    DROPPED,
+}
+
 class TrafficEvent(
     val monotonicNs: Long,
     val direction: TrafficDirection,
     val bytes: ByteArray,
+    val kind: TrafficKind,
 ) {
     val hex: String = bytes.toHex()
 }
@@ -139,51 +159,51 @@ sealed class ModbusRequest {
 
 sealed interface ModbusResponse {
     val unitId: Int
-    val function: FunctionCode
 
     data class ReadBits(
         override val unitId: Int,
-        override val function: FunctionCode,
+        val function: FunctionCode,
         val values: List<Boolean>,
     ) : ModbusResponse
 
     data class ReadRegisters(
         override val unitId: Int,
-        override val function: FunctionCode,
+        val function: FunctionCode,
         val values: List<Int>,
     ) : ModbusResponse
 
     data class WriteSingleCoil(
         override val unitId: Int,
-        override val function: FunctionCode,
+        val function: FunctionCode,
         val address: Int,
         val value: Boolean,
     ) : ModbusResponse
 
     data class WriteSingleRegister(
         override val unitId: Int,
-        override val function: FunctionCode,
+        val function: FunctionCode,
         val address: Int,
         val value: Int,
     ) : ModbusResponse
 
     data class WriteMultipleCoils(
         override val unitId: Int,
-        override val function: FunctionCode,
+        val function: FunctionCode,
         val address: Int,
         val quantity: Int,
     ) : ModbusResponse
 
     data class WriteMultipleRegisters(
         override val unitId: Int,
-        override val function: FunctionCode,
+        val function: FunctionCode,
         val address: Int,
         val quantity: Int,
     ) : ModbusResponse
 
+    /** [functionCode] 是原始功能码。0x17 不在 [FunctionCode] 里，异常帧仍要能表示它。 */
     data class ExceptionFrame(
         override val unitId: Int,
-        override val function: FunctionCode,
+        val functionCode: Int,
         val code: ExceptionCode,
     ) : ModbusResponse
 }

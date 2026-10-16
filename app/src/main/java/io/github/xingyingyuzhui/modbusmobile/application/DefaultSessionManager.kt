@@ -7,8 +7,11 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoTracker
+import io.github.xingyingyuzhui.modbusmobile.core.rtu.ScannerConfig
 import io.github.xingyingyuzhui.modbusmobile.core.slave.DefaultSlaveEngine
 import io.github.xingyingyuzhui.modbusmobile.core.slave.InMemoryRegisterBank
+import io.github.xingyingyuzhui.modbusmobile.core.slave.SlaveConfig
 import io.github.xingyingyuzhui.modbusmobile.core.slave.SlaveEngine
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
 import io.github.xingyingyuzhui.modbusmobile.core.transport.ByteTransport
@@ -16,7 +19,9 @@ import io.github.xingyingyuzhui.modbusmobile.core.transport.MonotonicClock
 import io.github.xingyingyuzhui.modbusmobile.core.transport.memory.InMemoryBus
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
@@ -30,11 +35,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class DefaultSessionManager(
     private val scope: CoroutineScope,
     private val clock: MonotonicClock,
     usb: UsbStack? = null,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : SessionManager {
     private val usbStack = usb
     private val gate = Mutex()
@@ -45,18 +52,20 @@ class DefaultSessionManager(
     )
     private val _slaveBank = MutableStateFlow<VirtualRegisterBank?>(null)
     private val _usbDevices = MutableStateFlow<List<UsbDeviceSummary>>(emptyList())
+    private val _echoDetected = MutableStateFlow<Boolean?>(null)
 
     private var epochCounter = 0L
     private var masterEngine: MasterEngine? = null
     private var slaveEngine: SlaveEngine? = null
     private var demoJob: Job? = null
-    private var closeTransport: (() -> Unit)? = null
+    private var closeTransport: (suspend () -> Unit)? = null
     private var usbDetachJob: Job? = null
 
     override val state: StateFlow<SessionState> = _state.asStateFlow()
     override val traffic: SharedFlow<TrafficEvent> = _traffic.asSharedFlow()
     override val slaveBank: StateFlow<VirtualRegisterBank?> = _slaveBank.asStateFlow()
     override val usbDevices: StateFlow<List<UsbDeviceSummary>> = _usbDevices.asStateFlow()
+    override val echoDetected: StateFlow<Boolean?> = _echoDetected.asStateFlow()
 
     init {
         val stack = usbStack
@@ -131,32 +140,13 @@ class DefaultSessionManager(
             )
             peer.start(scope)
             slaveEngine = peer
-            masterEngine = DefaultMasterEngine(
-                transport = bus.left,
-                clock = clock,
-                scope = scope,
-                responseTimeout = serial.responseTimeoutMs.milliseconds,
-                turnaround = serial.turnaroundMs.milliseconds,
-                onTraffic = ::publish,
-            )
+            masterEngine = newMaster(bus.left, serial, publishTraffic = true, reportEcho = true)
             closeTransport = { bus.left.close(); bus.right.close() }
         } else {
-            val localSlave = DefaultSlaveEngine(
-                transport = bus.left,
-                bank = bank,
-                clock = clock,
-                enabledUnits = setOf(SLAVE_UNIT),
-                onTraffic = ::publish,
-            )
+            val localSlave = phoneSlave(bus.left, bank, serial)
             localSlave.start(scope)
             slaveEngine = localSlave
-            val peerMaster = DefaultMasterEngine(
-                transport = bus.right,
-                clock = clock,
-                scope = scope,
-                responseTimeout = serial.responseTimeoutMs.milliseconds,
-                turnaround = serial.turnaroundMs.milliseconds,
-            )
+            val peerMaster = newMaster(bus.right, serial, publishTraffic = false, reportEcho = false)
             masterEngine = null
             demoJob = scope.launch { runDemoMaster(peerMaster) }
             _slaveBank.value = bank
@@ -184,22 +174,9 @@ class DefaultSessionManager(
         }
         val bank = InMemoryRegisterBank().also { preset(it, Role.SLAVE) }
         if (role == Role.MASTER) {
-            masterEngine = DefaultMasterEngine(
-                transport = transport,
-                clock = clock,
-                scope = scope,
-                responseTimeout = serial.responseTimeoutMs.milliseconds,
-                turnaround = serial.turnaroundMs.milliseconds,
-                onTraffic = ::publish,
-            )
+            masterEngine = newMaster(transport, serial, publishTraffic = true, reportEcho = true)
         } else {
-            val slave = DefaultSlaveEngine(
-                transport = transport,
-                bank = bank,
-                clock = clock,
-                enabledUnits = setOf(SLAVE_UNIT),
-                onTraffic = ::publish,
-            )
+            val slave = phoneSlave(transport, bank, serial)
             slave.start(scope)
             slaveEngine = slave
             _slaveBank.value = bank
@@ -240,9 +217,68 @@ class DefaultSessionManager(
         masterEngine = null
         slaveEngine?.close()
         slaveEngine = null
-        closeTransport?.invoke()
+        val closing = closeTransport
         closeTransport = null
+        if (closing != null) withContext(io) { closing() }
         _slaveBank.value = null
+        _echoDetected.value = null
+    }
+
+    private fun newMaster(
+        transport: ByteTransport,
+        serial: SerialSettings,
+        publishTraffic: Boolean,
+        reportEcho: Boolean,
+    ): DefaultMasterEngine {
+        val bits = serial.bitsPerChar().coerceAtLeast(1)
+        val baud = serial.baudRate.coerceAtLeast(1)
+        val echo = EchoTracker(
+            mode = serial.echoMode,
+            wireNs = { bytes -> bytes * bits * 1_000_000_000L / baud },
+            slackNs = 100_000_000L,
+        )
+        if (reportEcho) _echoDetected.value = echo.detected
+        return DefaultMasterEngine(
+            transport = transport,
+            clock = clock,
+            scope = scope,
+            responseTimeout = serial.responseTimeoutMs.milliseconds,
+            turnaround = serial.turnaroundMs.milliseconds,
+            interRequestDelay = serial.interRequestDelayMs.milliseconds,
+            echo = echo,
+            onTraffic = if (publishTraffic) ::publish else ({}),
+            onEchoDetected = if (reportEcho) {
+                { detected -> _echoDetected.value = detected }
+            } else {
+                {}
+            },
+        )
+    }
+
+    private fun phoneSlave(transport: ByteTransport, bank: InMemoryRegisterBank, serial: SerialSettings): DefaultSlaveEngine {
+        val units = setOf(SLAVE_UNIT)
+        val bits = serial.bitsPerChar()
+        return DefaultSlaveEngine(
+            transport = transport,
+            bank = bank,
+            clock = clock,
+            enabledUnits = units,
+            onTraffic = ::publish,
+            config = SlaveConfig(
+                topology = serial.topology,
+                echoMode = serial.echoMode,
+                localUnits = units,
+                baud = serial.baudRate,
+                bitsPerChar = bits,
+                scanner = ScannerConfig.forSerial(
+                    baud = serial.baudRate,
+                    bitsPerChar = bits,
+                    localUnits = units,
+                    responseTimeoutMs = serial.responseTimeoutMs,
+                ),
+            ),
+            onEchoDetected = { _echoDetected.value = it },
+        )
     }
 
     private fun publish(event: TrafficEvent) {

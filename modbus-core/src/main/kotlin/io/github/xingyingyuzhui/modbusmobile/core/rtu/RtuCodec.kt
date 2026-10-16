@@ -64,7 +64,7 @@ object RtuCodec {
         payload.u8(response.unitId)
         when (response) {
             is ModbusResponse.ExceptionFrame -> {
-                payload.u8(response.function.code or 0x80)
+                payload.u8(response.functionCode or 0x80)
                 payload.u8(response.code.code)
             }
             is ModbusResponse.ReadBits -> {
@@ -128,9 +128,11 @@ object RtuCodec {
         val rawFunction = frame.u8(1)
         if ((rawFunction and 0x80) != 0) {
             if (frame.size != 5) return DecodedResponse.Invalid
-            val function = FunctionCode.fromCode(rawFunction and 0x7F) ?: return DecodedResponse.Invalid
-            val code = ExceptionCode.fromCode(frame.u8(2)) ?: return DecodedResponse.Invalid
-            return DecodedResponse.Ok(ModbusResponse.ExceptionFrame(unit, function, code))
+            val code = frame.u8(2)
+            if (code !in 1..255) return DecodedResponse.Invalid
+            return DecodedResponse.Ok(
+                ModbusResponse.ExceptionFrame(unit, rawFunction and 0x7F, ExceptionCode(code)),
+            )
         }
         val function = FunctionCode.fromCode(rawFunction) ?: return DecodedResponse.Invalid
         return when (function) {
@@ -148,9 +150,7 @@ object RtuCodec {
         val address = frame.u16(2)
         val quantity = frame.u16(4)
         val max = if (function.isBit) ModbusRequest.MAX_READ_BITS else ModbusRequest.MAX_READ_REGISTERS
-        if (quantity !in 1..max || address.toLong() + quantity - 1 > 0xFFFFL) {
-            return DecodedRequest.ExceptionReply(unit, function, ExceptionCode.ILLEGAL_DATA_VALUE)
-        }
+        rejectedQuantityOrSpan(unit, function, quantity, max, address)?.let { return it }
         if (unit == 0) return DecodedRequest.BroadcastRead
         val request = when (function) {
             FunctionCode.READ_COILS -> ModbusRequest.ReadCoils(unit, address, quantity)
@@ -188,13 +188,16 @@ object RtuCodec {
         val quantity = frame.u16(4)
         val byteCount = frame.u8(6)
         val function = FunctionCode.WRITE_MULTIPLE_COILS
-        if (quantity !in 1..ModbusRequest.MAX_WRITE_COILS || address.toLong() + quantity - 1 > 0xFFFFL) {
-            return DecodedRequest.ExceptionReply(unit, function, ExceptionCode.ILLEGAL_DATA_VALUE)
-        }
-        val expectedBytes = (quantity + 7) / 8
-        if (byteCount != expectedBytes || frame.size != 9 + byteCount) {
-            return DecodedRequest.ExceptionReply(unit, function, ExceptionCode.ILLEGAL_DATA_VALUE)
-        }
+        val expectedBytes = if (quantity in 1..ModbusRequest.MAX_WRITE_COILS) (quantity + 7) / 8 else -1
+        val byteCountOk = byteCount == expectedBytes && frame.size == 9 + byteCount
+        rejectedQuantityOrSpan(
+            unit,
+            function,
+            quantity,
+            ModbusRequest.MAX_WRITE_COILS,
+            address,
+            byteCountOk,
+        )?.let { return it }
         val values = unpackBits(frame.copyOfRange(7, 7 + byteCount), quantity)
         return DecodedRequest.Ok(ModbusRequest.WriteMultipleCoils(unit, address, values))
     }
@@ -205,12 +208,17 @@ object RtuCodec {
         val quantity = frame.u16(4)
         val byteCount = frame.u8(6)
         val function = FunctionCode.WRITE_MULTIPLE_REGISTERS
-        if (quantity !in 1..ModbusRequest.MAX_WRITE_REGISTERS || address.toLong() + quantity - 1 > 0xFFFFL) {
-            return DecodedRequest.ExceptionReply(unit, function, ExceptionCode.ILLEGAL_DATA_VALUE)
-        }
-        if (byteCount != quantity * 2 || frame.size != 9 + byteCount) {
-            return DecodedRequest.ExceptionReply(unit, function, ExceptionCode.ILLEGAL_DATA_VALUE)
-        }
+        val byteCountOk = quantity in 1..ModbusRequest.MAX_WRITE_REGISTERS &&
+            byteCount == quantity * 2 &&
+            frame.size == 9 + byteCount
+        rejectedQuantityOrSpan(
+            unit,
+            function,
+            quantity,
+            ModbusRequest.MAX_WRITE_REGISTERS,
+            address,
+            byteCountOk,
+        )?.let { return it }
         val values = (0 until quantity).map { frame.u16(7 + it * 2) }
         return DecodedRequest.Ok(ModbusRequest.WriteMultipleRegisters(unit, address, values))
     }
@@ -261,6 +269,27 @@ object RtuCodec {
         }
         return DecodedResponse.Ok(response)
     }
+}
+
+/**
+ * 数量不在范围内，或 byteCount 与帧长对不上，回 0x03。
+ * 数量合法之后，地址加数量越过 0xFFFF 才回 0x02。
+ */
+private fun rejectedQuantityOrSpan(
+    unit: Int,
+    function: FunctionCode,
+    quantity: Int,
+    max: Int,
+    address: Int,
+    byteCountOk: Boolean = true,
+): DecodedRequest? {
+    if (quantity !in 1..max || !byteCountOk) {
+        return DecodedRequest.ExceptionReply(unit, function, ExceptionCode.ILLEGAL_DATA_VALUE)
+    }
+    if (address.toLong() + quantity - 1 > 0xFFFFL) {
+        return DecodedRequest.ExceptionReply(unit, function, ExceptionCode.ILLEGAL_DATA_ADDRESS)
+    }
+    return null
 }
 
 private val ModbusRequest.readAddress: Int

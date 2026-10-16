@@ -39,9 +39,11 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
     }
 
     fun read() {
+        val start = address.toIntOrNull()
         val request = readRequest() ?: return
+        if (start == null) return
         viewModelScope.launch {
-            rows = listOf(describe(session.execute(request)))
+            rows = listOf(describe(session.execute(request), start))
         }
     }
 
@@ -60,7 +62,7 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
             return
         }
         viewModelScope.launch {
-            rows = listOf(describe(session.execute(request)))
+            rows = listOf(describe(session.execute(request), start))
         }
     }
 
@@ -107,13 +109,13 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
         }
     }
 
-    private fun describe(result: ModbusResult): String = when (result) {
+    private fun describe(result: ModbusResult, start: Int): String = when (result) {
         is ModbusResult.Success -> when (val response = result.response) {
             is ModbusResponse.ReadRegisters -> response.values.mapIndexed { index, value ->
-                "${address.toInt() + index}: $value"
+                "${start + index}: $value"
             }.joinToString("\n").ifEmpty { "空" }
             is ModbusResponse.ReadBits -> response.values.mapIndexed { index, value ->
-                "${address.toInt() + index}: ${if (value) "ON" else "OFF"}"
+                "${start + index}: ${if (value) "ON" else "OFF"}"
             }.joinToString("\n")
             is ModbusResponse.WriteSingleRegister -> "HR ${response.address} = ${response.value}"
             else -> "完成"
@@ -135,8 +137,14 @@ data class CellDraft(val address: Int, val draft: String, val editing: Boolean)
 
 data class CoilDraft(val address: Int, val value: Boolean)
 
-private fun ExceptionCode.wire(): String = when (this) {
-    ExceptionCode.ILLEGAL_FUNCTION -> "01 非法功能"
-    ExceptionCode.ILLEGAL_DATA_ADDRESS -> "02 非法地址"
-    ExceptionCode.ILLEGAL_DATA_VALUE -> "03 非法数据"
+private fun ExceptionCode.wire(): String = when (code) {
+    0x01 -> "01 非法功能"
+    0x02 -> "02 非法地址"
+    0x03 -> "03 非法数据"
+    0x04 -> "04 从站设备故障"
+    0x05 -> "05 确认"
+    0x06 -> "06 从站设备忙"
+    0x0A -> "0A 网关路径不可用"
+    0x0B -> "0B 网关目标失败"
+    else -> "%02X 未知异常".format(code)
 }

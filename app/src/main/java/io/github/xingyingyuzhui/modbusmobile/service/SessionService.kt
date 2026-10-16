@@ -31,7 +31,15 @@ class SessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startAsForeground()
+        try {
+            startAsForeground()
+        } catch (error: SecurityException) {
+            failStart(error)
+            return START_NOT_STICKY
+        } catch (error: IllegalStateException) {
+            failStart(error)
+            return START_NOT_STICKY
+        }
         when (intent?.action) {
             ACTION_STOP -> {
                 app.container.scope.launch { app.container.sessionManager.disconnect() }
@@ -70,8 +78,8 @@ class SessionService : Service() {
         val manager = getSystemService(USB_SERVICE) as android.hardware.usb.UsbManager
         val driver = UsbSerialProber.getDefaultProber().probeDevice(device)
             ?: error("没有匹配的 USB 串口驱动")
-        val connection = manager.openDevice(device) ?: error("打开 USB 设备失败")
         val port = driver.ports.getOrNull(portIndex) ?: error("端口 $portIndex 不存在")
+        val connection = manager.openDevice(device) ?: error("打开 USB 设备失败")
         try {
             port.open(connection)
             port.setParameters(
@@ -98,6 +106,11 @@ class SessionService : Service() {
         serial = UsbSerialTransport(worker)
         worker.start()
         return serial
+    }
+
+    private fun failStart(error: Exception) {
+        app.container.bridge.fail(error)
+        stopSelf()
     }
 
     private fun startAsForeground() {

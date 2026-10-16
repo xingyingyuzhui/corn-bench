@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficDirection
+import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficKind
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Amber
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
@@ -36,7 +37,7 @@ fun TrafficScreen() {
                 items(events.asReversed()) { event ->
                     val deltaMs = (event.monotonicNs - origin) / 1_000_000
                     Text(
-                        "%+8d ms  %s  %s".format(deltaMs, event.direction.name, event.hex),
+                        "%+8d ms  %s  %s".format(deltaMs, event.kind.label(), event.hex),
                         style = Mono,
                         color = if (event.direction == TrafficDirection.TX) Amber else Ok,
                     )
@@ -44,4 +45,16 @@ fun TrafficScreen() {
             }
         }
     }
+}
+
+private fun TrafficKind.label(): String = when (this) {
+    TrafficKind.TX_REQUEST -> "主站请求"
+    TrafficKind.TX_RESPONSE -> "从站响应"
+    TrafficKind.RX_LOCAL_REQUEST -> "本机请求"
+    TrafficKind.RX_FOREIGN_REQUEST -> "外站请求"
+    TrafficKind.RX_FOREIGN_RESPONSE -> "外站响应"
+    TrafficKind.RX_RESPONSE -> "响应"
+    TrafficKind.ECHO -> "回显"
+    TrafficKind.AMBIGUOUS -> "方向不明"
+    TrafficKind.DROPPED -> "丢弃"
 }

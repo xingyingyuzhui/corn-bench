@@ -13,6 +13,7 @@ interface SessionManager {
     val traffic: SharedFlow<TrafficEvent>
     val slaveBank: StateFlow<VirtualRegisterBank?>
     val usbDevices: StateFlow<List<UsbDeviceSummary>>
+    val echoDetected: StateFlow<Boolean?>
 
     suspend fun connect(target: ConnectionTarget, serial: SerialSettings, role: Role)
     suspend fun disconnect()
