@@ -58,15 +58,17 @@ import java.time.format.DateTimeFormatter
  * 质量态：过期 = 值 muted；超时 / 错误 = 值 dim + 红色删除线 + 红 badge + 失败说明（取代 meta）。
  */
 @Composable
-fun WidgetCard(widget: Widget, snapshot: PointSnapshot?, modifier: Modifier = Modifier) {
+fun WidgetCard(widget: Widget, snapshot: PointSnapshot?, modifier: Modifier = Modifier, editing: Boolean = false) {
     val point = widget.point ?: return
-    val look = rememberLook(widget, point, snapshot)
+    // 编辑模式（稿面 b2-2）：名称前加 ⠿，不显示 badge 和 meta（值还是实时的）。
+    val look = rememberLook(widget, point, snapshot).let { if (editing) it.copy(badge = null, meta = "") else it }
+    val name = (if (editing) "⠿ " else "") + widget.displayName(point)
     CardFrame(modifier, "panel-card-${widget.id}") {
         when (widget.kind) {
-            WidgetKinds.LAMP -> LampBody(widget, point, snapshot, look)
-            WidgetKinds.STATUS_TEXT -> StatusBody(widget, point, snapshot, look)
-            WidgetKinds.PROGRESS -> ProgressBody(widget, point, snapshot, look)
-            else -> NumberBody(widget, point, snapshot, look)
+            WidgetKinds.LAMP -> LampBody(widget, point, name, snapshot, look)
+            WidgetKinds.STATUS_TEXT -> StatusBody(widget, point, name, snapshot, look)
+            WidgetKinds.PROGRESS -> ProgressBody(widget, point, name, snapshot, look)
+            else -> NumberBody(widget, point, name, snapshot, look)
         }
     }
 }
@@ -172,6 +174,7 @@ private fun NameRow(title: String, badge: Pair<String, Color>?, trailing: (@Comp
 
 @Composable
 private fun Meta(look: Look, topPadding: Int = 2) {
+    if (look.meta.isEmpty()) return
     val colors = LocalModbusColors.current
     Text(
         look.meta,
@@ -182,9 +185,9 @@ private fun Meta(look: Look, topPadding: Int = 2) {
 }
 
 @Composable
-private fun NumberBody(widget: Widget, point: PointDefinition, snapshot: PointSnapshot?, look: Look) {
+private fun NumberBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
-    NameRow(widget.displayName(point), look.badge)
+    NameRow(name, look.badge)
     val text = if (snapshot?.raw == null) "—" else snapshot.text ?: flagText(snapshot)
     Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
@@ -206,9 +209,9 @@ private fun NumberBody(widget: Widget, point: PointDefinition, snapshot: PointSn
 }
 
 @Composable
-private fun LampBody(widget: Widget, point: PointDefinition, snapshot: PointSnapshot?, look: Look) {
+private fun LampBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
-    NameRow(widget.displayName(point), look.badge)
+    NameRow(name, look.badge)
     val known = snapshot?.raw != null
     val on = known && (snapshot?.engineering ?: 0.0) != 0.0
     val label = when {
@@ -259,9 +262,9 @@ private fun Lamp(on: Boolean, dim: Boolean) {
 }
 
 @Composable
-private fun StatusBody(widget: Widget, point: PointDefinition, snapshot: PointSnapshot?, look: Look) {
+private fun StatusBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
-    NameRow(widget.displayName(point), look.badge)
+    NameRow(name, look.badge)
     val key: Long? = when (val raw = snapshot?.raw) {
         is RawValue.Integer -> raw.bits
         is RawValue.Flag -> if (raw.value) 1L else 0L
@@ -283,18 +286,18 @@ private fun StatusBody(widget: Widget, point: PointDefinition, snapshot: PointSn
             .then(if (look.strike) Modifier.redStrike(colors.error) else Modifier),
     )
     val meta = if (ok && key != null) stringResource(R.string.panel_meta_state_value, addressLabel(point), key.toInt()) else look.meta
-    Meta(look.copy(meta = meta))
+    if (look.meta.isNotEmpty()) Meta(look.copy(meta = meta))
 }
 
 @Composable
-private fun ProgressBody(widget: Widget, point: PointDefinition, snapshot: PointSnapshot?, look: Look) {
+private fun ProgressBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
     val min = point.rangeMin ?: 0.0
     val max = point.rangeMax ?: 100.0
     val value = snapshot?.engineering
     val fraction = if (value == null || snapshot.raw == null) 0f else ((value - min) / (max - min)).coerceIn(0.0, 1.0).toFloat()
     val valueText = if (snapshot?.raw == null) "—" else (snapshot.text ?: "") + point.unitLabel.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
-    NameRow(widget.displayName(point), look.badge) {
+    NameRow(name, look.badge) {
         Text(
             valueText,
             style = Mono.copy(fontSize = 13.sp, lineHeight = 17.sp),
@@ -319,7 +322,7 @@ private fun ProgressBody(widget: Widget, point: PointDefinition, snapshot: Point
 
 // ---- 工具 ----
 
-private fun Widget.displayName(point: PointDefinition) = title.ifBlank { point.name }
+internal fun Widget.displayName(point: PointDefinition) = title.ifBlank { point.name }
 
 private fun tone(colors: ModbusColors, tone: StateTone): Color = when (tone) {
     StateTone.GREEN -> colors.rxLocal

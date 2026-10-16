@@ -36,12 +36,14 @@ internal fun PanelGrid(
     spanRows: List<Int>,
     modifier: Modifier = Modifier,
     gap: Dp = 8.dp,
+    /** 给每一行加 Modifier（编辑拖动时让被拖的那行 zIndex 在最上）。参数是这一行里的组件下标。 */
+    rowModifier: (List<Int>) -> Modifier = { Modifier },
     item: @Composable (Int) -> Unit,
 ) {
     val rows = packRows(spans, columns)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(gap)) {
         for (row in rows) {
-            GridRow(columns, row.map { it.second }, row.map { spanRows[it.first] }, gap) {
+            GridRow(columns, row.map { it.second }, row.map { spanRows[it.first] }, gap, rowModifier(row.map { it.first })) {
                 row.forEach { (index, _) -> item(index) }
             }
         }
@@ -54,9 +56,10 @@ private fun GridRow(
     spans: List<Int>,
     rowSpans: List<Int>,
     gap: Dp,
+    modifier: Modifier,
     content: @Composable () -> Unit,
 ) {
-    Layout(content = content) { measurables, constraints ->
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
         val gapPx = gap.roundToPx()
         val total = constraints.maxWidth
         val cell = (total - gapPx * (columns - 1)) / columns

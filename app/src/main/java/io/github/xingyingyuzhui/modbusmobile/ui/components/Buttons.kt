@@ -121,6 +121,9 @@ fun SmallButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 稿面 .btn.pri.xs：强调色填充（页头的“完成”）。 */
+    primary: Boolean = false,
+    enabled: Boolean = true,
 ) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(10.dp)
@@ -129,13 +132,20 @@ fun SmallButton(
             .minimumInteractiveComponentSize()
             .height(32.dp)
             .clip(shape)
-            .border(1.5.dp, colors.line, shape)
+            .then(
+                if (primary) Modifier.background(if (enabled) colors.accent else colors.surface3) else Modifier.border(1.5.dp, colors.line, shape),
+            )
             .semantics { role = Role.Button }
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = colors.text, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            text,
+            color = if (primary) (if (enabled) colors.onAccent else colors.dim) else colors.text,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 

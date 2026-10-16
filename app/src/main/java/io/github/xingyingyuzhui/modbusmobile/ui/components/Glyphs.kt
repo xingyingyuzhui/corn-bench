@@ -40,6 +40,17 @@ fun PencilIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) {
 }
 
 @Composable
+fun CloseIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = this.size.minDimension * 0.12f
+        drawLine(color, Offset(w * 0.22f, h * 0.22f), Offset(w * 0.78f, h * 0.78f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.78f, h * 0.22f), Offset(w * 0.22f, h * 0.78f), stroke, StrokeCap.Round)
+    }
+}
+
+@Composable
 fun RefreshIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) {
     Canvas(modifier.size(size)) {
         val d = this.size.minDimension

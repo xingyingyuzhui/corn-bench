@@ -31,7 +31,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /** 面板测试共用：假会话 + 稿面 b2-1 那组组件（温度 / 压力 / 压缩机 / 运行模式 / 阀门开度 / 压缩机电流）。 */
-internal class PanelFakeSession(role: Role? = Role.MASTER) : SessionManager {
+internal open class PanelFakeSession(role: Role? = Role.MASTER) : SessionManager {
     override val state = MutableStateFlow<SessionState>(
         if (role == null) SessionState.Idle else SessionState.Running(role, ConnectionTarget.Demo, epoch = 1),
     )
