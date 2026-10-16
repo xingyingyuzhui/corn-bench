@@ -104,4 +104,37 @@ class ProjectEditsTest {
         assertEquals("往回拖缩小", 1 to 1, ProjectEdits.resizedSpan(328f, 188f, -170f, -100f, 160f, 90f, 8f, 2))
         assertEquals("夹在 2 以内", 2 to 2, r(900f, 900f, 4))
     }
+
+    // ---- P6：添加 / 替换组件、新 id ----
+
+    @Test fun addWidgetAppendsToThatPanelOnly() {
+        val added = ProjectEdits.addWidget(project(), "a", w("new"))
+        assertEquals(ids(project(), "a") + "new", ids(added, "a"))
+        assertEquals(ids(project(), "b"), ids(added, "b"))
+        assertEquals("面板不存在时原样返回", project(), ProjectEdits.addWidget(project(), "zzz", w("new")))
+    }
+
+    @Test fun replaceWidgetKeepsPositionAndSkipsUnreadable() {
+        val base = project()
+        val target = base.panels.first { it.id == "a" }.widgets[1]
+        val replaced = ProjectEdits.replaceWidget(base, "a", target.copy(title = "改过"))
+        assertEquals(ids(base, "a"), ids(replaced, "a"))
+        assertEquals("改过", replaced.panels.first { it.id == "a" }.widgets[1].title)
+        val raw = base.panels.first { it.id == "a" }.widgets.first { it.raw != null }
+        assertEquals("读不懂的组件不被替换", base, ProjectEdits.replaceWidget(base, "a", raw.copy(title = "不该生效", raw = null)))
+    }
+
+    @Test fun newIdsAvoidEverythingInTheProject() {
+        val used = project().panels.flatMap { p -> p.widgets.map { it.id } }
+        val seq = ArrayDeque(listOf("aa", "bb"))
+        val (widgetId, pointId) = ProjectEdits.newIds(project()) { seq.removeFirst() }
+        assertEquals("w-aa", widgetId)
+        assertEquals("p-aa", pointId)
+        assertTrue(widgetId !in used)
+        // 撞上已有 id 就换下一个
+        val clash = project().copy(panels = listOf(Panel("a", "A", widgets = listOf(w("w-aa")))))
+        val seq2 = ArrayDeque(listOf("aa", "bb"))
+        assertEquals("w-bb", ProjectEdits.newIds(clash) { seq2.removeFirst() }.first)
+    }
 }
+

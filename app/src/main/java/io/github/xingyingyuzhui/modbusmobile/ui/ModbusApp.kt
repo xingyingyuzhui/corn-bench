@@ -40,6 +40,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.connection.ConnectionScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveFullscreenScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.mine.MineScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.panel.PanelScreen
+import io.github.xingyingyuzhui.modbusmobile.ui.panel.PanelWizardScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.CurveRoute
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.Destination
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.DockInsets
@@ -73,6 +74,11 @@ val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
 /** Activity 级的 ViewModelStoreOwner。工作台的表单、结果和轮询意图不随页面切换（含系统返回键）清空。 */
 val LocalAppViewModelStoreOwner = staticCompositionLocalOf<androidx.lifecycle.ViewModelStoreOwner?> { null }
 
+/** 打开“添加 / 编辑组件”向导页（面板编辑模式里调用）。 */
+val LocalOpenWizard = staticCompositionLocalOf<() -> Unit> { {} }
+
+const val PanelWizardRoute = "panel/wizard"
+
 val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
     error("连接页回调还没有提供")
 }
@@ -87,7 +93,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val portrait = adaptive.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.COMPACT &&
         adaptive.windowSizeClass.windowHeightSizeClass != WindowHeightSizeClass.COMPACT
     val current = nav.currentBackStackEntryAsState().value?.destination?.route
-    val hideChrome = current == CurveRoute
+    val hideChrome = current == CurveRoute || current == PanelWizardRoute
     var suppressCurve by remember { mutableStateOf(false) }
     var autoEntered by remember { mutableStateOf(false) }
     LaunchedEffect(portrait) {
@@ -123,6 +129,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
             LocalDockInsets provides DockInsets(start = dockStart, bottom = dockBottom),
             LocalShellMode provides if (portrait) ShellMode.PORTRAIT else ShellMode.LANDSCAPE,
             LocalOpenConnection provides openConnection,
+            LocalOpenWizard provides { nav.navigate(PanelWizardRoute) { launchSingleTop = true } },
             LocalAppViewModelStoreOwner provides appStoreOwner,
         ) {
             NavHost(
@@ -135,6 +142,14 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
                 composable(Destination.Panel.route) { PanelScreen() }
                 composable(Destination.Log.route) { TrafficScreen() }
                 composable(Destination.Mine.route) { MineScreen() }
+                composable(PanelWizardRoute) { entry ->
+                    val parent = remember(entry) { runCatching { nav.getBackStackEntry(Destination.Panel.route) }.getOrNull() }
+                    if (parent == null) {
+                        LaunchedEffect(Unit) { nav.popBackStack() }
+                    } else {
+                        PanelWizardScreen(parent) { nav.popBackStack() }
+                    }
+                }
                 composable(CurveRoute) { CurveFullscreenScreen(onClose = closeCurve) }
             }
         }

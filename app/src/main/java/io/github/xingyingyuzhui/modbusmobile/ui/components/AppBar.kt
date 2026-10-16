@@ -77,6 +77,7 @@ fun SubPageHeader(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = LocalModbusColors.current
     Row(
@@ -90,5 +91,6 @@ fun SubPageHeader(
             Modifier.testTag("sub-back"),
         ) { BackIcon(colors.text) }
         Text(title, color = colors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).testTag("sub-title"))
+        trailing()
     }
 }

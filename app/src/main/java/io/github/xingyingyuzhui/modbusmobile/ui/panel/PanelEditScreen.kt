@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -77,6 +78,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.pageStart
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ButtonRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.FieldRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
@@ -96,12 +98,15 @@ data class EditActions(
     val onDeletePanel: () -> Unit = {},
     val onDone: () -> Unit = {},
     val onCancel: () -> Unit = {},
+    /** 打开添加向导 / 点卡片配置这个组件。 */
+    val onAddWidget: () -> Unit = {},
+    val onOpenWidget: (String) -> Unit = {},
 )
 
 /**
  * 面板编辑模式（稿面 b2-2）：✕ + “编辑面板” + 琥珀 xs“完成”；面板名称 / 列数两格；组件卡虚线框 +
  * 左上 ⠿ + 右上红 × + 右下琥珀角标；底注。所有修改在草稿里，“完成”才写盘，✕ 放弃（有修改先确认）。
- * 没有“＋ 添加组件”：那是 P6（添加向导）带着功能一起上，这里不画灰按钮。
+ * 底部“＋ 添加组件”（虚线按钮）打开添加向导（PanelWizardScreen）；点一张卡 = 用同一个向导改这个组件。
  */
 @Composable
 fun PanelEditor(
@@ -168,11 +173,12 @@ fun PanelEditor(
             if (widgets.isEmpty()) {
                 Text(
                     stringResource(R.string.panel_edit_empty), color = colors.muted, fontSize = 13.sp, lineHeight = 19.sp,
-                    modifier = Modifier.padding(vertical = 12.dp).testTag("edit-empty"),
+                    modifier = Modifier.padding(vertical = 4.dp).testTag("edit-empty"),
                 )
             } else {
                 EditGrid(widgets, columns, panel.columns, snapshots, actions, spacing.gapS)
             }
+            AddWidgetButton(actions.onAddWidget)
             if (edit.draft.panels.size > 1) {
                 Box(
                     Modifier
@@ -301,6 +307,7 @@ private fun EditGrid(
         val moveLater = stringResource(R.string.panel_edit_move_later)
         val resizeDescription = stringResource(R.string.panel_edit_resize, title)
         val deleteDescription = stringResource(R.string.panel_edit_delete_widget, title)
+        val openLabel = stringResource(R.string.panel_edit_open_widget, title)
         Box(
             Modifier
                 .fillMaxSize()
@@ -325,6 +332,7 @@ private fun EditGrid(
                         },
                     )
                 }
+                .clickable(onClickLabel = openLabel) { actions.onOpenWidget(widget.id) }
                 .pointerInput(widget.id, widgets.map { it.id }) {
                     var start = Offset.Zero
                     detectDragGesturesAfterLongPress(
@@ -455,4 +463,30 @@ private fun DashedOutline(color: Color) {
             }
             .testTag("edit-outline"),
     )
+}
+
+/** 稿面 `.btn.out.sm` 虚线版：高 44（热区补到 48），“＋ 添加组件”。 */
+@Composable
+private fun AddWidgetButton(onClick: () -> Unit) {
+    val colors = LocalModbusColors.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .height(44.dp)
+            .clip(RoundedCornerShape(ButtonRadius))
+            .background(colors.surface1)
+            .drawBehind {
+                drawRoundRect(
+                    colors.line, cornerRadius = CornerRadius(ButtonRadius.toPx()),
+                    style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
+                )
+            }
+            .semantics { role = Role.Button }
+            .clickable(onClick = onClick)
+            .testTag("edit-add-widget"),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("＋ " + stringResource(R.string.panel_add_widget), color = colors.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    }
 }

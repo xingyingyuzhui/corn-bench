@@ -29,6 +29,8 @@ class AppContainer(app: Application) {
     val pollScheduler = io.github.xingyingyuzhui.modbusmobile.application.panel.PollScheduler(
         sessionManager, scope, pointStore, nowMs = { System.nanoTime() / 1_000_000L },
     )
-    val panelRuntime = io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime(pointStore, pollScheduler)
+    val panelRuntime = io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime(pointStore, pollScheduler) { previewScope ->
+        io.github.xingyingyuzhui.modbusmobile.application.panel.PointPreview(sessionManager, previewScope) { System.nanoTime() / 1_000_000L }
+    }
     val projectRepository = io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectRepository(java.io.File(app.filesDir, "projects"))
 }
