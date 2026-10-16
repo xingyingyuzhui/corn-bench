@@ -21,6 +21,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.size
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ArrowGlyph
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ConfirmValueRow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -151,7 +155,7 @@ private fun MasterPortrait(model: WorkbenchViewModel, settings: UiSettings, form
             if (model.mode == WorkbenchMode.READ) {
                 ReadSection(model, settings, format, landscape = false)
             } else {
-                RecentSection(model)
+                RecentSection(model, settings)
             }
         }
     }
@@ -188,7 +192,7 @@ private fun MasterLandscape(model: WorkbenchViewModel, settings: UiSettings, for
                 // 写入页右栏：帧预览 → 预览并写入 → 最近写入。不再显示读取结果表。
                 WritePreview(model)
                 WriteButtons(model)
-                RecentSection(model)
+                RecentSection(model, settings)
             }
         }
     }
@@ -537,7 +541,7 @@ private fun ResultTable(
 private val ClockFormat = ThreadLocal.withInitial { SimpleDateFormat("HH:mm:ss", Locale.ROOT) }
 
 @Composable
-private fun RecentSection(model: WorkbenchViewModel) {
+private fun RecentSection(model: WorkbenchViewModel, settings: UiSettings) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
     Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -575,7 +579,13 @@ private fun RecentSection(model: WorkbenchViewModel) {
                     else -> SemanticKind.ERROR
                 }
                 SemanticBadge(kind, outcomeLabel(entry))
-                Text(writeSummary(entry, stringResource(R.string.recent_broadcast)), style = Mono, color = colors.text, maxLines = 1, modifier = Modifier.weight(1f))
+                Text(
+                    writeSummary(entry, stringResource(R.string.recent_broadcast), settings.addressStyle),
+                    style = Mono,
+                    color = colors.text,
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f).padding(vertical = 6.dp),
+                )
                 Text(
                     ClockFormat.get()!!.format(Date(entry.atMillis)),
                     style = Mono,
@@ -599,10 +609,19 @@ private fun outcomeLabel(entry: RecentWrite): String = when (entry.outcome) {
     WriteOutcome.INVALID -> stringResource(R.string.badge_invalid)
 }
 
-/** “FC06 U1 5 = 123”；多个值：“FC16 U1 100 × 3”；广播（Unit 0）写“FC06 广播 5 = 123”。 */
-private fun writeSummary(entry: RecentWrite, broadcastLabel: String): String {
+/**
+ * “FC06 U1 0 · 40001 = 123”；多个值：“FC16 U1 100 · 40101 × 3”；广播（Unit 0）写“FC06 广播 5 · 40006 = 123”。
+ * 地址跟随设置里的“地址显示”（0 基 / 参考号 / 两者），和结果表一致。
+ */
+internal fun writeSummary(entry: RecentWrite, broadcastLabel: String, style: AddressStyle): String {
     val target = if (entry.unit == 0) broadcastLabel else "U${entry.unit}"
-    val head = "${fcLabel(entry.functionCode)} $target ${entry.address}"
+    val modicon = modiconLabel(entry.area, entry.address)
+    val where = when (style) {
+        AddressStyle.ZERO_BASED -> entry.address.toString()
+        AddressStyle.MODICON -> modicon
+        AddressStyle.BOTH -> "${entry.address} · $modicon"
+    }
+    val head = "${fcLabel(entry.functionCode)} $target $where"
     val count = entry.words.size + entry.bits.size
     return when {
         count != 1 -> "$head × $count"
@@ -642,6 +661,7 @@ private fun WriteConfirm(pending: PendingWrite, model: WorkbenchViewModel, setti
             stringResource(R.string.confirm_badge, plan.unit, plan.address, modiconLabel(plan.area, plan.address))
         },
         badgeKind = if (pending.broadcast) SemanticKind.ERROR else SemanticKind.DROPPED,
+        confirmDanger = pending.broadcast,
         frame = plan.frame,
         frameHighlight = plan.payload,
         frameCaption = stringResource(R.string.confirm_frame_caption, plan.frame.size, fcLabel(plan.functionCode)),
@@ -672,59 +692,57 @@ private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
         else -> value.toString()
     }
     if (plan.words.size + plan.bits.size == 1) {
-        Row(
-            Modifier.fillMaxWidth().padding(bottom = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            if (pending.broadcast) {
-                // 广播没有“当前值”：不显示“未读取”，只显示地址与新值。
-                Column {
-                    Text(stringResource(R.string.confirm_address), color = colors.muted, fontSize = 11.sp)
-                    Text(plan.address.toString(), style = Mono.copy(fontSize = 22.sp), color = colors.muted)
-                }
-            } else {
-                Column {
-                    Text(stringResource(R.string.confirm_current), color = colors.muted, fontSize = 11.sp)
-                    Text(show(pending.current.firstOrNull(), coil), style = Mono.copy(fontSize = 22.sp), color = colors.muted)
-                    if (pending.current.firstOrNull() == null) {
-                        Text(unknown, color = colors.dim, fontSize = 11.sp)
-                    } else if (ageText != null) {
-                        Text(ageText, color = colors.dim, fontSize = 11.sp)
+        val currentValue = pending.current.firstOrNull()
+        val newValue = if (coil) (if (plan.bits[0]) 1 else 0) else plan.words[0]
+        // “当前”来自上次写入而不是真实读取时，标签写“上次写入”，和“读取值”分开（技术总工要求）。
+        val label = when {
+            pending.broadcast -> stringResource(R.string.confirm_address)
+            currentValue == null -> stringResource(R.string.confirm_current)
+            pending.currentFromRead -> stringResource(R.string.confirm_label_read)
+            else -> stringResource(R.string.confirm_label_last_write)
+        }
+        val same = !pending.broadcast && currentValue != null && currentValue == newValue
+        ConfirmValueRow(
+            leftLabel = label,
+            // 广播没有“当前值”：只显示地址，不写“未读取”。
+            leftValue = if (pending.broadcast) plan.address.toString() else show(currentValue, coil),
+            leftNote = when {
+                pending.broadcast -> null
+                currentValue == null -> unknown
+                else -> ageText
+            },
+            rightLabel = if (coil) null else stringResource(R.string.confirm_new),
+            rightValue = if (coil) null else plan.words[0].toString(),
+            rightControl = if (coil) {
+                {
+                    SegmentedTextControl(listOf(false, true), plan.bits[0], model::setPendingCoil, Modifier.fillMaxWidth()) {
+                        if (it) "ON" else "OFF"
                     }
                 }
-            }
-            Text("→", color = colors.dim, fontSize = 20.sp, modifier = Modifier.padding(bottom = 4.dp))
-            if (coil) {
-                SegmentedTextControl(
-                    listOf(false, true),
-                    plan.bits[0],
-                    model::setPendingCoil,
-                    Modifier.weight(1f),
-                ) { if (it) "ON" else "OFF" }
             } else {
-                Column {
-                    Text(stringResource(R.string.confirm_new), color = colors.muted, fontSize = 11.sp)
-                    Text(
-                        plan.words[0].toString(),
-                        style = Mono.copy(fontSize = 22.sp),
-                        color = colors.txText,
-                    )
-                }
-            }
-        }
+                null
+            },
+            hint = if (same) {
+                stringResource(if (pending.currentFromRead) R.string.confirm_same_read else R.string.confirm_same_write)
+            } else {
+                null
+            },
+        )
     } else {
         Column(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             val total = plan.words.size + plan.bits.size
             Text(stringResource(R.string.confirm_multi_head, plan.address, total), color = colors.muted, fontSize = 12.sp)
             if (!pending.broadcast && ageText != null) Text(ageText, color = colors.dim, fontSize = 11.sp)
             val shown = minOf(total, 6)
+            // 列宽按字号换算（5 位数 = 5 个等宽字符），箭头才会在每一行上下对齐，放大字体也一样。
+            val addressWidth = with(LocalDensity.current) { 52.sp.toDp() }
+            val valueWidth = with(LocalDensity.current) { 46.sp.toDp() }
             repeat(shown) { index ->
                 val new = if (coil) (if (plan.bits[index]) 1 else 0) else plan.words[index]
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text((plan.address + index).toString(), style = Mono, color = colors.dim, modifier = Modifier.width(56.dp))
-                    Text(show(pending.current.getOrNull(index), coil), style = Mono, color = colors.muted)
-                    Text("→", color = colors.dim, fontSize = 13.sp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text((plan.address + index).toString(), style = Mono, color = colors.dim, modifier = Modifier.width(addressWidth))
+                    Text(show(pending.current.getOrNull(index), coil), style = Mono, color = colors.muted, modifier = Modifier.width(valueWidth))
+                    ArrowGlyph(colors.dim, Modifier.size(width = 14.dp, height = 10.dp))
                     Text(show(new, coil), style = Mono, color = colors.txText)
                 }
             }

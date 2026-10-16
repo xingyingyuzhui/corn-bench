@@ -97,6 +97,9 @@ class WorkbenchViewModel(
     var mode by mutableStateOf(WorkbenchMode.READ)
         private set
 
+    /** 见 [restampUnseenWriteChanges]。放在 init 之前，epoch 观察协程可能立即调用重置。 */
+    private val unseenWriteChanges = HashSet<Int>()
+
     /** 读取用的区域。 */
     var area by mutableStateOf(RegisterArea.HOLDING_REGISTER)
 
@@ -182,6 +185,7 @@ class WorkbenchViewModel(
         known.clear()
         invalidStreak = 0
         readState = ReadState.None
+        unseenWriteChanges.clear()
         pending = null
         recentWrites = emptyList()
         mode = WorkbenchMode.READ
@@ -207,6 +211,29 @@ class WorkbenchViewModel(
     fun selectMode(next: WorkbenchMode) {
         mode = next
         formError = null
+        if (next == WorkbenchMode.READ) restampUnseenWriteChanges()
+    }
+
+    /**
+     * 写入成功会改结果表里的值并闪烁 2 秒，但写入页（竖屏和横屏）不显示结果表：
+     * 用户回到读取页时 2 秒早过了，闪烁永远看不到（PR #4 实机复验 §16 d 项的真实原因之一）。
+     * 所以在写入页完成的写入先记在 [unseenWriteChanges]，回到读取页的那一刻再把变化时刻重置为“现在”，闪烁从表可见时开始。
+     * 值本身在写入成功时已经更新，这里只动闪烁的起点。
+     */
+    private fun restampUnseenWriteChanges() {
+        if (unseenWriteChanges.isEmpty()) return
+        val current = (readState as? ReadState.Ok)?.result
+        if (current == null) {
+            unseenWriteChanges.clear()
+            return
+        }
+        val now = clock()
+        val changed = HashMap(current.changedAt)
+        unseenWriteChanges.forEach { address ->
+            if (address in current.start until current.start + current.values.size) changed[address] = now
+        }
+        unseenWriteChanges.clear()
+        readState = ReadState.Ok(current.copy(changedAt = changed))
     }
 
     fun selectWriteArea(next: RegisterArea) {
@@ -355,6 +382,7 @@ class WorkbenchViewModel(
                     }
                 }
                 val now = clock()
+                unseenWriteChanges.clear()
                 val previous = (readState as? ReadState.Ok)?.result
                 val changed = buildMap<Int, Long> {
                     if (previous != null && previous.area == params.area && previous.unit == params.unit &&
@@ -524,6 +552,7 @@ class WorkbenchViewModel(
                 values[slot] = value
                 changed[address] = now
                 touched = true
+                if (mode == WorkbenchMode.WRITE) unseenWriteChanges += address
             }
         }
         if (touched) readState = ReadState.Ok(current.copy(values = values, changedAt = changed))
