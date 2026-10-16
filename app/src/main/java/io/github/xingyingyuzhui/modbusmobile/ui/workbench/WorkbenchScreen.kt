@@ -316,7 +316,7 @@ private fun ReadButtons(model: WorkbenchViewModel) {
         val seconds = secondsLabel(model.pollIntervalMs)
         SecondaryButton(
             stringResource(if (model.polling) R.string.poll_running else R.string.poll_idle, seconds),
-            { model.setPolling(!model.polling) },
+            { model.changePolling(!model.polling) },
             Modifier.weight(1f),
             compact = true,
             active = model.polling,

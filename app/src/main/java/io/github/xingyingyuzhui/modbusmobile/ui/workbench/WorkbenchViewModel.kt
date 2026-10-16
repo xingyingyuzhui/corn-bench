@@ -202,7 +202,7 @@ class WorkbenchViewModel(
         viewModelScope.launch { performRead(params) }
     }
 
-    fun setPolling(enabled: Boolean) {
+    fun changePolling(enabled: Boolean) {
         pollJob?.cancel()
         pollJob = null
         polling = enabled

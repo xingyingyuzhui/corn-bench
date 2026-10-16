@@ -221,7 +221,7 @@ class WorkbenchWriteTest {
     @Test
     fun pollingStopsWhenTheConnectionIsGone() = withModel { model, session ->
         session.next += ModbusResult.Disconnected
-        model.setPolling(true)
+        model.changePolling(true)
         advanceUntilIdle()
         assertFalse(model.polling)
         assertEquals(1, session.requests.size)
@@ -231,11 +231,11 @@ class WorkbenchWriteTest {
     fun pollingYieldsToTheWriteMode() = withModel { model, session ->
         session.next += readOf(listOf(1))
         model.selectMode(WorkbenchMode.WRITE)
-        model.setPolling(true)
+        model.changePolling(true)
         testScheduler.advanceTimeBy(1_000)
         testScheduler.runCurrent()
         assertTrue("写入模式下轮询不发读请求", session.requests.isEmpty())
-        model.setPolling(false)
+        model.changePolling(false)
         advanceUntilIdle()
     }
 
@@ -257,7 +257,7 @@ class WorkbenchWriteTest {
     }
 }
 
-private fun WorkbenchViewModel.onClearedForTest() = setPolling(false)
+private fun WorkbenchViewModel.onClearedForTest() = changePolling(false)
 
 /** 按顺序吐出预设结果；没有预设时：写请求回显成功，读请求断开。 */
 private class ScriptedSession : SessionManager {
