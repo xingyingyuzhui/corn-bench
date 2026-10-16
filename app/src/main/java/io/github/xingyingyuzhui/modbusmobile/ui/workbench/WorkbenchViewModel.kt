@@ -12,6 +12,7 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
@@ -26,10 +27,10 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            session.slaveBank.collect { bank ->
+            session.slaveBank.collectLatest { bank ->
                 if (bank == null) {
                     slaveRows = SlaveRows()
-                    return@collect
+                    return@collectLatest
                 }
                 publish(bank)
                 bank.changes.collect { publish(bank) }

@@ -16,6 +16,7 @@ import io.github.xingyingyuzhui.modbusmobile.ModbusMobileApp
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.Parity
 import io.github.xingyingyuzhui.modbusmobile.io.SerialIoWorker
+import io.github.xingyingyuzhui.modbusmobile.io.UsbRawSerialPort
 import io.github.xingyingyuzhui.modbusmobile.usb.UsbSerialTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -86,8 +87,7 @@ class SessionService : Service() {
         }
         lateinit var serial: UsbSerialTransport
         val worker = SerialIoWorker(
-            port = port,
-            connection = connection,
+            port = UsbRawSerialPort(port, connection),
             clock = app.container.clock,
             onChunk = { chunk -> serial.emit(chunk) },
             onError = { reason ->
