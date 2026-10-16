@@ -88,6 +88,13 @@ fun QualityBadge(quality: Quality, modifier: Modifier = Modifier) {
     Badge(label, tone, colors.wash(tone), modifier)
 }
 
+/** 面板卡片的状态 badge（正常 / 预警 / 告警 / 过期 / 超时…）：任意语义色。 */
+@Composable
+fun ToneBadge(text: String, tone: Color, modifier: Modifier = Modifier) {
+    val colors = LocalModbusColors.current
+    Badge(text, tone, colors.wash(tone), modifier)
+}
+
 @Composable
 private fun Badge(text: String, tone: Color, wash: Color, modifier: Modifier) {
     Text(

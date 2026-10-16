@@ -74,7 +74,7 @@ class PollSchedulerTest {
     private class Rig(scope: TestScope) {
         val session = FakeSession { scope.currentTime }
         val store = PointStore()
-        val scheduler = PollScheduler(session, scope.backgroundScope, store, nowMs = { scope.currentTime })
+        val scheduler = PollScheduler(session, scope.backgroundScope, store, nowMs = { scope.currentTime }, wallMs = { 1_000_000L + scope.currentTime })
     }
 
     private fun TestScope.rig() = Rig(this)
@@ -321,5 +321,37 @@ class PollSchedulerTest {
         assertEquals("手动请求最多等当前这一次读", 300L, manualStart)
         assertEquals(1, r.session.maxInFlight)
         assertEquals(listOf(0L, 1000L), r.session.log.filter { (it.second as ModbusRequest.ReadHoldingRegisters).address == 0 }.map { it.first })
+    }
+
+    @Test fun snapshotsCarryWallClockOfTheRead() = runTest {
+        val r = rig()
+        r.session.handler = { regs(1) }
+        r.start(pt("a", 0))
+        advanceTimeBy(1_100); runCurrent()
+        val s = r.store.get("a")!!
+        assertEquals(1_000L, s.updatedAtMs)
+        assertEquals(1_001_000L, s.updatedWallMs)
+    }
+
+    @Test fun userPauseStopsRequestsKeepsValuesAndSurvivesInactiveToggle() = runTest {
+        val r = rig()
+        r.session.handler = { regs(3) }
+        r.start(pt("a", 0))
+        runCurrent()
+        assertEquals(1, r.session.log.size)
+        r.scheduler.setPaused(true)
+        advanceTimeBy(5_000); runCurrent()
+        assertEquals(1, r.session.log.size)
+        assertEquals("3", r.store.get("a")!!.text)
+        assertNull(r.scheduler.stats.value)
+        assertTrue(r.scheduler.paused.value)
+        // 离开页面再回来：仍是暂停
+        r.scheduler.setActive(false); runCurrent()
+        r.scheduler.setActive(true)
+        advanceTimeBy(5_000); runCurrent()
+        assertEquals(1, r.session.log.size)
+        r.scheduler.setPaused(false)
+        runCurrent()
+        assertEquals(2, r.session.log.size)
     }
 }

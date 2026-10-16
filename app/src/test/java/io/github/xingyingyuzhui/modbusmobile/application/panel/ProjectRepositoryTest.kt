@@ -178,6 +178,34 @@ class ProjectRepositoryTest {
         assertEquals(PointDefinition.DEFAULT_POLL_MS, r.project.panels[0].widgets[1].point!!.pollMs)
     }
 
+    @Test fun lampLabelsAndStateMappingsRoundTrip() {
+        val w = Widget(
+            "w3", WidgetKinds.STATUS_TEXT, "模式", point("p3", DataType.U16),
+            onLabel = "运行", offLabel = "停止",
+            states = listOf(StateMapping(0, "停止", StateTone.GRAY), StateMapping(2, "制冷", StateTone.BLUE)),
+        )
+        val repo = repo()
+        repo.save(Project("default", "x", listOf(Panel("a", "b", widgets = listOf(w)))))
+        val back = (repo.load() as ProjectLoad.Loaded).project.panels[0].widgets[0]
+        assertEquals(w, back)
+    }
+
+    @Test fun incompleteStateMappingsAreIgnoredWithWarning() {
+        val w = Widget("w3", WidgetKinds.STATUS_TEXT, "模式", point("p3", DataType.U16), states = listOf(StateMapping(1, "x")))
+        val obj = JSONObject(ProjectJson.encode(Project("default", "x", listOf(Panel("a", "b", widgets = listOf(w))))))
+        val states = obj.getJSONArray("panels").getJSONObject(0).getJSONArray("widgets").getJSONObject(0).getJSONArray("states")
+        states.put(JSONObject().put("value", 3)) // 没有 label
+        states.put(JSONObject().put("label", "无值"))
+        states.put(JSONObject().put("value", 5).put("label", "未知色").put("tone", "PURPLE"))
+        mainFile().parentFile!!.mkdirs()
+        mainFile().writeText(obj.toString())
+        val r = repo().load() as ProjectLoad.Loaded
+        val parsed = r.project.panels[0].widgets[0].states
+        assertEquals(listOf(1L, 5L), parsed.map { it.value })
+        assertEquals(StateTone.BLUE, parsed[1].tone)
+        assertEquals(2, r.warnings.count { "状态映射" in it })
+    }
+
     @Test fun columnsAndSpansAreClamped() {
         val obj = JSONObject(ProjectJson.encode(project()))
         val panel = obj.getJSONArray("panels").getJSONObject(0)

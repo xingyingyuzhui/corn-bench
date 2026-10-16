@@ -9,6 +9,11 @@ object WidgetKinds {
     val known = setOf(NUMBER, LAMP, STATUS_TEXT, PROGRESS)
 }
 
+enum class StateTone { GREEN, AMBER, RED, BLUE, GRAY }
+
+/** 状态文本组件的取值映射：原始整数值 → 文字 + 颜色。 */
+data class StateMapping(val value: Long, val label: String, val tone: StateTone = StateTone.BLUE)
+
 /**
  * 面板上的一个组件。[raw] 非空表示“这个组件现在读不懂”（类型是更新版本才有的、或字段不合法）：
  * 界面不渲染它，但保存时把 [raw] 原样写回，等换回新版本还能用。
@@ -21,6 +26,11 @@ data class Widget(
     /** 占几列 / 几行（1..2）。 */
     val spanColumns: Int = 1,
     val spanRows: Int = 1,
+    /** 指示灯：为“开”/“关”时显示的文字，空 = 用默认的“开”/“关”。 */
+    val onLabel: String = "",
+    val offLabel: String = "",
+    /** 状态文本：取值映射；没有匹配的值显示“未定义（值）”。 */
+    val states: List<StateMapping> = emptyList(),
     val raw: String? = null,
 ) {
     val isUsable: Boolean get() = raw == null && point != null && kind in WidgetKinds.known

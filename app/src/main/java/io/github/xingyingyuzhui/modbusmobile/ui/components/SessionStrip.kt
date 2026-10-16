@@ -54,6 +54,9 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 fun SessionStrip(
     modifier: Modifier = Modifier,
     showEcho: Boolean = false,
+    /** 页面自己的标题 / 副行（面板写“主站 · 轮询中”“设定 1000 ms · 实际 1012 ms”）；空 = 用连接状态的默认文字。 */
+    title: String? = null,
+    detail: String? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val session = LocalSession.current
@@ -73,6 +76,8 @@ fun SessionStrip(
     SessionStripContent(
         state, serial, deviceName, open, modifier,
         echoDetected = if (showEcho) echoDetected else null,
+        titleOverride = title,
+        detailOverride = detail,
         trailing = trailing,
     )
 }
@@ -85,10 +90,12 @@ fun SessionStripContent(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     echoDetected: Boolean? = null,
+    titleOverride: String? = null,
+    detailOverride: String? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
-    val title = when (state) {
+    val title = titleOverride ?: when (state) {
         SessionState.Idle -> stringResource(R.string.session_idle)
         SessionState.RequestingPermission -> stringResource(R.string.session_permission)
         SessionState.Opening -> stringResource(R.string.session_opening)
@@ -113,7 +120,7 @@ fun SessionStripContent(
         false -> stringResource(R.string.strip_echo_none)
         null -> null
     }
-    val detail = listOfNotNull(lead, serial?.wireLabel(), echoText).joinToString(" · ")
+    val detail = detailOverride ?: listOfNotNull(lead, serial?.wireLabel(), echoText).joinToString(" · ")
     val dot = when (state) {
         is SessionState.Running -> colors.rxLocal
         is SessionState.Error -> colors.error

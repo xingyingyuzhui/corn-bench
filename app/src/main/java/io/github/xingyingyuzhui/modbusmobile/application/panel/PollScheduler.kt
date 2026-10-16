@@ -36,9 +36,14 @@ class PollScheduler(
     private val store: PointStore,
     private val nowMs: () -> Long,
     private val maxGap: Int = 0,
+    private val wallMs: () -> Long = System::currentTimeMillis,
 ) {
     private val points = MutableStateFlow<List<PointDefinition>>(emptyList())
     private val active = MutableStateFlow(false)
+    private val _paused = MutableStateFlow(false)
+
+    /** 用户点了“暂停”：不再发请求，值保持；与页面是否可见无关（回到页面仍是暂停）。 */
+    val paused: StateFlow<Boolean> = _paused.asStateFlow()
     private val _stats = MutableStateFlow<PollStats?>(null)
     val stats: StateFlow<PollStats?> = _stats.asStateFlow()
 
@@ -51,6 +56,10 @@ class PollScheduler(
         active.value = value
     }
 
+    fun setPaused(value: Boolean) {
+        _paused.value = value
+    }
+
     private class GroupState(val group: ReadGroup, var nextDue: Long, var lastStart: Long? = null)
 
     init {
@@ -61,7 +70,7 @@ class PollScheduler(
             combine(points, epochs) { p, e -> p to e }.collectLatest { (pts, epoch) ->
                 store.reset(pts)
                 if (epoch == null || pts.isEmpty()) return@collectLatest
-                active.collectLatest { on -> if (on) run(pts) }
+                combine(active, _paused) { a, p -> a && !p }.distinctUntilChanged().collectLatest { on -> if (on) run(pts) }
             }
         }
     }
@@ -159,7 +168,7 @@ class PollScheduler(
             return prev.copy(quality = Quality.ERROR, failures = prev.failures + 1, error = PointError(ErrorKind.BAD_VALUE, detail = raw.reason))
         }
         if (raw is RawValue.Text) {
-            return PointSnapshot(p.id, Quality.OK, raw, null, raw.value, ThresholdLevel.NORMAL, now)
+            return PointSnapshot(p.id, Quality.OK, raw, null, raw.value, ThresholdLevel.NORMAL, now, wallMs())
         }
         val eng = ValueCodec.toEngineering(raw, p.conversion)
         if (eng == null) {
@@ -167,7 +176,7 @@ class PollScheduler(
             return prev.copy(quality = Quality.ERROR, failures = prev.failures + 1, error = PointError(ErrorKind.BAD_VALUE, detail = "非有限数值"))
         }
         val text = if (raw is RawValue.Flag) null else ValueCodec.format(eng, p.conversion.decimals)
-        return PointSnapshot(p.id, Quality.OK, raw, eng, text, p.thresholds.levelFor(eng), now)
+        return PointSnapshot(p.id, Quality.OK, raw, eng, text, p.thresholds.levelFor(eng), now, wallMs())
     }
 
     companion object {

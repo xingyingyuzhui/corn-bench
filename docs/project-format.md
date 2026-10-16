@@ -63,6 +63,17 @@
 | `rangeMin` `rangeMax` | 显示范围（进度条 / 曲线纵轴用），可缺省；有则 min < max |
 | `thresholds` | 区间 `[min, max)`，`level` ∈ `NORMAL WARN ALERT`；多个命中取最严重 |
 
+### 组件字段（除点位外）
+
+| 字段 | 取值 |
+|---|---|
+| `title` | 组件名称；空 = 用点位名称 |
+| `spanColumns` / `spanRows` | 1..2；跨列按“k×列宽 + (k−1)×间距”；P4 里跨行只表现为这一行更高 |
+| `onLabel` / `offLabel` | 指示灯 / 为 1 / 0 时的文字，缺省“开”/“关” |
+| `states` | 状态文本：`[{"value": 2, "label": "制冷", "tone": "BLUE"}]`；`tone` ∈ `GREEN AMBER RED BLUE GRAY`，缺省 BLUE；没有 `value` 或 `label` 的条目忽略并给警告；取值没有映射时显示“未定义（值）” |
+
+进度条用点位的 `rangeMin` / `rangeMax`（缺省 0..100）。
+
 ### 组件类型
 
 `number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）。其它类型按“读不懂”处理。
