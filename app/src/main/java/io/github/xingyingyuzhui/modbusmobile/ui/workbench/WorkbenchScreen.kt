@@ -94,11 +94,10 @@ fun WorkbenchScreen() {
     val sessionState by model.sessionState.collectAsStateWithLifecycle()
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val running = sessionState as? SessionState.Running
-    if (running?.role == Role.MASTER) {
-        MasterWorkbench(model, landscape)
-    } else {
-        // 没有会话 / 从站：本轮不改（从站工作台属于后续 PR）。
-        LegacyWorkbench(model, running, landscape)
+    when (running?.role) {
+        Role.MASTER -> MasterWorkbench(model, landscape)
+        Role.SLAVE -> SlaveWorkbench(running.target, landscape)
+        null -> NoSessionWorkbench()
     }
 }
 
@@ -676,67 +675,15 @@ private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// 没有会话 / 从站：保持原样
+// 没有会话
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun LegacyWorkbench(model: WorkbenchViewModel, running: SessionState.Running?, landscape: Boolean) {
+private fun NoSessionWorkbench() {
     val colors = LocalModbusColors.current
-    val spacing = LocalSpacing.current
-    val formScroll = rememberScrollState()
-    val resultScroll = rememberScrollState()
-    Column(Modifier.screenFrame().padding(top = spacing.gapS), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
-        Text(stringResource(R.string.title_workbench), color = colors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.screenFrame(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PageHeader(stringResource(R.string.title_workbench))
         SessionStrip()
-        if (running == null) {
-            Text(stringResource(R.string.workbench_need_session), color = colors.muted)
-            return@Column
-        }
-        Text(stringResource(R.string.workbench_slave), color = colors.muted, fontSize = 13.sp)
-        if (landscape) {
-            Row(Modifier.weight(1f).fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(spacing.gapM)) {
-                Column(
-                    Modifier.weight(1f).verticalScroll(formScroll).padding(bottom = dockClearance()),
-                    verticalArrangement = Arrangement.spacedBy(spacing.gapS),
-                ) { SlaveForm(model) }
-                Column(
-                    Modifier.weight(1f).verticalScroll(resultScroll).padding(bottom = dockClearance()),
-                    verticalArrangement = Arrangement.spacedBy(spacing.gapS),
-                ) { SlaveResult(model) }
-            }
-        } else {
-            Column(
-                Modifier.weight(1f).verticalScroll(formScroll).padding(bottom = dockClearance()),
-                verticalArrangement = Arrangement.spacedBy(spacing.gapS),
-            ) {
-                SlaveForm(model)
-                SlaveResult(model)
-            }
-        }
+        Text(stringResource(R.string.workbench_need_session), color = colors.muted)
     }
-}
-
-@Composable
-private fun SlaveForm(model: WorkbenchViewModel) {
-    val colors = LocalModbusColors.current
-    Text(stringResource(R.string.slave_holding), color = colors.text, fontWeight = FontWeight.SemiBold)
-    model.slaveRows.holding.forEach { cell ->
-        NumberInput(stringResource(R.string.area_holding) + " ${cell.address}", cell.draft) {
-            model.editHolding(cell.address, it)
-        }
-    }
-}
-
-@Composable
-private fun SlaveResult(model: WorkbenchViewModel) {
-    val colors = LocalModbusColors.current
-    Text(stringResource(R.string.slave_coils), color = colors.text, fontWeight = FontWeight.SemiBold)
-    ChipRow(
-        model.slaveRows.coils,
-        { it.value },
-        { coil ->
-            stringResource(R.string.coil_state, coil.address, stringResource(if (coil.value) R.string.coil_on else R.string.coil_off))
-        },
-        { coil -> model.editCoil(coil.address, !coil.value) },
-    )
 }

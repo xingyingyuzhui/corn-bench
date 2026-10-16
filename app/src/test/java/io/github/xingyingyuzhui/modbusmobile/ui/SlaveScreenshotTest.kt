@@ -1,0 +1,130 @@
+package io.github.xingyingyuzhui.modbusmobile.ui
+
+import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import com.github.takahirom.roborazzi.captureRoboImage
+import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
+import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
+import io.github.xingyingyuzhui.modbusmobile.application.MemorySettingsRepository
+import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
+import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
+import io.github.xingyingyuzhui.modbusmobile.application.SessionState
+import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
+import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
+import io.github.xingyingyuzhui.modbusmobile.application.UsbDeviceSummary
+import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
+import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
+import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
+import io.github.xingyingyuzhui.modbusmobile.core.model.Role
+import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
+import io.github.xingyingyuzhui.modbusmobile.core.slave.InMemoryRegisterBank
+import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.Destination
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/** 虚拟从站工作台（b1-5）的 Roborazzi 截图和交互测试。 */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [33], qualifiers = "w360dp-h780dp")
+class SlaveScreenshotTest {
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>()
+
+    @Test fun slave_workbench_dark_portrait() = shot(ThemeMode.DARK, ConnectionTarget.Demo, externalWrite = true)
+
+    @Test fun slave_workbench_light_portrait() = shot(ThemeMode.LIGHT, ConnectionTarget.Demo, externalWrite = true)
+
+    @Test
+    fun slave_workbench_coils_dark_portrait() {
+        val bank = bank()
+        show(ThemeMode.DARK, ConnectionTarget.Demo, bank)
+        compose.onNodeWithText("线圈", substring = true).performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage()
+    }
+
+    @Test @Config(qualifiers = "w780dp-h360dp-land")
+    fun slave_workbench_dark_landscape() = shot(ThemeMode.DARK, ConnectionTarget.Demo, externalWrite = true)
+
+    @Test
+    fun usbSlaveHasNoDemoNote() {
+        show(ThemeMode.DARK, ConnectionTarget.Usb(1, 0), bank())
+        compose.onNodeWithText("虚拟从站").assertIsDisplayed()
+        compose.onNodeWithText("演示设备：", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun tappingABitRowFlipsIt() {
+        val bank = bank()
+        show(ThemeMode.DARK, ConnectionTarget.Demo, bank)
+        compose.onNodeWithText("线圈", substring = true).performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithText("ON")[0].performClick()
+        compose.waitForIdle()
+        // 线圈 0 原来是 ON，点“ON”那一行后翻成 OFF；其余不变
+        assertEquals(listOf(false, false, true, false), bank.bits(1, RegisterArea.COIL).map { it.value })
+    }
+
+    private fun bank(): InMemoryRegisterBank = InMemoryRegisterBank().also { bank ->
+        listOf(236, 82, 500, 1, 0).forEachIndexed { i, v -> bank.putWord(1, RegisterArea.HOLDING_REGISTER, i, v) }
+        listOf(10, 20).forEachIndexed { i, v -> bank.putWord(1, RegisterArea.INPUT_REGISTER, i, v) }
+        listOf(true, false, true, false).forEachIndexed { i, v -> bank.putBit(1, RegisterArea.COIL, i, v) }
+        listOf(false, true).forEachIndexed { i, v -> bank.putBit(1, RegisterArea.DISCRETE_INPUT, i, v) }
+    }
+
+    private fun shot(theme: ThemeMode, target: ConnectionTarget, externalWrite: Boolean) {
+        val bank = bank()
+        show(theme, target, bank)
+        if (externalWrite) {
+            // 外部主站写了 HR2：这一行带高亮。时钟停住，截图时高亮还在。
+            compose.mainClock.autoAdvance = false
+            bank.writeWords(1, RegisterArea.HOLDING_REGISTER, 2, listOf(500))
+            compose.waitForIdle()
+            compose.mainClock.advanceTimeBy(50)
+        }
+        compose.onRoot().captureRoboImage()
+    }
+
+    private fun show(theme: ThemeMode, target: ConnectionTarget, bank: VirtualRegisterBank) {
+        val session = SlaveShotSession(target, bank)
+        val settings = UiSettings(theme = theme, addressStyle = AddressStyle.MODICON, hexPrefix = true)
+        val repository = MemorySettingsRepository(settings)
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalSession provides session,
+                LocalSettingsRepository provides repository,
+            ) {
+                ModbusTheme(settings) { ModbusApp(startRoute = Destination.Workbench.route) }
+            }
+        }
+        compose.waitForIdle()
+    }
+}
+
+private class SlaveShotSession(target: ConnectionTarget, bank: VirtualRegisterBank) : SessionManager {
+    override val state = MutableStateFlow<SessionState>(SessionState.Running(Role.SLAVE, target, 1))
+    override val traffic = MutableSharedFlow<TrafficEvent>(replay = 1)
+    override val slaveBank = MutableStateFlow<VirtualRegisterBank?>(bank)
+    override val usbDevices = MutableStateFlow<List<UsbDeviceSummary>>(emptyList())
+    override val echoDetected = MutableStateFlow<Boolean?>(null)
+    override val serial = MutableStateFlow<SerialSettings?>(SerialSettings())
+
+    override suspend fun connect(target: ConnectionTarget, serial: SerialSettings, role: Role) = Unit
+    override suspend fun disconnect() = Unit
+    override suspend fun execute(request: ModbusRequest): ModbusResult = ModbusResult.Disconnected
+}
