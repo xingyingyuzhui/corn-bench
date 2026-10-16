@@ -139,8 +139,6 @@
     <string name="curve_15m">15 分钟</string>
     <string name="curve_1h">1 小时</string>
 
-    <string name="mine_display">显示</string>
-    <string name="mine_session">会话</string>
     <string name="setting_theme">主题</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
@@ -150,7 +148,7 @@
     <string name="font_standard">标准</string>
     <string name="font_large">大</string>
     <string name="font_extra">特大</string>
-    <string name="setting_density">密度</string>
+    <string name="setting_density">界面密度</string>
     <string name="density_comfortable">舒适</string>
     <string name="density_compact">紧凑</string>
     <string name="setting_address">地址显示</string>
@@ -162,12 +160,12 @@
     <string name="setting_time">时间显示</string>
     <string name="time_elapsed">相对时间</string>
     <string name="time_clock">时钟</string>
-    <string name="time_hint">日志仍显示相对毫秒。报文没有墙钟，时钟样式留到下一阶段。</string>
-    <string name="setting_keep_screen">屏幕常亮</string>
+    <string name="time_hint">列表里按所选样式显示；帧详情和导出文件里始终带完整时间。</string>
+    <string name="setting_keep_screen">保持屏幕常亮（连接时）</string>
     <string name="keep_screen_hint">仅在已连接时生效。</string>
-    <string name="setting_vibration">震动</string>
-    <string name="vibration_hint">写入确认时才会使用。这一阶段还没有触发。</string>
-    <string name="setting_landscape_curve">横屏自动进入曲线</string>
+    <string name="setting_vibration">操作震动反馈</string>
+    <string name="vibration_hint">确认写入时轻震一下。</string>
+    <string name="setting_landscape_curve">横屏自动切换曲线全屏</string>
     <string name="landscape_curve_hint">关闭曲线后，回到竖屏才会再次允许自动进入。</string>
     <string name="setting_locked">锁定</string>
 
@@ -376,4 +374,35 @@
     <string name="value_off">OFF</string>
     <string name="strip_echo_yes">回显 有</string>
     <string name="strip_echo_none">回显 无</string>
+    <string name="mine_section_settings">设置</string>
+    <string name="mine_settings_title">设置</string>
+    <string name="cd_back">返回</string>
+    <string name="cd_open_settings">设置</string>
+    <string name="mine_group_appearance">外观</string>
+    <string name="mine_group_display">显示与格式</string>
+    <string name="mine_group_security">安全</string>
+    <string name="mine_group_comm">通信默认值</string>
+    <string name="mine_group_about">关于</string>
+    <string name="mine_label_security">写入前确认</string>
+    <string name="setting_always">始终</string>
+    <string name="secure_confirm_hint">取消不发送，点「发送写入」才发且只发一次。不能关闭。</string>
+    <string name="setting_coil_warning">线圈写入额外提示</string>
+    <string name="coil_warning_hint">提示线圈可能直接驱动执行器。</string>
+    <string name="setting_crc_dim">日志中 CRC 用暗色</string>
+    <string name="comm_timeout">响应超时</string>
+    <string name="comm_gap">请求间隔</string>
+    <string name="comm_broadcast">广播等待</string>
+    <string name="comm_echo">回显</string>
+    <string name="comm_hint">只是连接页「高级」里的初始值，连接页仍可逐次修改；已改动过的连接页输入不会被覆盖。</string>
+    <string name="comm_value_ms">%1$d ms</string>
+    <string name="comm_edit_title">修改「%1$s」</string>
+    <string name="comm_unit_ms">毫秒</string>
+    <string name="error_broadcast_range">请输入 0 到 120000 的整数</string>
+    <string name="action_ok">确定</string>
+    <string name="about_version">版本</string>
+    <string name="about_privacy">隐私</string>
+    <string name="about_privacy_value">不联网，不上传任何数据</string>
+    <string name="about_unknown_version">—</string>
+    <string name="mine_summary_comm">超时 %1$d ms</string>
+    <string name="mine_summary_security">始终确认</string>
 </resources>

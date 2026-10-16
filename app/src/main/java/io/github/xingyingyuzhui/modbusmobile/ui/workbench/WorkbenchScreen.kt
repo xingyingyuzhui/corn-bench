@@ -664,15 +664,18 @@ private fun WriteConfirm(pending: PendingWrite, model: WorkbenchViewModel, setti
         frame = plan.frame,
         frameHighlight = plan.payload,
         frameCaption = stringResource(R.string.confirm_frame_caption, plan.frame.size, fcLabel(plan.functionCode)),
-        warning = when {
-            pending.broadcast && coil -> stringResource(R.string.confirm_warning_broadcast_coil)
-            pending.broadcast -> stringResource(R.string.confirm_warning_broadcast)
-            coil -> stringResource(R.string.confirm_warning_coil)
-            else -> stringResource(R.string.confirm_warning)
-        },
+        warning = stringResource(confirmWarningRes(pending.broadcast, coil, settings.coilExtraWarning)),
     ) {
         ConfirmValues(pending, model)
     }
+}
+
+/** 写入确认里的提示文案：线圈额外提示可在「我的 · 安全」里关掉；广播提示（红色按钮那一档）不受影响。 */
+internal fun confirmWarningRes(broadcast: Boolean, coil: Boolean, coilExtra: Boolean): Int = when {
+    broadcast && coil && coilExtra -> R.string.confirm_warning_broadcast_coil
+    broadcast -> R.string.confirm_warning_broadcast
+    coil && coilExtra -> R.string.confirm_warning_coil
+    else -> R.string.confirm_warning
 }
 
 @Composable

@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.ProvideTextStyle
@@ -72,6 +73,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SegmentedControl
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
@@ -87,7 +89,12 @@ private val baudChoices = listOf(1_200, 2_400, 4_800, 9_600, 19_200, 38_400, 57_
 @Composable
 fun ConnectionScreen() {
     val session = LocalSession.current
-    val model = viewModel { ConnectionViewModel(session) }
+    val uiSettings = LocalUiSettings.current
+    val model = viewModel { ConnectionViewModel(session, uiSettings) }
+    LaunchedEffect(
+        uiSettings.defaultResponseTimeoutMs, uiSettings.defaultInterRequestMs,
+        uiSettings.defaultBroadcastWaitMs, uiSettings.defaultEcho,
+    ) { model.applyDefaults(uiSettings) }
     val state by model.state.collectAsStateWithLifecycle()
     val devices by model.devices.collectAsStateWithLifecycle()
     val echoDetected by model.echoDetected.collectAsStateWithLifecycle()
