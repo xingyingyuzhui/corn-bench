@@ -25,6 +25,12 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,12 +84,17 @@ fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
     }
 }
 
+/** 分段控件的单项高度：稿面单行分段整体 42（项 36）、sm 档 37（项 31）。默认保持 48dp 触控高度，旧页面不变。 */
+val SegItemDesign = 36.dp
+val SegItemSmall = 31.dp
+
 @Composable
 fun <T> SegmentedControl(
     options: List<T>,
     selected: T,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
+    itemHeight: Dp = MinTouch,
     label: @Composable (T) -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -97,13 +108,15 @@ fun <T> SegmentedControl(
         options.forEach { option ->
             val on = option == selected
             val shape = RoundedCornerShape(9.dp)
+            // 稿面选中块：深色 s3 + 内描边 #3A4658；浅色 s1 + 1px line 环
+            val ring = if (colors.isDark) androidx.compose.ui.graphics.Color(0xFF3A4658) else colors.line
             Box(
                 Modifier
                     .weight(1f)
-                    .heightIn(min = MinTouch)
+                    .heightIn(min = itemHeight)
                     .clip(shape)
                     .background(if (on) if (colors.isDark) colors.surface3 else colors.surface1 else androidx.compose.ui.graphics.Color.Transparent)
-                    .then(if (on) Modifier.border(1.dp, colors.line, shape) else Modifier)
+                    .then(if (on) Modifier.border(1.dp, ring, shape) else Modifier)
                     .clickable { onSelect(option) }
                     .padding(horizontal = 6.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
@@ -111,6 +124,35 @@ fun <T> SegmentedControl(
                 label(option)
             }
         }
+    }
+}
+
+/** 稿面尺寸的文字分段：项 14px（sm 12.5px），选中 600 + 主文字色，未选 muted。 */
+@Composable
+fun <T> SegmentedTextControl(
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    small: Boolean = false,
+    text: @Composable (T) -> String,
+) {
+    val colors = LocalModbusColors.current
+    SegmentedControl(
+        options,
+        selected,
+        onSelect,
+        modifier,
+        itemHeight = if (small) SegItemSmall else SegItemDesign,
+    ) { option ->
+        val on = option == selected
+        Text(
+            text(option),
+            color = if (on) colors.text else colors.muted,
+            fontSize = if (small) 12.5.sp else 14.sp,
+            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+        )
     }
 }
 
@@ -123,6 +165,7 @@ fun <T> ChipRow(
     onToggle: (T) -> Unit,
     modifier: Modifier = Modifier,
     scroll: Boolean = false,
+    xs: Boolean = false,
 ) {
     if (scroll) {
         Row(
@@ -130,7 +173,7 @@ fun <T> ChipRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option)) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
             }
         }
     } else {
@@ -140,27 +183,28 @@ fun <T> ChipRow(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             options.forEach { option ->
-                SelectChip(label(option), isSelected(option)) { onToggle(option) }
+                SelectChip(label(option), isSelected(option), xs = xs) { onToggle(option) }
             }
         }
     }
 }
 
+/** [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。点击热区由 Compose 默认的 48dp 最小触控目标补足。 */
 @Composable
-fun SelectChip(text: String, selected: Boolean, onClick: () -> Unit) {
+fun SelectChip(text: String, selected: Boolean, xs: Boolean = false, onClick: () -> Unit) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(ChipRadius)
     Box(
         Modifier
-            .heightIn(min = MinTouch)
+            .heightIn(min = if (xs) 25.dp else MinTouch)
             .clip(shape)
             .background(if (selected) colors.wash(colors.accent) else colors.surface1)
             .border(1.dp, if (selected) colors.accent else colors.line, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = if (xs) 8.dp else 12.dp, vertical = if (xs) 3.dp else 0.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = if (selected) colors.accentText else colors.muted, fontSize = 13.sp)
+        Text(text, color = if (selected) colors.accentText else colors.muted, fontSize = if (xs) 12.sp else 13.sp)
     }
 }
 
@@ -194,37 +238,83 @@ fun FieldTile(
     }
 }
 
+/**
+ * 输入格。[sub] 是右侧小字（例如 40001 参考号）；获得焦点时画 1.5dp 强调色描边（稿面 .f.on）。
+ */
 @Composable
 fun NumberInput(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
     error: String? = null,
+    sub: String? = null,
+    minHeight: Dp = 50.dp,
+    keyboardType: KeyboardType = KeyboardType.Number,
     onValue: (String) -> Unit,
 ) {
     val colors = LocalModbusColors.current
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(FieldRadius)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 50.dp)
-                .background(colors.surface2, RoundedCornerShape(FieldRadius))
+                .heightIn(min = minHeight)
+                .background(colors.surface2, shape)
+                .then(if (focused) Modifier.border(1.5.dp, colors.accent, shape) else Modifier)
                 .padding(horizontal = 10.dp, vertical = 7.dp),
         ) {
-            Text(label, color = colors.muted, fontSize = 11.sp)
-            BasicTextField(
-                value = value,
-                onValueChange = onValue,
-                textStyle = Mono.copy(color = colors.text, fontSize = 17.sp),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                cursorBrush = SolidColor(colors.accent),
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-            )
+            Text(label, color = colors.muted, fontSize = 11.sp, maxLines = 1)
+            Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.Bottom) {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValue,
+                    textStyle = Mono.copy(color = colors.text, fontSize = 17.sp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                    cursorBrush = SolidColor(colors.accent),
+                    modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
+                )
+                if (sub != null) {
+                    Text(sub, color = colors.dim, fontSize = 11.sp, fontFamily = JetBrainsMono, maxLines = 1)
+                }
+            }
         }
         if (error != null) {
             Text(error, color = colors.error, fontSize = 12.sp)
         }
+    }
+}
+
+/** 与输入格同形的可点击格（稿面“格式 十进制”、线圈值格）。 */
+@Composable
+fun ChoiceTile(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    minHeight: Dp = 50.dp,
+    mono: Boolean = false,
+    valueColor: androidx.compose.ui.graphics.Color = LocalModbusColors.current.text,
+) {
+    val colors = LocalModbusColors.current
+    Column(
+        modifier
+            .heightIn(min = minHeight)
+            .clip(RoundedCornerShape(FieldRadius))
+            .background(colors.surface2)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        Text(label, color = colors.muted, fontSize = 11.sp, maxLines = 1)
+        Text(
+            value,
+            color = valueColor,
+            fontSize = if (mono) 17.sp else 15.sp,
+            fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }
 
