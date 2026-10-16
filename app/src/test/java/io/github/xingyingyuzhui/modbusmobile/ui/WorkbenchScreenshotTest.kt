@@ -8,10 +8,18 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTouchHeightIsEqualTo
 import androidx.compose.ui.test.assertTouchWidthIsEqualTo
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -218,6 +226,123 @@ class WorkbenchScreenshotTest {
     }
 
     @Test
+    fun confirmShowsLastWriteAsSuchAndWarnsWhenTheValueIsUnchanged() {
+        val session = ShotSession()
+        show(ThemeMode.DARK, session)
+        compose.onNodeWithText("写入").performClick()
+        compose.onNodeWithText("预览并写入 · FC06").performClick()
+        compose.waitForIdle()
+        // 还没读过：标签是“当前”，小字“未读取”，没有“相同”提示。
+        compose.onNodeWithText("未读取").assertExists()
+        compose.onNodeWithText("读取值").assertDoesNotExist()
+        compose.onNodeWithText("发送写入").performClick()
+        compose.waitForIdle()
+        // 第二次预览：“当前”来自上次写入，不是读取。
+        compose.onNodeWithText("预览并写入 · FC06").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("上次写入").assertExists()
+        compose.onNodeWithText("读取值").assertDoesNotExist()
+        compose.onNodeWithText("新值与上次写入的值相同。").assertExists()
+        alignedInRealSheet()
+        captureScreenRoboImage("src/test/screenshots/io.github.xingyingyuzhui.modbusmobile.ui.WorkbenchScreenshotTest.workbench_confirm_last_write_dark_portrait.png")
+    }
+
+    @Test
+    fun confirmShowsAReadValueAsReadAndWarnsWhenTheValueIsUnchanged() {
+        val session = ShotSession()
+        session.reads += List(5) { it * 10 }
+        show(ThemeMode.LIGHT, session)
+        compose.onAllNodes(hasSetTextAction() and hasText("10"))[0].performTextReplacement("5")
+        compose.onNodeWithText("读取 · FC03").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("写入").performClick()
+        compose.onNodeWithText("预览并写入 · FC06").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("读取值").assertExists()
+        compose.onNodeWithText("上次写入").assertDoesNotExist()
+        compose.onNodeWithText("新值与读取值相同，写入不会改变数据。").assertExists()
+        alignedInRealSheet()
+        captureScreenRoboImage("src/test/screenshots/io.github.xingyingyuzhui.modbusmobile.ui.WorkbenchScreenshotTest.workbench_confirm_read_value_light_portrait.png")
+    }
+
+    @Test
+    fun broadcastConfirmButtonIsRedNotAmber() {
+        show(ThemeMode.DARK, ShotSession())
+        compose.onNodeWithText("写入").performClick()
+        replaceField(0, "0")
+        compose.onNodeWithText("预览并写入 · FC06").performClick()
+        compose.waitForIdle()
+        val colors = io.github.xingyingyuzhui.modbusmobile.ui.theme.modbusColors(true, io.github.xingyingyuzhui.modbusmobile.application.AccentColor.AMBER)
+        val pixel = compose.onNodeWithText("发送广播").captureToImage().toPixelMap().let { it[6, it.height / 2] }
+        assertEquals(colors.error.toArgb(), pixel.toArgb())
+        assertTrue("不再是琥珀色", pixel.toArgb() != colors.accent.toArgb())
+    }
+
+    @Test
+    fun aWriteDoneOnTheWritePageFlashesWhenTheTableComesBack() {
+        val session = ShotSession()
+        session.reads += List(5) { it * 10 }
+        show(ThemeMode.DARK, session)
+        compose.onAllNodes(hasSetTextAction() and hasText("10"))[0].performTextReplacement("5")
+        compose.onNodeWithText("读取 · FC03").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("写入").performClick()
+        replaceField(1, "2")
+        replaceField(2, "99")
+        compose.onNodeWithText("预览并写入 · FC06").performClick()
+        compose.onNodeWithText("发送写入").performClick()
+        compose.waitForIdle()
+        // 在写入页多停 3 秒（Robolectric 的 SystemClock 是模拟时钟，要显式拨快）。
+        // 修复前：变化时刻是 3 秒前，回到读取页时已超过 2 秒，抓不到高亮帧，下面的断言会失败。
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(3))
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText("读取").performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(50)
+        compose.onNodeWithText("99").assertExists()
+        compose.onRoot().captureRoboImage("src/test/screenshots/flash/flash_frame_start.png")
+        val before = compose.onRoot().captureToImage().toPixelMap()
+        val rowBounds = compose.onNodeWithText("99").getBoundsInRoot()
+        val changedPixel = before.pixelAtRow(compose, rowBounds)
+        val otherRow = compose.onNodeWithText("30").getBoundsInRoot()
+        val quietPixel = before.pixelAtRow(compose, otherRow)
+        assertTrue("闪烁帧：变化行的底色应带琥珀色，和没变的行不同 ($changedPixel vs $quietPixel)", changedPixel != quietPixel)
+
+        compose.mainClock.advanceTimeBy(2_500)
+        compose.waitForIdle()
+        val after = compose.onRoot().captureToImage().toPixelMap()
+        assertEquals("闪烁结束：变化行回到和其他行一样的底色", after.pixelAtRow(compose, otherRow), after.pixelAtRow(compose, rowBounds))
+        compose.onRoot().captureRoboImage("src/test/screenshots/flash/flash_frame_end.png")
+    }
+
+    private fun androidx.compose.ui.graphics.PixelMap.pixelAtRow(
+        compose: androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, ComponentActivity>,
+        bounds: androidx.compose.ui.unit.DpRect,
+    ): Int {
+        val density = compose.activity.resources.displayMetrics.density
+        // 行的左边 46dp 处（地址列和值之间的空白，渐变从左向右淡出，这里还很浓），纵向取行中线；bounds 是整行（行是合并的语义节点）。
+        val x = ((bounds.left.value + 46) * density).toInt()
+        val y = ((bounds.top.value + bounds.bottom.value) / 2 * density).toInt()
+        return this[x, y].toArgb()
+    }
+
+    /** 真实弹层（ModalBottomSheet 里的窗口）里同样成立：两列数值同顶同底，箭头在中线上，两个按钮等高。 */
+    private fun alignedInRealSheet() {
+        fun b(tag: String) = compose.onNodeWithTag(tag).getBoundsInRoot()
+        val left = b("confirm-left-value")
+        val right = b("confirm-right-value")
+        val arrow = b("confirm-arrow")
+        assertEquals(left.top.value, right.top.value, 0.6f)
+        assertEquals(left.bottom.value, right.bottom.value, 0.6f)
+        assertEquals((arrow.top.value + arrow.bottom.value) / 2, (left.top.value + left.bottom.value) / 2, 0.6f)
+        assertEquals(
+            compose.onNodeWithText("取消").getBoundsInRoot().height.value,
+            compose.onNodeWithText("发送写入").getBoundsInRoot().height.value,
+            0.6f,
+        )
+    }
+
+    @Test
     fun confirmingTheSheetSendsExactlyOneWrite() {
         val session = ShotSession()
         show(ThemeMode.DARK, session)
@@ -229,6 +354,32 @@ class WorkbenchScreenshotTest {
         compose.waitForIdle()
         assertEquals(listOf<ModbusRequest>(ModbusRequest.WriteSingleRegister(1, 0, 0)), session.requests.filter { it.isWrite })
         compose.onNodeWithText("成功").assertExists()
+    }
+
+    /** 读取/写入分段与区域分段：左边对齐，区域分段左右留白对称（老板反馈“与右侧留白没对齐”）。 */
+    @Test
+    fun segmentedControlsInTheRequestCardAreAligned() {
+        show(ThemeMode.LIGHT, ShotSession())
+        val rootWidth = compose.onRoot().getBoundsInRoot().width
+        val mode = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegContainerTag)[0].getBoundsInRoot()
+        val area = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegContainerTag)[1].getBoundsInRoot()
+        assertEquals("读取/写入分段与区域分段左边一致", area.left.value, mode.left.value, 0.6f)
+        assertEquals("读取/写入分段宽 150（稿面 .seg.sm width:150px）", 150f, (mode.right - mode.left).value, 0.6f)
+        assertEquals("区域分段左右留白对称", area.left.value, (rootWidth - area.right).value, 0.6f)
+        // 内部：每个容器里项与容器四周都是 3dp
+        for (idx in 0..1) {
+            val c = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegContainerTag)[idx].getBoundsInRoot()
+            val items = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegItemTag).fetchSemanticsNodes().indices
+                .map { compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegItemTag)[it].getBoundsInRoot() }
+                .filter { it.top >= c.top && it.bottom <= c.bottom && it.left >= c.left && it.right <= c.right }
+            assertEquals(2 + 2 * idx, items.size)
+            assertEquals("左内边距", 3f, (items.first().left - c.left).value, 0.6f)
+            assertEquals("右内边距", 3f, (c.right - items.last().right).value, 0.6f)
+            items.forEach {
+                assertEquals("上内边距", 3f, (it.top - c.top).value, 0.6f)
+                assertEquals("下内边距", 3f, (c.bottom - it.bottom).value, 0.6f)
+            }
+        }
     }
 
     private fun readResult(theme: ThemeMode, count: Int) {

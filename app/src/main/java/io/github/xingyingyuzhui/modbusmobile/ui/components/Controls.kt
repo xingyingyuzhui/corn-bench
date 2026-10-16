@@ -6,6 +6,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -14,6 +19,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -59,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
@@ -86,6 +93,8 @@ fun ModbusCard(
             .fillMaxWidth()
             .background(colors.surface1, shape)
             .border(1.dp, colors.line, shape)
+            // 稿面 `.card` 是 border-box：1px 边框在 12px 内边距之外占位，内容离外缘 13；Compose 的 border 不占位，补 1dp。
+            .padding(1.dp)
             .padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content,
@@ -95,8 +104,9 @@ fun ModbusCard(
 @Composable
 fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
     val colors = LocalModbusColors.current
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(text, color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+    // 稿面 `.lbl`：12px、行高 ≈ 17（1.4 倍）、下边距 8；不用 Material 默认的 24sp 行高。
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("section-label").fillMaxWidth()) {
+        Text(text, color = colors.muted, fontSize = 12.sp, lineHeight = 1.4.em, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }
@@ -104,6 +114,15 @@ fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
 /** 分段控件的单项高度：稿面单行分段整体 42（项 36）、sm 档 37（项 31）。默认保持 48dp 触控高度，旧页面不变。 */
 val SegItemDesign = 36.dp
 val SegItemSmall = 31.dp
+
+/** 稿面 `.seg`：外层圆角 12、内边距 3、项间距 3；选中块圆角 = 外层圆角 − 内边距 = 9（同心）。 */
+val SegContainerRadius = 12.dp
+val SegPadding = 3.dp
+val SegGap = 3.dp
+val SegItemRadius = SegContainerRadius - SegPadding
+
+const val SegContainerTag = "seg-container"
+const val SegItemTag = "seg-item"
 
 @Composable
 fun <T> SegmentedControl(
@@ -115,42 +134,39 @@ fun <T> SegmentedControl(
     label: @Composable (T) -> Unit,
 ) {
     val colors = LocalModbusColors.current
-    Row(
-        modifier
-            .fillMaxWidth()
-            // 底板只画稿面高度（项高 + 上下内边距 3），居中；项自己补到 48dp 的触控区域落在底板上下的透明带里。
-            .drawBehind {
-                val height = (itemHeight + 6.dp).toPx().coerceAtMost(size.height)
-                drawRoundRect(
-                    color = colors.surface2,
-                    topLeft = Offset(0f, (size.height - height) / 2f),
-                    size = Size(size.width, height),
-                    cornerRadius = CornerRadius(12.dp.toPx()),
-                )
-            }
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        options.forEach { option ->
-            val on = option == selected
-            val shape = RoundedCornerShape(9.dp)
-            // 稿面选中块：深色 s3 + 内描边 #3A4658；浅色 s1 + 1px line 环
-            val ring = if (colors.isDark) androidx.compose.ui.graphics.Color(0xFF3A4658) else colors.line
-            Box(
-                Modifier
-                    .weight(1f)
-                    // 自写的 Box + clickable 不会自动补触控目标，这里显式补到 48dp；视觉块仍是 itemHeight。
-                    .minimumInteractiveComponentSize()
-                    .heightIn(min = itemHeight)
-                    .clip(shape)
-                    .background(if (on) if (colors.isDark) colors.surface3 else colors.surface1 else androidx.compose.ui.graphics.Color.Transparent)
-                    .then(if (on) Modifier.border(1.dp, ring, shape) else Modifier)
-                    .clickable { onSelect(option) }
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                label(option)
+    // 外层 Box 只负责 48dp 的触控占位（居中）；可见的底板就是内层 Row 本身：底板 = 项高 + 上下内边距，
+    // 底板高度由项真实高度决定（双行文字的项会让底板跟着变高），不再单独按“稿面高度”另画，
+    // 所以选中块与底板之间永远是均匀的 3dp，圆角同心。
+    Box(modifier.fillMaxWidth().minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier
+                .testTag(SegContainerTag)
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .background(colors.surface2, RoundedCornerShape(SegContainerRadius))
+                .padding(SegPadding),
+            horizontalArrangement = Arrangement.spacedBy(SegGap),
+        ) {
+            options.forEach { option ->
+                val on = option == selected
+                val shape = RoundedCornerShape(SegItemRadius)
+                // 稿面选中块：深色 s3 + 内描边 #3A4658；浅色 s1 + 1px line 环
+                val ring = if (colors.isDark) androidx.compose.ui.graphics.Color(0xFF3A4658) else colors.line
+                Box(
+                    Modifier
+                        .testTag(SegItemTag)
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .heightIn(min = itemHeight)
+                        .clip(shape)
+                        .background(if (on) if (colors.isDark) colors.surface3 else colors.surface1 else androidx.compose.ui.graphics.Color.Transparent)
+                        .then(if (on) Modifier.border(1.dp, ring, shape) else Modifier)
+                        .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(option) })
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    label(option)
+                }
             }
         }
     }

@@ -226,6 +226,10 @@
     <string name="confirm_title_registers">写多个寄存器</string>
     <string name="confirm_badge">Unit %1$d · 地址 %2$d · %3$s</string>
     <string name="confirm_current">当前</string>
+    <string name="confirm_label_read">读取值</string>
+    <string name="confirm_label_last_write">上次写入</string>
+    <string name="confirm_same_read">新值与读取值相同，写入不会改变数据。</string>
+    <string name="confirm_same_write">新值与上次写入的值相同。</string>
     <string name="confirm_new">新值</string>
     <string name="confirm_current_unknown">未读取</string>
     <string name="confirm_frame_caption">将发送 %1$d 字节 · %2$s</string>

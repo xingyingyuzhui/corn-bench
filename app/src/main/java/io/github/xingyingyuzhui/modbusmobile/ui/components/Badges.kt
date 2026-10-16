@@ -93,8 +93,7 @@ private fun Badge(text: String, tone: Color, wash: Color, modifier: Modifier) {
     Text(
         text,
         color = tone,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
+        style = CenteredText.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold),
         modifier = modifier
             .background(wash, RoundedCornerShape(6.dp))
             .padding(horizontal = 7.dp, vertical = 2.dp),
