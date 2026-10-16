@@ -13,11 +13,13 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -352,6 +354,32 @@ class WorkbenchScreenshotTest {
         compose.waitForIdle()
         assertEquals(listOf<ModbusRequest>(ModbusRequest.WriteSingleRegister(1, 0, 0)), session.requests.filter { it.isWrite })
         compose.onNodeWithText("成功").assertExists()
+    }
+
+    /** 读取/写入分段与区域分段：左边对齐，区域分段左右留白对称（老板反馈“与右侧留白没对齐”）。 */
+    @Test
+    fun segmentedControlsInTheRequestCardAreAligned() {
+        show(ThemeMode.LIGHT, ShotSession())
+        val rootWidth = compose.onRoot().getBoundsInRoot().width
+        val mode = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegContainerTag)[0].getBoundsInRoot()
+        val area = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegContainerTag)[1].getBoundsInRoot()
+        assertEquals("读取/写入分段与区域分段左边一致", area.left.value, mode.left.value, 0.6f)
+        assertEquals("读取/写入分段宽 150（稿面 .seg.sm width:150px）", 150f, (mode.right - mode.left).value, 0.6f)
+        assertEquals("区域分段左右留白对称", area.left.value, (rootWidth - area.right).value, 0.6f)
+        // 内部：每个容器里项与容器四周都是 3dp
+        for (idx in 0..1) {
+            val c = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegContainerTag)[idx].getBoundsInRoot()
+            val items = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegItemTag).fetchSemanticsNodes().indices
+                .map { compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegItemTag)[it].getBoundsInRoot() }
+                .filter { it.top >= c.top && it.bottom <= c.bottom && it.left >= c.left && it.right <= c.right }
+            assertEquals(2 + 2 * idx, items.size)
+            assertEquals("左内边距", 3f, (items.first().left - c.left).value, 0.6f)
+            assertEquals("右内边距", 3f, (c.right - items.last().right).value, 0.6f)
+            items.forEach {
+                assertEquals("上内边距", 3f, (it.top - c.top).value, 0.6f)
+                assertEquals("下内边距", 3f, (c.bottom - it.bottom).value, 0.6f)
+            }
+        }
     }
 
     private fun readResult(theme: ThemeMode, count: Int) {
