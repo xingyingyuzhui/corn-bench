@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -41,27 +42,29 @@ fun FloatingDock(
 ) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(IslandRadius)
-    Row(
-        modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .shadow(10.dp, shape, ambientColor = Color.Black.copy(alpha = 0.45f), spotColor = Color.Black.copy(alpha = 0.45f))
-            .clip(shape)
-            .background(colors.island)
-            .border(1.dp, colors.line, shape)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Destination.entries.forEach { destination ->
-            DockItem(
-                destination = destination,
-                selected = current == destination.route,
-                onClick = { onSelect(destination) },
-                modifier = Modifier.weight(1f).height(52.dp),
-                iconSize = 22.dp,
-                labelSize = 10.5.sp,
-                radius = 18.dp,
-            )
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier
+                .fillMaxWidth(0.9f)
+                .height(64.dp)
+                .shadow(10.dp, shape, ambientColor = Color.Black.copy(alpha = 0.45f), spotColor = Color.Black.copy(alpha = 0.45f))
+                .clip(shape)
+                .background(colors.island)
+                .border(1.dp, colors.line, shape)
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Destination.entries.forEach { destination ->
+                DockItem(
+                    destination = destination,
+                    selected = current == destination.route,
+                    onClick = { onSelect(destination) },
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    iconSize = 22.dp,
+                    labelSize = 10.5.sp,
+                    radius = 18.dp,
+                )
+            }
         }
     }
 }
