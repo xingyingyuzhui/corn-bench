@@ -32,6 +32,17 @@
                 android:resource="@xml/device_filter" />
         </activity>
 
+        <!-- 日志“分享”：把导出文件放在 cache/exports 下，经 FileProvider 给接收方临时读权限。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.exports"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <service
             android:name=".service.SessionService"
             android:exported="false"

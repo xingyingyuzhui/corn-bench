@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalTrafficRecorder
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.ui.ModbusApp
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
             KeepScreenOn(settings.keepScreenOn && sessionState is SessionState.Running)
             CompositionLocalProvider(
                 LocalSession provides container.sessionManager,
+                LocalTrafficRecorder provides container.trafficRecorder,
                 LocalSettingsRepository provides container.settingsRepository,
             ) {
                 ModbusTheme(settings) {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.testTag
+import io.github.xingyingyuzhui.modbusmobile.application.RecorderState
+import io.github.xingyingyuzhui.modbusmobile.application.TimeStyle
+import io.github.xingyingyuzhui.modbusmobile.application.TrafficRecorder
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalTrafficRecorder
+import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SecondaryButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,49 +82,94 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 @Composable
 fun TrafficScreen() {
     val session = LocalSession.current
-    val model = viewModel { TrafficViewModel(session) }
-    val entries by model.entries.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val recorder = LocalTrafficRecorder.current ?: remember(session) { TrafficRecorder(session, scope) }
+    val model = viewModel { TrafficViewModel(recorder) }
+    val ui by model.ui.collectAsStateWithLifecycle()
     val filter by model.filter.collectAsStateWithLifecycle()
-    val paused by model.paused.collectAsStateWithLifecycle()
+    val locked by model.locked.collectAsStateWithLifecycle()
     val selected by model.selected.collectAsStateWithLifecycle()
-    val crcDim = LocalUiSettings.current.logCrcDim
+    val settings = LocalUiSettings.current
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
+    val saver = rememberLogSaver(model)
+    var confirmClear by remember { mutableStateOf(false) }
     LogContent(
-        entries = entries,
+        ui = ui,
         filter = filter,
-        paused = paused,
+        locked = locked,
         selected = selected,
-        crcDim = crcDim,
+        crcDim = settings.logCrcDim,
+        clockTime = settings.timeStyle == TimeStyle.CLOCK,
         landscape = landscape,
+        maxFrames = recorder.maxFrames,
         onFilter = model::setFilter,
-        onTogglePause = model::togglePaused,
+        onToggleLock = model::toggleLocked,
         onSelect = model::select,
+        onStart = model::start,
+        onPause = model::pauseRecording,
+        onClear = { if (ui.recorded > 0 || ui.items.isNotEmpty()) confirmClear = true },
+        onSave = saver::begin,
+        onPrevious = model::previousPage,
+        onNext = model::nextPage,
+        onLatest = model::lastPage,
     )
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(R.string.log_clear_title)) },
+            text = { Text(stringResource(R.string.log_clear_message, ui.recorded)) },
+            confirmButton = {
+                TextButton(onClick = { confirmClear = false; model.clear() }) { Text(stringResource(R.string.log_btn_clear)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+    saver.Dialogs()
 }
 
 /** 无状态的页面内容（截图测试直接喂数据）。 */
 @Composable
 fun LogContent(
-    entries: List<LogEntry>,
+    ui: LogUiState,
     filter: LogFilter,
-    paused: Boolean,
+    locked: Boolean,
     selected: Long?,
     crcDim: Boolean,
+    clockTime: Boolean,
     landscape: Boolean,
+    maxFrames: Int,
     onFilter: (LogFilter) -> Unit,
-    onTogglePause: () -> Unit,
+    onToggleLock: () -> Unit,
     onSelect: (Long?) -> Unit,
+    onStart: () -> Unit,
+    onPause: () -> Unit,
+    onClear: () -> Unit,
+    onSave: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onLatest: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
-    val visible = remember(entries, filter) { entries.filter { filter.accepts(it.event.kind, it.info) } }
-    val effective = visible.firstOrNull { it.seq == selected } ?: visible.lastOrNull()
-    val emptyText = stringResource(if (entries.isEmpty()) R.string.traffic_empty else R.string.log_empty_filtered)
+    val entries = ui.items
+    val frames = remember(entries) { entries.filterIsInstance<LogEntry>() }
+    val effective = frames.firstOrNull { it.seq == selected } ?: frames.lastOrNull()
+    val emptyText = stringResource(
+        when {
+            ui.recorded > 0 -> R.string.log_empty_filtered
+            ui.recorder == RecorderState.IDLE -> R.string.log_empty_idle
+            ui.recorder == RecorderState.RECORDING -> R.string.log_empty_recording
+            else -> R.string.log_empty_paused
+        },
+    )
+    val follow = ui.following && !locked
     if (landscape) {
         Row(
             Modifier.screenFrame().padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(spacing.gapM),
         ) {
-            Column(Modifier.weight(1.25f).fillMaxHeight()) {
+            Column(Modifier.weight(1.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -127,42 +183,55 @@ fun LogContent(
                         maxLines = 1,
                     )
                     FilterChips(filter, onFilter, xs = true, modifier = Modifier.weight(1f))
-                    PauseButton(paused, onTogglePause)
+                    LockButton(locked, onToggleLock)
                 }
                 LogCard(
-                    visible, effective?.seq, paused, crcDim, emptyText,
+                    entries, effective?.seq, follow, crcDim, clockTime, emptyText,
                     onSelect = { onSelect(it) },
                     modifier = Modifier.weight(1f, fill = false),
                 )
+                PageBar(ui, onPrevious, onNext, onLatest)
             }
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                FrameDetailCard(effective, Modifier.fillMaxWidth())
+            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // 横屏高度只有 ~360dp：把记录控制放到右侧，左侧让给列表
+                RecorderBar(ui, onStart, onPause, onClear, onSave)
+                LogStripInfoRow(ui, maxFrames)
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    FrameDetailCard(effective, Modifier.fillMaxWidth())
+                }
             }
         }
     } else {
         Column(Modifier.screenFrame()) {
-            PageHeader(stringResource(R.string.title_log)) { PauseButton(paused, onTogglePause) }
+            PageHeader(stringResource(R.string.title_log)) { LockButton(locked, onToggleLock) }
             SessionStrip(
                 Modifier.padding(bottom = spacing.gapS),
-                trailing = { LogStripInfo(paused, entries.size) },
+                trailing = { LogStripInfo(ui, maxFrames) },
             )
+            RecorderBar(ui, onStart, onPause, onClear, onSave, Modifier.padding(bottom = 4.dp))
             FilterChips(filter, onFilter, xs = false, modifier = Modifier.padding(bottom = 4.dp))
             LogCard(
-                visible, null, paused, crcDim, emptyText,
+                entries, null, follow, crcDim, clockTime, emptyText,
                 onSelect = null,
-                modifier = Modifier.weight(1f, fill = false).padding(bottom = dockClearance().takeIf { it > 0.dp } ?: spacing.gapS),
+                modifier = Modifier.weight(1f, fill = false),
             )
+            PageBar(ui, onPrevious, onNext, onLatest, Modifier.padding(bottom = dockClearance().takeIf { it > 0.dp } ?: spacing.gapS))
         }
     }
 }
 
 @Composable
-private fun LogStripInfo(paused: Boolean, count: Int) {
+private fun LogStripInfoRow(ui: LogUiState, maxFrames: Int) {
     val colors = LocalModbusColors.current
-    Column(horizontalAlignment = Alignment.End) {
-        Text(stringResource(R.string.log_limit), style = Mono.copy(fontSize = 11.sp, lineHeight = 15.sp), color = colors.muted)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(
-            if (paused) stringResource(R.string.log_paused) else stringResource(R.string.log_count, count),
+            recorderStateText(ui),
+            style = Mono.copy(fontSize = 11.sp, lineHeight = 15.sp),
+            color = if (ui.recorder == RecorderState.FULL) colors.error else colors.muted,
+            modifier = Modifier.testTag("log-state"),
+        )
+        Text(
+            stringResource(R.string.log_limit, "%,d".format(maxFrames)),
             style = Mono.copy(fontSize = 11.sp, lineHeight = 15.sp),
             color = colors.muted,
         )
@@ -170,13 +239,102 @@ private fun LogStripInfo(paused: Boolean, count: Int) {
 }
 
 @Composable
-private fun PauseButton(paused: Boolean, onClick: () -> Unit) {
+private fun LogStripInfo(ui: LogUiState, maxFrames: Int) {
+    val colors = LocalModbusColors.current
+    Column(horizontalAlignment = Alignment.End) {
+        Text(
+            stringResource(R.string.log_limit, "%,d".format(maxFrames)),
+            style = Mono.copy(fontSize = 11.sp, lineHeight = 15.sp),
+            color = colors.muted,
+        )
+        Text(
+            recorderStateText(ui),
+            style = Mono.copy(fontSize = 11.sp, lineHeight = 15.sp),
+            color = if (ui.recorder == RecorderState.FULL) colors.error else colors.muted,
+            modifier = Modifier.testTag("log-state"),
+        )
+    }
+}
+
+@Composable
+private fun recorderStateText(ui: LogUiState): String = when (ui.recorder) {
+    RecorderState.IDLE -> stringResource(R.string.log_state_idle)
+    RecorderState.RECORDING -> stringResource(R.string.log_state_recording, ui.recorded)
+    RecorderState.PAUSED -> stringResource(R.string.log_state_paused, ui.recorded)
+    RecorderState.FULL -> stringResource(R.string.log_state_full, ui.recorded)
+}
+
+/** 开始 / 暂停 / 继续 + 清除 + 保存。暂停记录（停止捕获）和“锁定滚动”（页头的按钮）是两回事。 */
+@Composable
+private fun RecorderBar(
+    ui: LogUiState,
+    onStart: () -> Unit,
+    onPause: () -> Unit,
+    onClear: () -> Unit,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val hasData = ui.recorded > 0
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        when (ui.recorder) {
+            RecorderState.IDLE -> PrimaryButton(stringResource(R.string.log_btn_start), onStart, Modifier.weight(1.5f).testTag("log-start"), compact = true)
+            RecorderState.RECORDING -> SecondaryButton(stringResource(R.string.log_btn_pause), onPause, Modifier.weight(1.5f).testTag("log-pause"), compact = true, active = true)
+            RecorderState.PAUSED -> PrimaryButton(stringResource(R.string.log_btn_resume), onStart, Modifier.weight(1.5f).testTag("log-resume"), compact = true)
+            // 记满：不能继续，要先清除或保存
+            RecorderState.FULL -> SecondaryButton(stringResource(R.string.log_btn_resume), {}, Modifier.weight(1.5f).testTag("log-resume"), enabled = false, compact = true)
+        }
+        SecondaryButton(stringResource(R.string.log_btn_clear), onClear, Modifier.weight(1f).testTag("log-clear"), enabled = hasData, compact = true)
+        SecondaryButton(stringResource(R.string.log_btn_save), onSave, Modifier.weight(1f).testTag("log-save"), enabled = hasData, compact = true)
+    }
+}
+
+/** 分页栏：‹ 上一页 | 第 3 / 27 页 | 下一页 › | 最新。 */
+@Composable
+private fun PageBar(
+    ui: LogUiState,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onLatest: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalModbusColors.current
+    Row(modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        TextLink(
+            stringResource(R.string.log_page_prev),
+            onPrevious,
+            Modifier.testTag("log-prev").alpha(if (ui.page > 0) 1f else 0.4f),
+            color = if (ui.page > 0) colors.accentText else colors.dim,
+        )
+        Text(
+            stringResource(R.string.log_page_of, ui.page + 1, ui.pageCount),
+            color = colors.muted,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f).testTag("log-page"),
+        )
+        TextLink(
+            stringResource(R.string.log_page_next),
+            onNext,
+            Modifier.testTag("log-next").alpha(if (ui.page < ui.pageCount - 1) 1f else 0.4f),
+            color = if (ui.page < ui.pageCount - 1) colors.accentText else colors.dim,
+        )
+        TextLink(
+            stringResource(R.string.log_page_latest),
+            onLatest,
+            Modifier.testTag("log-latest"),
+            color = if (ui.page < ui.pageCount - 1) colors.accentText else colors.dim,
+        )
+    }
+}
+
+@Composable
+private fun LockButton(locked: Boolean, onClick: () -> Unit) {
     val colors = LocalModbusColors.current
     HeaderIconButton(
-        stringResource(if (paused) R.string.cd_log_resume else R.string.cd_log_pause),
+        stringResource(if (locked) R.string.cd_log_resume else R.string.cd_log_pause),
         onClick,
     ) {
-        if (paused) PlayIcon(colors.accentText) else PauseIcon(colors.muted)
+        if (locked) PlayIcon(colors.accentText) else PauseIcon(colors.muted)
     }
 }
 
@@ -216,10 +374,11 @@ private fun FilterChips(
 /** 稿面日志容器：一张卡（圆角 16 + 边框），行间 1px rowLine，每行左侧 3px 语义色条。 */
 @Composable
 private fun LogCard(
-    entries: List<LogEntry>,
+    entries: List<LogItem>,
     selected: Long?,
-    paused: Boolean,
+    follow: Boolean,
     crcDim: Boolean,
+    clockTime: Boolean,
     emptyText: String,
     onSelect: ((Long) -> Unit)?,
     modifier: Modifier = Modifier,
@@ -228,8 +387,11 @@ private fun LogCard(
     val shape = RoundedCornerShape(CardRadius)
     val listState = rememberLazyListState()
     val lastSeq = entries.lastOrNull()?.seq
-    LaunchedEffect(lastSeq, paused) {
-        if (!paused && entries.isNotEmpty()) listState.scrollToItem(entries.lastIndex)
+    // 翻页后回到页首；跟随最新（在最后一页、记录中、没锁定）时滚到底。
+    val firstSeq = entries.firstOrNull()?.seq
+    LaunchedEffect(firstSeq) { if (entries.isNotEmpty()) listState.scrollToItem(0) }
+    LaunchedEffect(lastSeq, follow) {
+        if (follow && entries.isNotEmpty()) listState.scrollToItem(entries.lastIndex)
     }
     Box(
         modifier
@@ -243,7 +405,10 @@ private fun LogCard(
         } else {
             LazyColumn(state = listState, contentPadding = PaddingValues(0.dp)) {
                 items(entries, key = { it.seq }) { entry ->
-                    LogRow(entry, picked = entry.seq == selected, crcDim = crcDim, onClick = onSelect?.let { f -> { f(entry.seq) } })
+                    when (entry) {
+                        is LogMarker -> MarkerRow(entry)
+                        is LogEntry -> LogRow(entry, picked = entry.seq == selected, crcDim = crcDim, clockTime = clockTime, onClick = onSelect?.let { f -> { f(entry.seq) } })
+                    }
                     if (entry !== entries.last()) {
                         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rowLine))
                     }
@@ -254,7 +419,19 @@ private fun LogCard(
 }
 
 @Composable
-private fun LogRow(entry: LogEntry, picked: Boolean, crcDim: Boolean, onClick: (() -> Unit)?) {
+private fun MarkerRow(marker: LogMarker) {
+    val colors = LocalModbusColors.current
+    Text(
+        "— ${stringResource(R.string.log_marker_new_session)} · ${formatWallClock(marker.wallMs)} —",
+        color = colors.dim,
+        fontSize = 11.5.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().background(colors.surface2).padding(vertical = 4.dp),
+    )
+}
+
+@Composable
+private fun LogRow(entry: LogEntry, picked: Boolean, crcDim: Boolean, clockTime: Boolean, onClick: (() -> Unit)?) {
     val colors = LocalModbusColors.current
     val semantic = entry.semantic()
     val tone = colors.tone(semantic)
@@ -276,7 +453,13 @@ private fun LogRow(entry: LogEntry, picked: Boolean, crcDim: Boolean, onClick: (
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(formatOffset(entry.offsetMs), style = Mono.copy(fontSize = 11.5.sp), color = colors.dim, maxLines = 1)
+                Text(
+                    if (clockTime) formatWallClock(entry.wallMs) else formatOffset(entry.offsetMs),
+                    style = Mono.copy(fontSize = 11.5.sp),
+                    color = colors.dim,
+                    maxLines = 1,
+                    modifier = Modifier.testTag("log-time"),
+                )
                 SemanticBadge(semantic, entry.badgeText(entry.event.kind.label()))
                 Text(
                     summaryText(entry.info, entry.event.kind),
@@ -374,7 +557,7 @@ private fun FrameDetailCard(entry: LogEntry?, modifier: Modifier = Modifier) {
             }
         }
         Text(
-            stringResource(R.string.log_detail_footer, info.size, formatOffset(entry.offsetMs)),
+            stringResource(R.string.log_detail_footer, info.size, formatOffset(entry.offsetMs), formatWallClock(entry.wallMs)),
             color = colors.muted,
             fontSize = 11.5.sp,
         )

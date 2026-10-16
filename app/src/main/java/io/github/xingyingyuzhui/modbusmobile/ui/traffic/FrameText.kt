@@ -124,10 +124,10 @@ fun LogEntry.badgeText(kindLabel: String): String = when {
 @Composable
 fun fieldName(field: FrameField, info: FrameInfo): String = stringResource(
     when (field.kind) {
-        FieldKind.UNIT -> R.string.field_unit
+        FieldKind.UNIT -> R.string.frame_field_unit
         FieldKind.FUNCTION -> R.string.field_function
-        FieldKind.ADDRESS -> if (info.function == 0x05 || info.function == 0x06) R.string.field_address_single else R.string.field_address
-        FieldKind.QUANTITY -> R.string.field_quantity
+        FieldKind.ADDRESS -> if (info.function == 0x05 || info.function == 0x06) R.string.field_address_single else R.string.frame_field_address
+        FieldKind.QUANTITY -> R.string.frame_field_quantity
         FieldKind.BYTE_COUNT -> R.string.field_byte_count
         FieldKind.DATA -> R.string.field_data
         FieldKind.VALUE -> R.string.field_value
@@ -151,7 +151,7 @@ fun fieldValue(field: FrameField, info: FrameInfo): String {
         FieldKind.DATA -> when {
             info.isRegisterRead || info.function == 0x10 -> stringResource(R.string.field_data_regs, n)
             info.direction == FrameDirection.REQUEST -> stringResource(R.string.field_data_coils, n)
-            else -> stringResource(R.string.field_data_bits, n)
+            else -> stringResource(R.string.frame_field_data_bits, n)
         }
         FieldKind.VALUE -> if (field.number2 == 0x05) {
             stringResource(if (n == 1) R.string.value_on else R.string.value_off)
