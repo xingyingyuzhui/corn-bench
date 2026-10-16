@@ -48,6 +48,10 @@ class AndroidUsbStack(
         }
     }
 
+    override fun refreshDevices() {
+        repository.refresh()
+    }
+
     override fun stop() {
         context.stopService(Intent(context, SessionService::class.java))
     }

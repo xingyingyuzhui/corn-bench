@@ -5,13 +5,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
-import io.github.xingyingyuzhui.modbusmobile.core.model.ExceptionCode
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
+import io.github.xingyingyuzhui.modbusmobile.ui.UiText
+import io.github.xingyingyuzhui.modbusmobile.ui.components.RegisterRow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -22,7 +24,8 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
     var address by mutableStateOf("0")
     var quantity by mutableStateOf("10")
     var writeValue by mutableStateOf("0")
-    var rows by mutableStateOf<List<String>>(emptyList())
+    var table by mutableStateOf<List<RegisterRow>>(emptyList())
+    var message by mutableStateOf<UiText?>(null)
     var slaveRows by mutableStateOf(SlaveRows())
 
     init {
@@ -43,7 +46,7 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
         val request = readRequest() ?: return
         if (start == null) return
         viewModelScope.launch {
-            rows = listOf(describe(session.execute(request), start))
+            show(session.execute(request), start)
         }
     }
 
@@ -52,17 +55,19 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
         val start = address.toIntOrNull()
         val value = writeValue.toIntOrNull()
         if (unitId == null || start == null || value == null) {
-            rows = listOf("请输入整数")
+            table = emptyList()
+            message = UiText.Of(R.string.need_integer)
             return
         }
         val request = try {
             ModbusRequest.WriteSingleRegister(unitId, start, value)
         } catch (error: IllegalArgumentException) {
-            rows = listOf(error.message ?: "参数不合法")
+            table = emptyList()
+            message = UiText.Plain(error.message ?: "")
             return
         }
         viewModelScope.launch {
-            rows = listOf(describe(session.execute(request), start))
+            show(session.execute(request), start)
         }
     }
 
@@ -93,7 +98,8 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
         val start = address.toIntOrNull()
         val count = quantity.toIntOrNull()
         if (unitId == null || start == null || count == null) {
-            rows = listOf("请输入整数")
+            table = emptyList()
+            message = UiText.Of(R.string.need_integer)
             return null
         }
         return try {
@@ -104,28 +110,72 @@ class WorkbenchViewModel(private val session: SessionManager) : ViewModel() {
                 RegisterArea.INPUT_REGISTER -> ModbusRequest.ReadInputRegisters(unitId, start, count)
             }
         } catch (error: IllegalArgumentException) {
-            rows = listOf(error.message ?: "参数不合法")
+            table = emptyList()
+            message = UiText.Plain(error.message ?: "")
             null
         }
     }
 
-    private fun describe(result: ModbusResult, start: Int): String = when (result) {
-        is ModbusResult.Success -> when (val response = result.response) {
-            is ModbusResponse.ReadRegisters -> response.values.mapIndexed { index, value ->
-                "${start + index}: $value"
-            }.joinToString("\n").ifEmpty { "空" }
-            is ModbusResponse.ReadBits -> response.values.mapIndexed { index, value ->
-                "${start + index}: ${if (value) "ON" else "OFF"}"
-            }.joinToString("\n")
-            is ModbusResponse.WriteSingleRegister -> "HR ${response.address} = ${response.value}"
-            else -> "完成"
+    private fun show(result: ModbusResult, start: Int) {
+        when (result) {
+            is ModbusResult.Success -> when (val response = result.response) {
+                is ModbusResponse.ReadRegisters -> {
+                    table = response.values.mapIndexed { index, value ->
+                        RegisterRow(start + index, value.toString())
+                    }
+                    message = if (response.values.isEmpty()) UiText.Of(R.string.result_empty) else null
+                }
+                is ModbusResponse.ReadBits -> {
+                    table = emptyList()
+                    message = if (response.values.isEmpty()) {
+                        UiText.Of(R.string.result_empty)
+                    } else {
+                        UiText.Bits(start, response.values)
+                    }
+                }
+                is ModbusResponse.WriteSingleRegister -> {
+                    table = emptyList()
+                    message = UiText.Of(R.string.result_wrote, listOf(response.address, response.value))
+                }
+                else -> {
+                    table = emptyList()
+                    message = UiText.Of(R.string.result_done)
+                }
+            }
+            is ModbusResult.Exception -> {
+                table = emptyList()
+                message = exceptionText(result.code.code)
+            }
+            ModbusResult.Timeout -> {
+                table = emptyList()
+                message = UiText.Of(R.string.result_timeout)
+            }
+            ModbusResult.UnknownOutcome -> {
+                table = emptyList()
+                message = UiText.Of(R.string.result_unknown)
+            }
+            ModbusResult.Disconnected -> {
+                table = emptyList()
+                message = UiText.Of(R.string.result_disconnected)
+            }
+            is ModbusResult.InvalidResponse -> {
+                table = emptyList()
+                message = UiText.Plain(result.detail)
+            }
         }
-        is ModbusResult.Exception -> "异常 ${result.code.wire()}"
-        ModbusResult.Timeout -> "超时"
-        ModbusResult.UnknownOutcome -> "结果未知，写入可能已经生效"
-        ModbusResult.Disconnected -> "连接已断开"
-        is ModbusResult.InvalidResponse -> result.detail
     }
+}
+
+private fun exceptionText(code: Int): UiText = when (code) {
+    0x01 -> UiText.Of(R.string.ex_01)
+    0x02 -> UiText.Of(R.string.ex_02)
+    0x03 -> UiText.Of(R.string.ex_03)
+    0x04 -> UiText.Of(R.string.ex_04)
+    0x05 -> UiText.Of(R.string.ex_05)
+    0x06 -> UiText.Of(R.string.ex_06)
+    0x0A -> UiText.Of(R.string.ex_0a)
+    0x0B -> UiText.Of(R.string.ex_0b)
+    else -> UiText.Of(R.string.ex_unknown, listOf(code))
 }
 
 data class SlaveRows(
@@ -136,15 +186,3 @@ data class SlaveRows(
 data class CellDraft(val address: Int, val draft: String, val editing: Boolean)
 
 data class CoilDraft(val address: Int, val value: Boolean)
-
-private fun ExceptionCode.wire(): String = when (code) {
-    0x01 -> "01 非法功能"
-    0x02 -> "02 非法地址"
-    0x03 -> "03 非法数据"
-    0x04 -> "04 从站设备故障"
-    0x05 -> "05 确认"
-    0x06 -> "06 从站设备忙"
-    0x0A -> "0A 网关路径不可用"
-    0x0B -> "0B 网关目标失败"
-    else -> "%02X 未知异常".format(code)
-}

@@ -1,8 +1,6 @@
 package io.github.xingyingyuzhui.modbusmobile.application
 
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
-import io.github.xingyingyuzhui.modbusmobile.core.rtu.BusTopology
-import io.github.xingyingyuzhui.modbusmobile.core.rtu.EchoMode
 
 sealed interface ConnectionTarget {
     data class Usb(val deviceId: Int, val portIndex: Int) : ConnectionTarget

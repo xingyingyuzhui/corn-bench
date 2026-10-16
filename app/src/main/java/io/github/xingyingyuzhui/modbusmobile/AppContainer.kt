@@ -1,8 +1,10 @@
 package io.github.xingyingyuzhui.modbusmobile
 
 import android.app.Application
+import io.github.xingyingyuzhui.modbusmobile.application.DataStoreSettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.application.DefaultSessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
+import io.github.xingyingyuzhui.modbusmobile.application.SettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.core.transport.SystemMonotonicClock
 import io.github.xingyingyuzhui.modbusmobile.usb.AndroidUsbStack
 import io.github.xingyingyuzhui.modbusmobile.usb.UsbDeviceRepository
@@ -20,4 +22,5 @@ class AppContainer(app: Application) {
     private val permissions = UsbPermissionRequester(app, repository)
     private val usb = AndroidUsbStack(app, repository, permissions, bridge)
     val sessionManager: SessionManager = DefaultSessionManager(scope, clock, usb)
+    val settingsRepository: SettingsRepository = DataStoreSettingsRepository(app, scope)
 }

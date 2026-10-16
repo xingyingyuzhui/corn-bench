@@ -1,22 +1,55 @@
 package io.github.xingyingyuzhui.modbusmobile.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.window.core.layout.WindowHeightSizeClass
+import androidx.window.core.layout.WindowWidthSizeClass
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
+import io.github.xingyingyuzhui.modbusmobile.application.SettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.ui.connection.ConnectionScreen
-import io.github.xingyingyuzhui.modbusmobile.ui.monitor.MonitorScreen
-import io.github.xingyingyuzhui.modbusmobile.ui.project.ProjectScreen
+import io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveFullscreenScreen
+import io.github.xingyingyuzhui.modbusmobile.ui.mine.MineScreen
+import io.github.xingyingyuzhui.modbusmobile.ui.panel.PanelScreen
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.CurveRoute
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.Destination
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.DockInsets
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.FloatingDock
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.FloatingRail
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.traffic.TrafficScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.workbench.WorkbenchScreen
 
@@ -24,48 +57,102 @@ val LocalSession = staticCompositionLocalOf<SessionManager> {
     error("SessionManager 还没有提供")
 }
 
-private enum class Tab(val route: String, val label: String) {
-    Connection("connection", "连接"),
-    Workbench("workbench", "工作台"),
-    Monitor("monitor", "监控"),
-    Traffic("traffic", "通信日志"),
-    Project("project", "工程"),
+val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
+    error("SettingsRepository 还没有提供")
 }
 
+val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
+    error("连接页回调还没有提供")
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-fun ModbusApp() {
+fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val nav = rememberNavController()
+    val settings = LocalUiSettings.current
+    val adaptive = currentWindowAdaptiveInfo()
+    val portrait = adaptive.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.COMPACT &&
+        adaptive.windowSizeClass.windowHeightSizeClass != WindowHeightSizeClass.COMPACT
     val current = nav.currentBackStackEntryAsState().value?.destination?.route
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                Tab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = current == tab.route,
-                        onClick = {
-                            nav.navigate(tab.route) {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        label = { Text(tab.label) },
-                        icon = { Text(tab.label.take(1)) },
-                    )
-                }
-            }
-        },
-    ) { padding ->
-        NavHost(
-            navController = nav,
-            startDestination = Tab.Connection.route,
-            modifier = Modifier.padding(padding),
-        ) {
-            composable(Tab.Connection.route) { ConnectionScreen() }
-            composable(Tab.Workbench.route) { WorkbenchScreen() }
-            composable(Tab.Monitor.route) { MonitorScreen() }
-            composable(Tab.Traffic.route) { TrafficScreen() }
-            composable(Tab.Project.route) { ProjectScreen() }
+    val hideChrome = current == CurveRoute
+    var suppressCurve by remember { mutableStateOf(false) }
+    var autoEntered by remember { mutableStateOf(false) }
+    LaunchedEffect(portrait) {
+        if (portrait) suppressCurve = false
+    }
+    LaunchedEffect(portrait, settings.landscapeCurveFullscreen, suppressCurve, current) {
+        if (!portrait && settings.landscapeCurveFullscreen && !suppressCurve && current != CurveRoute) {
+            autoEntered = true
+            nav.navigate(CurveRoute) { launchSingleTop = true }
+        } else if (portrait && autoEntered && current == CurveRoute) {
+            autoEntered = false
+            nav.popBackStack()
         }
+    }
+    val showDock = !hideChrome && portrait
+    val showRail = !hideChrome && !portrait
+    val bars = WindowInsets.navigationBars.asPaddingValues()
+    val navBottom = bars.calculateBottomPadding()
+    val navStart = bars.calculateStartPadding(LocalLayoutDirection.current)
+    val dockBottom = if (showDock) 14.dp + 64.dp + navBottom else 0.dp
+    val dockStart = if (showRail) 12.dp + 62.dp + 12.dp + navStart else 0.dp
+    val openConnection: () -> Unit = {
+        selectTab(nav, Destination.Connection)
+    }
+    val closeCurve: () -> Unit = {
+        suppressCurve = true
+        autoEntered = false
+        nav.popBackStack()
+    }
+    Box(Modifier.fillMaxSize().background(LocalModbusColors.current.bg)) {
+        CompositionLocalProvider(
+            LocalDockInsets provides DockInsets(start = dockStart, bottom = dockBottom),
+            LocalShellMode provides if (portrait) ShellMode.PORTRAIT else ShellMode.LANDSCAPE,
+            LocalOpenConnection provides openConnection,
+        ) {
+            NavHost(
+                navController = nav,
+                startDestination = startRoute,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                composable(Destination.Connection.route) { ConnectionScreen() }
+                composable(Destination.Workbench.route) { WorkbenchScreen() }
+                composable(Destination.Panel.route) { PanelScreen() }
+                composable(Destination.Log.route) { TrafficScreen() }
+                composable(Destination.Mine.route) { MineScreen() }
+                composable(CurveRoute) { CurveFullscreenScreen(onClose = closeCurve) }
+            }
+        }
+        if (showDock) {
+            FloatingDock(
+                current = current,
+                onSelect = { selectTab(nav, it) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+            )
+        }
+        if (showRail) {
+            FloatingRail(
+                current = current,
+                onSelect = { selectTab(nav, it) },
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
+                    .width(62.dp)
+                    .fillMaxHeight(),
+            )
+        }
+    }
+}
+
+private fun selectTab(nav: NavHostController, destination: Destination) {
+    nav.navigate(destination.route) {
+        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }

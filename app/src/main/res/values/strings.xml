@@ -6,4 +6,184 @@
     <string name="session_notification_title">Modbus 会话</string>
     <string name="session_notification_text">USB 串口已由前台服务占用</string>
     <string name="session_stop">停止</string>
+
+    <string name="nav_connection">连接</string>
+    <string name="nav_workbench">工作台</string>
+    <string name="nav_panel">面板</string>
+    <string name="nav_log">日志</string>
+    <string name="nav_mine">我的</string>
+
+    <string name="title_connection">连接</string>
+    <string name="title_workbench">工作台</string>
+    <string name="title_panel">面板</string>
+    <string name="title_log">通信日志</string>
+    <string name="title_mine">我的</string>
+    <string name="title_curve">曲线</string>
+
+    <string name="action_refresh">刷新</string>
+    <string name="action_disconnect">断开</string>
+    <string name="action_read">读取</string>
+    <string name="action_write">写入</string>
+    <string name="action_close">关闭</string>
+    <string name="action_confirm">发送写入</string>
+    <string name="action_cancel">取消</string>
+    <string name="connect_action">连接为%1$s · %2$s</string>
+
+    <string name="section_device">设备</string>
+    <string name="section_role">角色</string>
+    <string name="section_serial">串口</string>
+    <string name="section_echo">回显</string>
+    <string name="section_topology">拓扑</string>
+
+    <string name="device_demo">演示设备</string>
+    <string name="device_demo_sub">内存总线 · 无需硬件</string>
+    <string name="device_usb">USB</string>
+    <string name="device_usb_sub">%1$04X:%2$04X · 端口 %3$d</string>
+
+    <string name="role_master">主站</string>
+    <string name="role_slave">从站</string>
+    <string name="role_master_hint">主动读写外部从站</string>
+    <string name="role_slave_hint">响应外部主站</string>
+
+    <string name="preset_custom">自定义</string>
+    <string name="field_baud">波特率</string>
+    <string name="field_data_bits">数据位</string>
+    <string name="field_parity">校验</string>
+    <string name="field_stop_bits">停止位</string>
+    <string name="parity_none">无</string>
+    <string name="parity_odd">奇</string>
+    <string name="parity_even">偶</string>
+    <string name="field_timeout">超时（毫秒）</string>
+    <string name="field_gap">间隔（毫秒）</string>
+    <string name="advanced_summary">高级 · %1$s</string>
+    <string name="advanced_detail">超时 %1$d · 间隔 %2$d · 回显 %3$s</string>
+    <string name="error_timeout_range">请输入 1 到 120000 的整数</string>
+    <string name="error_gap_positive">请输入正整数</string>
+    <string name="echo_off">关</string>
+    <string name="echo_on">开</string>
+    <string name="echo_auto">自动</string>
+    <string name="echo_detected_on">回显检测：有回显</string>
+    <string name="echo_detected_off">回显检测：无回显</string>
+    <string name="echo_detected_pending">回显检测：检测中</string>
+    <string name="topology_ptp">点对点</string>
+    <string name="topology_multi">多站总线</string>
+
+    <string name="session_idle">未连接</string>
+    <string name="session_permission">正在请求权限</string>
+    <string name="session_opening">正在打开端口</string>
+    <string name="session_master">主站 · 运行中</string>
+    <string name="session_slave">从站 · 运行中</string>
+    <string name="session_stopping">正在断开</string>
+    <string name="session_open_connection">回到连接页</string>
+
+    <string name="workbench_need_session">先在连接页进入主站或从站。</string>
+    <string name="workbench_master">主站 · 单次读写</string>
+    <string name="workbench_slave">从站 · Unit 1</string>
+    <string name="workbench_no_result">还没有结果。</string>
+    <string name="area_coil">线圈</string>
+    <string name="area_discrete">离散量</string>
+    <string name="area_holding">保持寄存器</string>
+    <string name="area_input">输入寄存器</string>
+    <string name="field_unit">Unit</string>
+    <string name="field_address">地址</string>
+    <string name="field_quantity">数量</string>
+    <string name="field_write_value">写入值</string>
+    <string name="write_single_holding">写单个保持寄存器</string>
+    <string name="slave_holding">保持寄存器</string>
+    <string name="slave_coils">线圈</string>
+    <string name="coil_state">线圈 %1$d · %2$s</string>
+    <string name="coil_on">开</string>
+    <string name="coil_off">关</string>
+    <string name="need_integer">请输入整数</string>
+    <string name="result_empty">空</string>
+    <string name="result_done">完成</string>
+    <string name="result_timeout">超时</string>
+    <string name="result_unknown">结果未知，写入可能已经生效</string>
+    <string name="result_disconnected">连接已断开</string>
+    <string name="result_wrote">HR %1$d = %2$d</string>
+    <string name="result_bit">%1$d: %2$s</string>
+    <string name="ex_01">异常 01 非法功能</string>
+    <string name="ex_02">异常 02 非法地址</string>
+    <string name="ex_03">异常 03 非法数据</string>
+    <string name="ex_04">异常 04 从站设备故障</string>
+    <string name="ex_05">异常 05 确认</string>
+    <string name="ex_06">异常 06 从站设备忙</string>
+    <string name="ex_0a">异常 0A 网关路径不可用</string>
+    <string name="ex_0b">异常 0B 网关目标失败</string>
+    <string name="ex_unknown">异常 %1$02X 未知异常</string>
+
+    <string name="traffic_empty">还没有报文。</string>
+    <string name="traffic_count">%1$d / 1000</string>
+    <string name="traffic_tx_request">主站请求</string>
+    <string name="traffic_tx_response">从站响应</string>
+    <string name="traffic_rx_local">本机请求</string>
+    <string name="traffic_rx_foreign_request">外站请求</string>
+    <string name="traffic_rx_foreign_response">外站响应</string>
+    <string name="traffic_rx_response">响应</string>
+    <string name="traffic_echo">回显</string>
+    <string name="traffic_ambiguous">方向不明</string>
+    <string name="traffic_dropped">丢弃</string>
+    <string name="traffic_delta">%1$d ms</string>
+
+    <string name="panel_sample">示例</string>
+    <string name="sample_temp">温度</string>
+    <string name="sample_temp_value">26.4</string>
+    <string name="sample_temp_unit">°C</string>
+    <string name="sample_pressure">压力</string>
+    <string name="sample_pressure_value">1.20</string>
+    <string name="sample_pressure_unit">bar</string>
+    <string name="sample_compressor">压缩机</string>
+    <string name="sample_compressor_value">运行</string>
+    <string name="sample_valve">阀门</string>
+    <string name="sample_valve_value">开</string>
+
+    <string name="curve_pending">曲线绘制在面板里程碑接入</string>
+    <string name="curve_1m">1 分钟</string>
+    <string name="curve_5m">5 分钟</string>
+    <string name="curve_15m">15 分钟</string>
+    <string name="curve_1h">1 小时</string>
+
+    <string name="mine_display">显示</string>
+    <string name="mine_session">会话</string>
+    <string name="setting_theme">主题</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+    <string name="setting_accent">强调色</string>
+    <string name="setting_font">字号</string>
+    <string name="font_standard">标准</string>
+    <string name="font_large">大</string>
+    <string name="font_extra">特大</string>
+    <string name="setting_density">密度</string>
+    <string name="density_comfortable">舒适</string>
+    <string name="density_compact">紧凑</string>
+    <string name="setting_address">地址显示</string>
+    <string name="address_zero">从 0 开始</string>
+    <string name="address_modicon">Modicon</string>
+    <string name="setting_number">默认数值格式</string>
+    <string name="setting_hex">十六进制加 0x</string>
+    <string name="setting_time">时间显示</string>
+    <string name="time_elapsed">相对时间</string>
+    <string name="time_clock">时钟</string>
+    <string name="time_hint">日志仍显示相对毫秒。报文没有墙钟，时钟样式留到下一阶段。</string>
+    <string name="setting_keep_screen">屏幕常亮</string>
+    <string name="keep_screen_hint">仅在已连接时生效。</string>
+    <string name="setting_vibration">震动</string>
+    <string name="vibration_hint">写入确认时才会使用。这一阶段还没有触发。</string>
+    <string name="setting_landscape_curve">横屏自动进入曲线</string>
+    <string name="landscape_curve_hint">关闭曲线后，回到竖屏才会再次允许自动进入。</string>
+    <string name="setting_locked">锁定</string>
+
+    <string name="quality_ok">正常</string>
+    <string name="quality_stale">过期</string>
+    <string name="quality_timeout">超时</string>
+    <string name="quality_unknown">结果未知</string>
+
+    <string name="confirm_title">确认写入</string>
+    <string name="confirm_body">写入前会在这里核对当前值和新值。</string>
+
+    <string name="table_address">地址</string>
+    <string name="table_value">值</string>
+    <string name="cd_bit">第 %1$d 位</string>
+    <string name="cd_accent">强调色 %1$s</string>
 </resources>

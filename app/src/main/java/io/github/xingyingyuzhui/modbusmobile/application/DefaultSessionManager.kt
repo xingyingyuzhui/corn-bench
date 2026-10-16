@@ -53,6 +53,7 @@ class DefaultSessionManager(
     private val _slaveBank = MutableStateFlow<VirtualRegisterBank?>(null)
     private val _usbDevices = MutableStateFlow<List<UsbDeviceSummary>>(emptyList())
     private val _echoDetected = MutableStateFlow<Boolean?>(null)
+    private val _serial = MutableStateFlow<SerialSettings?>(null)
 
     private var epochCounter = 0L
     private var masterEngine: MasterEngine? = null
@@ -66,6 +67,11 @@ class DefaultSessionManager(
     override val slaveBank: StateFlow<VirtualRegisterBank?> = _slaveBank.asStateFlow()
     override val usbDevices: StateFlow<List<UsbDeviceSummary>> = _usbDevices.asStateFlow()
     override val echoDetected: StateFlow<Boolean?> = _echoDetected.asStateFlow()
+    override val serial: StateFlow<SerialSettings?> = _serial.asStateFlow()
+
+    override fun refreshDevices() {
+        usbStack?.refreshDevices()
+    }
 
     init {
         val stack = usbStack
@@ -156,7 +162,7 @@ class DefaultSessionManager(
                 bus.right.close()
             }
         }
-        publishRunning(role, ConnectionTarget.Demo)
+        publishRunning(role, ConnectionTarget.Demo, serial)
     }
 
     private suspend fun connectUsb(target: ConnectionTarget.Usb, serial: SerialSettings, role: Role) {
@@ -181,11 +187,12 @@ class DefaultSessionManager(
             slaveEngine = slave
             _slaveBank.value = bank
         }
-        publishRunning(role, target)
+        publishRunning(role, target, serial)
     }
 
-    private fun publishRunning(role: Role, target: ConnectionTarget) {
+    private fun publishRunning(role: Role, target: ConnectionTarget, serial: SerialSettings) {
         epochCounter += 1
+        _serial.value = serial
         _state.value = SessionState.Running(role, target, epochCounter)
     }
 
@@ -222,6 +229,7 @@ class DefaultSessionManager(
         if (closing != null) withContext(io) { closing() }
         _slaveBank.value = null
         _echoDetected.value = null
+        _serial.value = null
     }
 
     private fun newMaster(

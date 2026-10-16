@@ -1,6 +1,6 @@
 # Modbus Mobile
 
-Android 离线 Modbus RTU 主站 / 从站调试器。本期在工程骨架上加上多站总线帧扫描、回显跟踪，以及上次审阅留下的协议修复。真机和多站总线未测。
+Android 离线 Modbus RTU 主站 / 从站调试器。协议侧有多站总线帧扫描和回显跟踪。界面按 `docs/ui-plan.md` 的 UI-1 换了设计系统、悬浮导航和连接页。真机和多站总线未测。
 
 规范只看 `docs/spec.md`。`research/` 没有放进仓库。
 
@@ -26,7 +26,7 @@ Android 离线 Modbus RTU 主站 / 从站调试器。本期在工程骨架上加
 ```
 app/            Compose、USB、前台服务、会话
 modbus-core/    纯 JVM 协议栈，不能依赖 android.*
-docs/           V5.1 规格、路线、审阅记录、变更说明
+docs/           V5.1 规格、路线、审阅记录、变更说明、界面计划（docs/ui-plan.md）
 ```
 
 ## 构建
