@@ -84,6 +84,8 @@ class PanelEditTest {
         onDeletePanel = { calls += "deletePanel" },
         onDone = { calls += "done" },
         onCancel = { calls += "cancel" },
+        onAddWidget = { calls += "addWidget" },
+        onOpenWidget = { calls += "open:$it" },
     )
 
     private fun editState(project: Project = PanelFixtures.project(), panelId: String = "p1", dirty: Boolean = false, error: EditError? = null) =
@@ -158,10 +160,20 @@ class PanelEditTest {
         assertEquals(360f - 14f, b.right.value, 0.6f)
     }
 
-    @Test fun noAddComponentButtonAndHonestHint() {
+    @Test fun addWidgetButtonIsRealAndHintIsHonest() {
         showEditor()
-        assertEquals(0, compose.onAllNodesWithText("添加组件", substring = true, useUnmergedTree = true).fetchSemanticsNodes().size)
+        val t = touch("edit-add-widget")
+        assertTrue("热区高 ${t.height / dp}", t.height / dp >= 47.5f)
+        assertEquals("按钮高 44（稿面 .btn.sm）", 44f, bounds("edit-add-widget").height.value, 0.6f)
+        compose.onNodeWithTag("edit-add-widget", useUnmergedTree = true).performScrollTo().performClick()
+        assertEquals(listOf("addWidget"), calls)
         compose.onNodeWithTag("edit-hint", useUnmergedTree = true).assertTextContains("不会向设备发送任何写入", substring = true)
+    }
+
+    @Test fun tappingACardOpensItsConfig() {
+        showEditor()
+        compose.onNodeWithTag("edit-card-w-temp", useUnmergedTree = true).performClick()
+        assertEquals(listOf("open:w-temp"), calls)
     }
 
     @Test fun everyControlHasAtLeast48dpTouchArea() {
@@ -332,11 +344,12 @@ class PanelEditTest {
         assertEquals(listOf("deletePanel"), calls)
     }
 
-    @Test fun emptyPanelSaysSoWithoutFakeAddButton() {
+    @Test fun emptyPanelSaysSoAndOffersTheRealAddButton() {
         val empty = Project("default", "x", listOf(Panel("p1", "机房 A")))
         showEditor(editState(empty))
         compose.onNodeWithTag("edit-empty", useUnmergedTree = true).assertIsDisplayed()
         assertEquals(0, count("edit-grid"))
+        compose.onNodeWithTag("edit-add-widget", useUnmergedTree = true).assertIsDisplayed()
     }
 
     // ---- 多面板 chip ----

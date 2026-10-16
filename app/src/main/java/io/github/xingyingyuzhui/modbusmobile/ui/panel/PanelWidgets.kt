@@ -58,12 +58,19 @@ import java.time.format.DateTimeFormatter
  * 质量态：过期 = 值 muted；超时 / 错误 = 值 dim + 红色删除线 + 红 badge + 失败说明（取代 meta）。
  */
 @Composable
-fun WidgetCard(widget: Widget, snapshot: PointSnapshot?, modifier: Modifier = Modifier, editing: Boolean = false) {
+fun WidgetCard(
+    widget: Widget,
+    snapshot: PointSnapshot?,
+    modifier: Modifier = Modifier,
+    editing: Boolean = false,
+    /** 向导里的预览卡用强调色描边（稿面 border-color:var(--amber)）。 */
+    borderColor: Color? = null,
+) {
     val point = widget.point ?: return
     // 编辑模式（稿面 b2-2）：名称前加 ⠿，不显示 badge 和 meta（值还是实时的）。
     val look = rememberLook(widget, point, snapshot).let { if (editing) it.copy(badge = null, meta = "") else it }
     val name = (if (editing) "⠿ " else "") + widget.displayName(point)
-    CardFrame(modifier, "panel-card-${widget.id}") {
+    CardFrame(modifier, "panel-card-${widget.id}", borderColor) {
         when (widget.kind) {
             WidgetKinds.LAMP -> LampBody(widget, point, name, snapshot, look)
             WidgetKinds.STATUS_TEXT -> StatusBody(widget, point, name, snapshot, look)
@@ -74,7 +81,7 @@ fun WidgetCard(widget: Widget, snapshot: PointSnapshot?, modifier: Modifier = Mo
 }
 
 @Composable
-private fun CardFrame(modifier: Modifier, tag: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun CardFrame(modifier: Modifier, tag: String, borderColor: Color? = null, content: @Composable ColumnScope.() -> Unit) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
     Column(
@@ -82,7 +89,7 @@ private fun CardFrame(modifier: Modifier, tag: String, content: @Composable Colu
             .fillMaxSize()
             .testTag(tag)
             .background(colors.surface1, shape)
-            .border(1.dp, colors.line, shape)
+            .border(1.dp, borderColor ?: colors.line, shape)
             // 稿面 border-box：边框在内边距之外占位，Compose 的 border 不占位，补 1dp。
             .padding(1.dp)
             .padding(horizontal = 12.dp, vertical = 10.dp),

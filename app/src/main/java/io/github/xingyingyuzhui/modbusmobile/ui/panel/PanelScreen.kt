@@ -36,6 +36,8 @@ import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PencilIcon
+import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalOpenWizard
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusCard
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PageHeader
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
@@ -64,6 +66,7 @@ fun PanelScreen() {
         onStopOrDispose { model.setActive(false) }
     }
     val edit by model.edit.collectAsStateWithLifecycle()
+    val openWizard = LocalOpenWizard.current
     val editing = edit
     if (editing != null) {
         PanelEditor(
@@ -80,6 +83,8 @@ fun PanelScreen() {
                 onDeletePanel = model::deletePanel,
                 onDone = model::save,
                 onCancel = model::cancelEdit,
+                onAddWidget = { model.startWizard(null); openWizard() },
+                onOpenWidget = { id -> model.startWizard(id); if (model.wizard.value != null) openWizard() },
             ),
         )
     } else {
@@ -92,6 +97,7 @@ fun PanelScreen() {
             onSelectPanel = model::selectPanel,
             onTogglePause = model::togglePause,
             onEdit = if (model.canEdit) ({ model.startEdit(selected) }) else null,
+            onAdd = if (model.canEdit) ({ model.startEdit(selected); model.startWizard(null); openWizard() }) else null,
         )
     }
 }
@@ -112,6 +118,8 @@ fun PanelContent(
     onTogglePause: () -> Unit = {},
     /** 为 null 时不画 ✎（没有仓库 / 工程文件只读 / 还没有面板）。 */
     onEdit: (() -> Unit)? = null,
+    /** 空面板里的“添加组件”：为 null（没有仓库 / 只读）时不画。 */
+    onAdd: (() -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
@@ -191,6 +199,11 @@ fun PanelContent(
                             title = stringResource(R.string.panel_empty_title),
                             body = stringResource(R.string.panel_empty_body),
                             tag = "panel-empty",
+                            action = if (onAdd != null && !state.readOnly) {
+                                { PrimaryButton(stringResource(R.string.panel_add_widget), onAdd, Modifier.padding(top = 10.dp).testTag("panel-empty-add"), compact = true) }
+                            } else {
+                                null
+                            },
                         )
                     } else {
                         if (stats == null && !paused) {
@@ -298,7 +311,7 @@ private fun EditEntryButton(onEdit: () -> Unit) {
 }
 
 @Composable
-private fun NoticeCard(title: String?, body: String, tag: String) {
+private fun NoticeCard(title: String?, body: String, tag: String, action: (@Composable () -> Unit)? = null) {
     val colors = LocalModbusColors.current
     ModbusCard(
         Modifier.fillMaxWidth().testTag(tag),
@@ -308,5 +321,6 @@ private fun NoticeCard(title: String?, body: String, tag: String) {
             Text(title, color = colors.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
         Text(body, color = colors.muted, fontSize = 13.sp, lineHeight = 19.sp)
+        action?.invoke()
     }
 }

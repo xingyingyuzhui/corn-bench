@@ -59,6 +59,28 @@ object ProjectEdits {
         return project.copy(panels = project.panels + Panel(id, "面板 $n")) to id
     }
 
+    /** 添加到面板末尾；面板不存在时原样返回。 */
+    fun addWidget(project: Project, panelId: String, widget: Widget): Project =
+        project.mapPanel(panelId) { it.copy(widgets = it.widgets + widget) }
+
+    /** 按 id 替换组件（编辑已有组件）；读不懂的组件（raw）不替换。 */
+    fun replaceWidget(project: Project, panelId: String, widget: Widget): Project =
+        project.mapPanel(panelId) { panel ->
+            panel.copy(widgets = panel.widgets.map { if (it.id == widget.id && it.raw == null) widget else it })
+        }
+
+    /** 全工程里没被占用的组件 id / 点位 id（成对生成：w-xxxxxxxx / p-xxxxxxxx）。 */
+    fun newIds(project: Project, random: () -> String = { UUID.randomUUID().toString().take(8) }): Pair<String, String> {
+        val usedWidgets = project.panels.flatMap { p -> p.widgets.map { it.id } }.toSet()
+        val usedPoints = project.panels.flatMap { p -> p.widgets.mapNotNull { it.point?.id } }.toSet()
+        while (true) {
+            val suffix = random()
+            val widgetId = "w-$suffix"
+            val pointId = "p-$suffix"
+            if (widgetId !in usedWidgets && pointId !in usedPoints) return widgetId to pointId
+        }
+    }
+
     /** 至少留一个面板：只剩一个时拒绝（原样返回）。 */
     fun deletePanel(project: Project, panelId: String): Project =
         if (project.panels.size <= 1 || project.panels.none { it.id == panelId }) project else project.copy(panels = project.panels.filterNot { it.id == panelId })

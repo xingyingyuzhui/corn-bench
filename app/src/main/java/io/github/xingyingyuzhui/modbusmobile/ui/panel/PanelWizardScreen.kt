@@ -1,0 +1,873 @@
+package io.github.xingyingyuzhui.modbusmobile.ui.panel
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xingyingyuzhui.modbusmobile.R
+import io.github.xingyingyuzhui.modbusmobile.application.panel.ByteWordOrder
+import io.github.xingyingyuzhui.modbusmobile.application.panel.DataType
+import io.github.xingyingyuzhui.modbusmobile.application.panel.FormError
+import io.github.xingyingyuzhui.modbusmobile.application.panel.FormField
+import io.github.xingyingyuzhui.modbusmobile.application.panel.FormResult
+import io.github.xingyingyuzhui.modbusmobile.application.panel.PointSnapshot
+import io.github.xingyingyuzhui.modbusmobile.application.panel.StateRow
+import io.github.xingyingyuzhui.modbusmobile.application.panel.StateTone
+import io.github.xingyingyuzhui.modbusmobile.application.panel.ThresholdLevel
+import io.github.xingyingyuzhui.modbusmobile.application.panel.ThresholdOp
+import io.github.xingyingyuzhui.modbusmobile.application.panel.ThresholdRow
+import io.github.xingyingyuzhui.modbusmobile.application.panel.ValueCodec
+import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetForm
+import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetKinds
+import io.github.xingyingyuzhui.modbusmobile.application.panel.RawValue
+import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusCard
+import io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput
+import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SecondaryButton
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SegmentedTextControl
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SelectChip
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SubPageHeader
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.pageStart
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.JetBrainsMono
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
+
+data class WizardActions(
+    val onKind: (String) -> Unit = {},
+    val onForm: (WidgetForm) -> Unit = {},
+    val onNext: () -> Unit = {},
+    val onBack: () -> Unit = {},
+    val onExit: () -> Unit = {},
+)
+
+private val Kinds = listOf(WidgetKinds.NUMBER, WidgetKinds.LAMP, WidgetKinds.STATUS_TEXT, WidgetKinds.PROGRESS)
+private val AllTypes = listOf(
+    DataType.BOOL, DataType.BIT, DataType.U16, DataType.S16, DataType.U32, DataType.S32, DataType.F32,
+    DataType.U64, DataType.S64, DataType.F64, DataType.BCD16, DataType.BCD32, DataType.ASCII,
+)
+private val Areas = listOf(RegisterArea.HOLDING_REGISTER, RegisterArea.INPUT_REGISTER, RegisterArea.COIL, RegisterArea.DISCRETE_INPUT)
+private val UnitPresets = listOf("℃", "%", "%RH", "MPa", "bar", "A", "V", "kW", "Hz", "rpm")
+private val Sizes = listOf(1 to 1, 2 to 1, 2 to 2)
+private val Tones = listOf(StateTone.GREEN, StateTone.AMBER, StateTone.RED, StateTone.BLUE, StateTone.GRAY)
+
+/**
+ * 添加 / 编辑组件向导（稿面 b2-3 / b2-4 / 外观页）：1/3 选类型 → 2/3 数据源 + 换算（按类型取舍）+ 实时预览 → 3/3 外观（尺寸 + 实际效果）。
+ * 在编辑草稿上操作：“添加到面板”只把组件放进草稿，回到编辑页点“完成”才写盘。
+ */
+@Composable
+fun PanelWizard(
+    wizard: WizardState,
+    previewSnapshot: PointSnapshot?,
+    live: Boolean,
+    actions: WizardActions,
+) {
+    val colors = LocalModbusColors.current
+    val spacing = LocalSpacing.current
+    val result = remember(wizard.form, wizard.widgetId, wizard.pointId) { wizard.result() }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val firstStep = if (wizard.editingWidgetId != null) 2 else 1
+    val needsConfirm = wizard.editingWidgetId != null && wizard.form != wizard.original
+    val goBack: () -> Unit = {
+        when {
+            wizard.step > firstStep -> actions.onBack()
+            needsConfirm -> confirmDiscard = true
+            else -> actions.onExit()
+        }
+    }
+    BackHandler(onBack = goBack)
+
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        SubPageHeader(
+            title = stringResource(titleRes(wizard)),
+            onBack = goBack,
+            modifier = Modifier.padding(start = pageStart() - 8.dp, end = spacing.page),
+            trailing = {
+                Text(
+                    stringResource(R.string.panel_wiz_step, wizard.step),
+                    color = colors.muted, fontSize = 13.sp, modifier = Modifier.testTag("wiz-step"),
+                )
+            },
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = pageStart(), end = spacing.page, top = 4.dp, bottom = spacing.gapS),
+            verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+        ) {
+            when (wizard.step) {
+                1 -> KindPicker(wizard.form.kind.takeIf { wizard.editingWidgetId != null }, actions.onKind)
+                2 -> ConfigStep(wizard, result, previewSnapshot, live, actions.onForm)
+                else -> LookStep(wizard, result, previewSnapshot, live, actions.onForm)
+            }
+        }
+        if (wizard.step >= 2) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(colors.bg)
+                    .navigationBarsPadding()
+                    .padding(start = pageStart(), end = spacing.page, top = 10.dp, bottom = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                SecondaryButton(
+                    stringResource(if (wizard.step == firstStep) R.string.action_cancel else R.string.panel_wiz_prev),
+                    goBack, Modifier.weight(1f).testTag("wiz-prev"),
+                )
+                PrimaryButton(
+                    stringResource(
+                        when {
+                            wizard.step == 2 -> R.string.panel_wiz_next_look
+                            wizard.editingWidgetId != null -> R.string.panel_wiz_save_changes
+                            else -> R.string.panel_wiz_add_to_panel
+                        },
+                    ),
+                    actions.onNext, Modifier.weight(1.6f).testTag("wiz-next"),
+                )
+            }
+        }
+    }
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            containerColor = colors.surface1,
+            titleContentColor = colors.text,
+            textContentColor = colors.muted,
+            title = { Text(stringResource(R.string.panel_wiz_discard_title), fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+            text = { Text(stringResource(R.string.panel_wiz_discard_body), fontSize = 14.sp) },
+            confirmButton = {
+                TextButton({ confirmDiscard = false; actions.onExit() }, Modifier.testTag("wiz-discard-confirm")) {
+                    Text(stringResource(R.string.panel_edit_discard), color = colors.error)
+                }
+            },
+            dismissButton = {
+                TextButton({ confirmDiscard = false }, Modifier.testTag("wiz-discard-dismiss")) {
+                    Text(stringResource(R.string.panel_edit_keep), color = colors.accentText)
+                }
+            },
+        )
+    }
+}
+
+private fun titleRes(wizard: WizardState): Int = if (wizard.step == 1) {
+    R.string.panel_wiz_title_pick
+} else {
+    when (wizard.form.kind) {
+        WidgetKinds.LAMP -> R.string.panel_wiz_title_lamp
+        WidgetKinds.STATUS_TEXT -> R.string.panel_wiz_title_status
+        WidgetKinds.PROGRESS -> R.string.panel_wiz_title_progress
+        else -> R.string.panel_wiz_title_number
+    }
+}
+
+// ---- 1/3 选类型（b2-3：2 列卡、高 118、圆角 16、预览区圆角 10）----
+
+@Composable
+private fun KindPicker(selected: String?, onKind: (String) -> Unit) {
+    val colors = LocalModbusColors.current
+    Kinds.chunked(2).forEach { pair ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            pair.forEach { kind -> KindCard(kind, kind == selected, { onKind(kind) }, Modifier.weight(1f)) }
+            if (pair.size == 1) Box(Modifier.weight(1f))
+        }
+    }
+    Text(
+        stringResource(R.string.panel_wiz_more_later), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
+        modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp).testTag("wiz-more-later"),
+    )
+}
+
+@Composable
+private fun KindCard(kind: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val colors = LocalModbusColors.current
+    val shape = RoundedCornerShape(CardRadius)
+    val (title, desc) = when (kind) {
+        WidgetKinds.LAMP -> R.string.panel_wiz_kind_lamp to R.string.panel_wiz_kind_lamp_desc
+        WidgetKinds.STATUS_TEXT -> R.string.panel_wiz_kind_status to R.string.panel_wiz_kind_status_desc
+        WidgetKinds.PROGRESS -> R.string.panel_wiz_kind_progress to R.string.panel_wiz_kind_progress_desc
+        else -> R.string.panel_wiz_kind_number to R.string.panel_wiz_kind_number_desc
+    }
+    Column(
+        modifier
+            .heightIn(min = 118.dp)
+            .clip(shape)
+            .background(colors.surface1)
+            .border(if (selected) 2.dp else 1.dp, if (selected) colors.accent else colors.line, shape)
+            .semantics(mergeDescendants = true) { role = Role.Button }
+            .clickable(onClick = onClick)
+            .padding(10.dp)
+            .testTag("wiz-kind-$kind"),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Box(
+            Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(10.dp)).background(colors.surface2),
+            contentAlignment = Alignment.Center,
+        ) { KindIllustration(kind) }
+        Text(stringResource(title), color = colors.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+        Text(stringResource(desc), color = colors.muted, fontSize = 11.sp, lineHeight = 15.sp)
+    }
+}
+
+/** 稿面图示：只是类型的示意图，不是数据。 */
+@Composable
+private fun KindIllustration(kind: String) {
+    val colors = LocalModbusColors.current
+    when (kind) {
+        WidgetKinds.LAMP -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(14.dp).clip(CircleShape).background(colors.rxLocal))
+            Box(Modifier.size(14.dp).clip(CircleShape).background(colors.surface3))
+            Box(Modifier.size(14.dp).clip(CircleShape).background(colors.error))
+        }
+        WidgetKinds.STATUS_TEXT -> Text("制冷", color = colors.tx, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        WidgetKinds.PROGRESS -> Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.surface3)) {
+            Box(Modifier.fillMaxWidth(0.62f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.accent))
+        }
+        else -> Row(verticalAlignment = Alignment.Bottom) {
+            Text("23.4", color = colors.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, fontFamily = JetBrainsMono)
+            Text(" ℃", color = colors.muted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
+        }
+    }
+}
+
+// ---- 2/3 配置 ----
+
+@Composable
+private fun ConfigStep(
+    wizard: WizardState,
+    result: FormResult,
+    snapshot: PointSnapshot?,
+    live: Boolean,
+    onForm: (WidgetForm) -> Unit,
+) {
+    val colors = LocalModbusColors.current
+    val form = wizard.form
+    PreviewCard(wizard, result, snapshot, live)
+    SectionTitle(stringResource(R.string.panel_wiz_sec_source))
+    ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+        SourceSection(wizard, result, onForm)
+    }
+    when (form.kind) {
+        WidgetKinds.NUMBER, WidgetKinds.PROGRESS -> {
+            SectionTitle(stringResource(R.string.panel_wiz_sec_convert))
+            ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+                ConvertSection(wizard, result, snapshot, onForm)
+            }
+        }
+        else -> {
+            SectionTitle(stringResource(R.string.panel_wiz_sec_display))
+            ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NameField(wizard, result, onForm)
+                    if (form.kind == WidgetKinds.LAMP) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            NumberInput(
+                                stringResource(R.string.panel_wiz_on_label), form.onLabel, Modifier.weight(1f).testTag("wiz-on-label"),
+                                sub = null, keyboardType = KeyboardType.Text,
+                            ) { onForm(form.copy(onLabel = it.take(8))) }
+                            NumberInput(
+                                stringResource(R.string.panel_wiz_off_label), form.offLabel, Modifier.weight(1f).testTag("wiz-off-label"),
+                                keyboardType = KeyboardType.Text,
+                            ) { onForm(form.copy(offLabel = it.take(8))) }
+                        }
+                        Text(
+                            stringResource(R.string.panel_wiz_on_hint) + " · " + stringResource(R.string.panel_wiz_off_hint),
+                            color = colors.muted, fontSize = 11.5.sp,
+                        )
+                    }
+                }
+            }
+        }
+    }
+    if (form.kind == WidgetKinds.STATUS_TEXT) StatesSection(wizard, result, onForm)
+    SectionTitle(stringResource(R.string.panel_wiz_sec_poll))
+    ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+        NumberInput(
+            stringResource(R.string.panel_wiz_poll), form.pollMs, Modifier.fillMaxWidth().testTag("wiz-poll"),
+            sub = stringResource(R.string.panel_wiz_poll_unit),
+            error = fieldError(wizard, result, FormField.POLL),
+        ) { onForm(form.copy(pollMs = it.filter(Char::isDigit).take(6))) }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    val colors = LocalModbusColors.current
+    Text(
+        text, color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp,
+        modifier = Modifier.padding(start = 2.dp, top = 6.dp),
+    )
+}
+
+@Composable
+private fun fieldError(wizard: WizardState, result: FormResult, field: FormField): String? {
+    val err = result.errors[field] ?: return null
+    if (err == FormError.REQUIRED && !wizard.showErrors) return null
+    return stringResource(
+        when (err) {
+            FormError.REQUIRED -> R.string.panel_wiz_err_required
+            FormError.NOT_A_NUMBER -> R.string.panel_wiz_err_number
+            FormError.NOT_INTEGER -> R.string.panel_wiz_err_integer
+            FormError.OUT_OF_RANGE -> when (field) {
+                FormField.UNIT -> R.string.panel_wiz_err_unit
+                FormField.ADDRESS -> R.string.panel_wiz_err_address
+                FormField.BIT -> R.string.panel_wiz_err_bit
+                FormField.ASCII -> R.string.panel_wiz_err_ascii
+                FormField.DECIMALS -> R.string.panel_wiz_err_decimals
+                FormField.POLL -> R.string.panel_wiz_err_poll
+                else -> R.string.panel_wiz_err_number
+            }
+            FormError.ZERO_SCALE -> R.string.panel_wiz_err_zero_scale
+            FormError.RANGE_ORDER -> R.string.panel_wiz_err_range_order
+            FormError.DUPLICATE -> R.string.panel_wiz_err_duplicate
+            FormError.SPAN_OVERFLOW -> R.string.panel_wiz_err_overflow
+            FormError.TOO_MANY -> R.string.panel_wiz_err_too_many
+        },
+    )
+}
+
+/** 实时预览卡：用和面板一样的卡片画（强调色描边）；表单还不完整时画只有名称和“—”的占位。 */
+@Composable
+private fun PreviewCard(wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, live: Boolean, modifier: Modifier = Modifier) {
+    val colors = LocalModbusColors.current
+    val widget = result.widget
+    Column(modifier.fillMaxWidth().testTag("wiz-preview"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 96.dp)) {
+            if (widget != null) {
+                WidgetCard(widget, if (live) snapshot else null, Modifier.fillMaxWidth(), borderColor = colors.accent)
+            } else {
+                CardFrame(Modifier.fillMaxWidth(), "wiz-preview-placeholder", borderColor = colors.accent) {
+                    Text(
+                        wizard.form.name.ifBlank { stringResource(R.string.panel_wiz_name) },
+                        color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp,
+                    )
+                    Text("—", color = colors.dim, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, fontFamily = JetBrainsMono, modifier = Modifier.padding(top = 4.dp))
+                    Text(stringResource(R.string.panel_wiz_preview_invalid), color = colors.dim, fontSize = 10.5.sp, lineHeight = 14.sp)
+                }
+            }
+        }
+        if (!live) {
+            Text(
+                stringResource(R.string.panel_wiz_preview_none), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-preview-none"),
+            )
+        }
+    }
+}
+
+// ---- 数据源 ----
+
+@Composable
+private fun SourceSection(wizard: WizardState, result: FormResult, onForm: (WidgetForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    val form = wizard.form
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SegmentedTextControl(Areas, form.area, { onForm(form.withArea(it)) }, Modifier.testTag("wiz-area"), small = true) { area ->
+            stringResource(
+                when (area) {
+                    RegisterArea.HOLDING_REGISTER -> R.string.area_short_holding
+                    RegisterArea.INPUT_REGISTER -> R.string.area_short_input
+                    RegisterArea.COIL -> R.string.area_short_coil
+                    RegisterArea.DISCRETE_INPUT -> R.string.area_short_discrete
+                },
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumberInput(
+                stringResource(R.string.panel_wiz_field_unit), form.unitId, Modifier.weight(0.7f).testTag("wiz-unit"),
+                error = fieldError(wizard, result, FormField.UNIT),
+            ) { onForm(form.copy(unitId = it.filter(Char::isDigit).take(3))) }
+            NumberInput(
+                stringResource(R.string.panel_wiz_field_address), form.address, Modifier.weight(1.3f).testTag("wiz-address"),
+                error = fieldError(wizard, result, FormField.ADDRESS),
+            ) { onForm(form.copy(address = it.filter(Char::isDigit).take(5))) }
+        }
+        val occupies = if (form.type == DataType.BOOL) 1 else form.type.registers ?: form.asciiRegisters.toIntOrNull() ?: 1
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.panel_wiz_type), color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text(
+                stringResource(
+                    R.string.panel_wiz_occupies, occupies,
+                    stringResource(if (form.type == DataType.BOOL) R.string.panel_wiz_occupies_coil else R.string.panel_wiz_occupies_reg),
+                ),
+                color = colors.muted, fontSize = 12.sp, modifier = Modifier.testTag("wiz-occupies"),
+            )
+        }
+        val allowed = form.allowedTypes()
+        FlowRowChips {
+            AllTypes.forEach { type ->
+                val enabled = type in allowed
+                Box(
+                    Modifier
+                        .alpha(if (enabled) 1f else 0.45f)
+                        .semantics { if (!enabled) disabled() }
+                        .testTag("wiz-type-${type.name}"),
+                ) {
+                    SelectChip(typeLabel(type), type == form.type, xs = true) { if (enabled) onForm(form.withType(type)) }
+                }
+            }
+        }
+        if (form.type == DataType.BIT) {
+            NumberInput(
+                stringResource(R.string.panel_wiz_field_bit), form.bit, Modifier.fillMaxWidth().testTag("wiz-bit"),
+                error = fieldError(wizard, result, FormField.BIT),
+            ) { onForm(form.copy(bit = it.filter(Char::isDigit).take(2))) }
+        }
+        if (form.type == DataType.ASCII) {
+            NumberInput(
+                stringResource(R.string.panel_wiz_field_ascii), form.asciiRegisters, Modifier.fillMaxWidth().testTag("wiz-ascii"),
+                error = fieldError(wizard, result, FormField.ASCII),
+            ) { onForm(form.copy(asciiRegisters = it.filter(Char::isDigit).take(3))) }
+        }
+        val orderEnabled = (form.type.registers ?: 1) >= 2
+        Text(stringResource(R.string.panel_wiz_order), color = colors.muted, fontSize = 12.sp)
+        Box(
+            Modifier
+                .alpha(if (orderEnabled) 1f else 0.45f)
+                .semantics { if (!orderEnabled) disabled() }
+                .testTag("wiz-order"),
+        ) {
+            SegmentedTextControl(ByteWordOrder.entries, form.order, { if (orderEnabled) onForm(form.copy(order = it)) }, small = true) { it.name }
+        }
+    }
+}
+
+private fun typeLabel(type: DataType): String = when (type) {
+    DataType.BIT -> "位"
+    else -> type.name
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlowRowChips(content: @Composable () -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) { content() }
+}
+
+// ---- 换算与显示（数值 / 进度条）----
+
+@Composable
+private fun ConvertSection(wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, onForm: (WidgetForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    val form = wizard.form
+    val text = form.type == DataType.ASCII
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!text) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberInput(
+                    stringResource(R.string.panel_wiz_scale), form.scale, Modifier.weight(1f).testTag("wiz-scale"),
+                    error = fieldError(wizard, result, FormField.SCALE), keyboardType = KeyboardType.Decimal,
+                ) { onForm(form.copy(scale = it)) }
+                NumberInput(
+                    stringResource(R.string.panel_wiz_offset), form.offset, Modifier.weight(1f).testTag("wiz-offset"),
+                    error = fieldError(wizard, result, FormField.OFFSET), keyboardType = KeyboardType.Decimal,
+                ) { onForm(form.copy(offset = it)) }
+                NumberInput(
+                    stringResource(R.string.panel_wiz_decimals), form.decimals, Modifier.weight(1f).testTag("wiz-decimals"),
+                    error = fieldError(wizard, result, FormField.DECIMALS),
+                ) { onForm(form.copy(decimals = it.filter(Char::isDigit).take(2))) }
+            }
+            Formula(form, snapshot)
+            UnitChips(form, onForm)
+        }
+        NameField(wizard, result, onForm)
+        if (form.usesRange && !text) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberInput(
+                    stringResource(R.string.panel_wiz_range_min), form.rangeMin, Modifier.weight(1f).testTag("wiz-range-min"),
+                    error = fieldError(wizard, result, FormField.RANGE_MIN), keyboardType = KeyboardType.Decimal,
+                ) { onForm(form.copy(rangeMin = it)) }
+                NumberInput(
+                    stringResource(R.string.panel_wiz_range_max), form.rangeMax, Modifier.weight(1f).testTag("wiz-range-max"),
+                    error = fieldError(wizard, result, FormField.RANGE_MAX), keyboardType = KeyboardType.Decimal,
+                ) { onForm(form.copy(rangeMax = it)) }
+            }
+        }
+        if (!text) ThresholdList(wizard, result, onForm)
+    }
+}
+
+@Composable
+private fun NameField(wizard: WizardState, result: FormResult, onForm: (WidgetForm) -> Unit) {
+    val form = wizard.form
+    NumberInput(
+        stringResource(R.string.panel_wiz_name), form.name, Modifier.fillMaxWidth().testTag("wiz-name"),
+        keyboardType = KeyboardType.Text, error = fieldError(wizard, result, FormField.NAME),
+    ) { onForm(form.copy(name = it.take(WidgetForm.MAX_NAME))) }
+}
+
+/** 稿面 `.formula`：虚线框，mono；有实时原始值时接“→ 234 × 0.1 + 0 = 23.4”。 */
+@Composable
+private fun Formula(form: WidgetForm, snapshot: PointSnapshot?) {
+    val colors = LocalModbusColors.current
+    val scale = form.scale.ifBlank { "1" }
+    val offset = form.offset.ifBlank { "0" }
+    val raw = (snapshot?.raw as? RawValue.Integer)?.let { if (it.unsigned) it.toBigInteger().toString() else it.bits.toString() }
+        ?: (snapshot?.raw as? RawValue.Real)?.let { ValueCodec.format(it.value, null) }
+        ?: (snapshot?.raw as? RawValue.Flag)?.let { if (it.value) "1" else "0" }
+    val line = stringResource(R.string.panel_wiz_formula, scale, offset) +
+        if (raw != null && snapshot?.text != null) stringResource(R.string.panel_wiz_formula_live, raw, scale, offset, snapshot.text) else ""
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(colors.bg)
+            .drawBehind {
+                drawRoundRect(
+                    colors.line, cornerRadius = CornerRadius(10.dp.toPx()),
+                    style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))),
+                )
+            }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+    ) {
+        Text(line, color = colors.muted, fontSize = 12.sp, lineHeight = 18.sp, fontFamily = JetBrainsMono, modifier = Modifier.testTag("wiz-formula"))
+    }
+}
+
+@Composable
+private fun UnitChips(form: WidgetForm, onForm: (WidgetForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    var custom by remember { mutableStateOf(form.unitLabel.isNotBlank() && form.unitLabel !in UnitPresets) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.panel_wiz_unit_label), color = colors.muted, fontSize = 12.sp)
+        FlowRowChips {
+            UnitPresets.forEach { unit ->
+                Box(Modifier.testTag("wiz-unit-chip-$unit")) {
+                    SelectChip(unit, !custom && form.unitLabel == unit, xs = true) {
+                        custom = false
+                        onForm(form.copy(unitLabel = if (form.unitLabel == unit) "" else unit))
+                    }
+                }
+            }
+            Box(Modifier.testTag("wiz-unit-chip-custom")) {
+                SelectChip(stringResource(R.string.panel_wiz_unit_custom), custom, xs = true) {
+                    custom = true
+                    if (form.unitLabel in UnitPresets) onForm(form.copy(unitLabel = ""))
+                }
+            }
+        }
+        if (custom) {
+            NumberInput(
+                stringResource(R.string.panel_wiz_unit_custom_field), form.unitLabel, Modifier.fillMaxWidth().testTag("wiz-unit-custom"),
+                keyboardType = KeyboardType.Text,
+            ) { onForm(form.copy(unitLabel = it.take(WidgetForm.MAX_UNIT_LABEL))) }
+        }
+    }
+}
+
+@Composable
+private fun ThresholdList(wizard: WizardState, result: FormResult, onForm: (WidgetForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    val form = wizard.form
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.panel_wiz_thresholds), color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            val add = stringResource(R.string.panel_wiz_threshold_add)
+            Box(
+                Modifier
+                    .minimumInteractiveComponentSize()
+                    .semantics { contentDescription = add; role = Role.Button }
+                    .clickable { onForm(form.copy(thresholds = form.thresholds + ThresholdRow())) }
+                    .testTag("wiz-threshold-add"),
+                contentAlignment = Alignment.Center,
+            ) { Text("＋", color = colors.accentText, fontSize = 18.sp) }
+        }
+        if (form.thresholds.isNotEmpty()) {
+            val shape = RoundedCornerShape(12.dp)
+            Column(Modifier.fillMaxWidth().clip(shape).border(1.dp, colors.line, shape)) {
+                form.thresholds.forEachIndexed { index, row ->
+                    if (index > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
+                    ThresholdRowEditor(index, row, wizard.showErrors && index in result.badThresholds || (row.value.isNotBlank() && index in result.badThresholds)) { next ->
+                        onForm(form.copy(thresholds = form.thresholds.toMutableList().also { list -> if (next == null) list.removeAt(index) else list[index] = next }))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThresholdRowEditor(index: Int, row: ThresholdRow, error: Boolean, onChange: (ThresholdRow?) -> Unit) {
+    val colors = LocalModbusColors.current
+    val tone = if (row.level == ThresholdLevel.ALERT) colors.error else colors.txText
+    val opText = if (row.op == ThresholdOp.GE) "≥" else "<"
+    val levelText = stringResource(if (row.level == ThresholdLevel.ALERT) R.string.panel_wiz_level_alert else R.string.panel_wiz_level_warn)
+    val opCd = stringResource(R.string.panel_wiz_threshold_op, opText)
+    val levelCd = stringResource(R.string.panel_wiz_threshold_level, levelText)
+    val deleteCd = stringResource(R.string.panel_wiz_threshold_delete)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("wiz-threshold-$index"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Box(Modifier.padding(start = 8.dp, end = 4.dp).size(12.dp).clip(CircleShape).background(tone))
+        Box(
+            Modifier
+                .minimumInteractiveComponentSize()
+                .semantics { contentDescription = opCd; role = Role.Button }
+                .clickable { onChange(row.copy(op = if (row.op == ThresholdOp.GE) ThresholdOp.LT else ThresholdOp.GE)) }
+                .testTag("wiz-threshold-op-$index"),
+            contentAlignment = Alignment.Center,
+        ) { Text(opText, color = colors.text, fontSize = 15.sp, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold) }
+        NumberInput(
+            stringResource(R.string.panel_wiz_threshold_value), row.value, Modifier.weight(1f).padding(vertical = 4.dp).testTag("wiz-threshold-value-$index"),
+            minHeight = 40.dp, error = if (error) stringResource(R.string.panel_wiz_err_number) else null,
+            keyboardType = KeyboardType.Decimal,
+        ) { onChange(row.copy(value = it)) }
+        Box(
+            Modifier
+                .minimumInteractiveComponentSize()
+                .semantics { contentDescription = levelCd; role = Role.Button }
+                .clickable { onChange(row.copy(level = if (row.level == ThresholdLevel.ALERT) ThresholdLevel.WARN else ThresholdLevel.ALERT)) }
+                .testTag("wiz-threshold-level-$index"),
+            contentAlignment = Alignment.Center,
+        ) { Text(levelText, color = tone, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+        Box(
+            Modifier
+                .minimumInteractiveComponentSize()
+                .semantics { contentDescription = deleteCd; role = Role.Button }
+                .clickable { onChange(null) }
+                .testTag("wiz-threshold-delete-$index"),
+            contentAlignment = Alignment.Center,
+        ) { Text("✕", color = colors.muted, fontSize = 14.sp) }
+    }
+}
+
+// ---- 状态文本：映射表 ----
+
+@Composable
+private fun StatesSection(wizard: WizardState, result: FormResult, onForm: (WidgetForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    val form = wizard.form
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.panel_wiz_sec_states, form.states.size), color = colors.muted, fontSize = 12.5.sp,
+            modifier = Modifier.weight(1f).padding(start = 2.dp).testTag("wiz-states-title"),
+        )
+        Box(
+            Modifier
+                .minimumInteractiveComponentSize()
+                .clickable(role = Role.Button) {
+                    val next = (form.states.mapNotNull { it.value.trim().toLongOrNull() }.maxOrNull()?.plus(1)) ?: 0L
+                    onForm(form.copy(states = form.states + StateRow(next.toString(), "", Tones[form.states.size % Tones.size])))
+                }
+                .testTag("wiz-state-add"),
+            contentAlignment = Alignment.Center,
+        ) { Text(stringResource(R.string.panel_wiz_state_add), color = colors.accentText, fontSize = 13.sp) }
+    }
+    val shape = RoundedCornerShape(12.dp)
+    if (form.states.isNotEmpty()) {
+        Column(Modifier.fillMaxWidth().clip(shape).background(colors.surface1).border(1.dp, colors.line, shape)) {
+            form.states.forEachIndexed { index, row ->
+                if (index > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
+                StateRowEditor(index, row, index in result.badStates && (wizard.showErrors || (row.value.isNotBlank() && row.label.isNotBlank()))) { next ->
+                    onForm(form.copy(states = form.states.toMutableList().also { list -> if (next == null) list.removeAt(index) else list[index] = next }))
+                }
+            }
+        }
+    }
+    val error = fieldError(wizard, result, FormField.STATE)
+    Text(
+        if (error != null && (wizard.showErrors || form.states.isNotEmpty())) stringResource(R.string.panel_wiz_err_states) else stringResource(R.string.panel_wiz_state_hint),
+        color = if (error != null && wizard.showErrors) colors.error else colors.muted,
+        fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-states-note"),
+    )
+}
+
+@Composable
+private fun StateRowEditor(index: Int, row: StateRow, error: Boolean, onChange: (StateRow?) -> Unit) {
+    val colors = LocalModbusColors.current
+    val toneName = stringResource(toneName(row.tone))
+    val toneCd = stringResource(R.string.panel_wiz_state_tone, toneName)
+    val deleteCd = stringResource(R.string.panel_wiz_state_delete)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("wiz-state-$index"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        NumberInput(
+            stringResource(R.string.panel_wiz_state_value), row.value, Modifier.width(84.dp).padding(vertical = 4.dp).testTag("wiz-state-value-$index"),
+            minHeight = 40.dp, error = if (error) "!" else null, keyboardType = KeyboardType.Number,
+        ) { onChange(row.copy(value = it.filter { c -> c.isDigit() || c == '-' }.take(10))) }
+        Box(
+            Modifier
+                .minimumInteractiveComponentSize()
+                .semantics { contentDescription = toneCd; role = Role.Button }
+                .clickable { onChange(row.copy(tone = Tones[(Tones.indexOf(row.tone) + 1) % Tones.size])) }
+                .testTag("wiz-state-tone-$index"),
+            contentAlignment = Alignment.Center,
+        ) { Box(Modifier.size(12.dp).clip(CircleShape).background(toneColor(row.tone))) }
+        NumberInput(
+            stringResource(R.string.panel_wiz_state_label), row.label, Modifier.weight(1f).padding(vertical = 4.dp).testTag("wiz-state-label-$index"),
+            minHeight = 40.dp, keyboardType = KeyboardType.Text,
+        ) { onChange(row.copy(label = it.take(12))) }
+        Box(
+            Modifier
+                .minimumInteractiveComponentSize()
+                .semantics { contentDescription = deleteCd; role = Role.Button }
+                .clickable { onChange(null) }
+                .testTag("wiz-state-delete-$index"),
+            contentAlignment = Alignment.Center,
+        ) { Text("✕", color = colors.muted, fontSize = 14.sp) }
+    }
+}
+
+private fun toneName(tone: StateTone): Int = when (tone) {
+    StateTone.GREEN -> R.string.panel_wiz_tone_green
+    StateTone.AMBER -> R.string.panel_wiz_tone_amber
+    StateTone.RED -> R.string.panel_wiz_tone_red
+    StateTone.BLUE -> R.string.panel_wiz_tone_blue
+    StateTone.GRAY -> R.string.panel_wiz_tone_gray
+}
+
+@Composable
+private fun toneColor(tone: StateTone): Color {
+    val colors = LocalModbusColors.current
+    return when (tone) {
+        StateTone.GREEN -> colors.rxLocal
+        StateTone.AMBER -> colors.txText
+        StateTone.RED -> colors.error
+        StateTone.BLUE -> colors.tx
+        StateTone.GRAY -> colors.dropped
+    }
+}
+
+// ---- 3/3 外观 ----
+
+@Composable
+private fun LookStep(
+    wizard: WizardState,
+    result: FormResult,
+    snapshot: PointSnapshot?,
+    live: Boolean,
+    onForm: (WidgetForm) -> Unit,
+) {
+    val colors = LocalModbusColors.current
+    val spacing = LocalSpacing.current
+    val form = wizard.form
+    val widget = result.widget
+    val sizeLabel = "${form.spanColumns} × ${form.spanRows}"
+    if (widget != null) {
+        PanelGrid(
+            columns = 2,
+            spans = if (form.spanColumns == 1) listOf(1, 1) else listOf(2),
+            spanRows = if (form.spanColumns == 1) listOf(form.spanRows, form.spanRows) else listOf(form.spanRows),
+            modifier = Modifier.fillMaxWidth().testTag("wiz-look-preview"),
+            gap = spacing.gapS,
+        ) { index ->
+            if (index == 0) {
+                WidgetCard(widget, if (live) snapshot else null, Modifier, borderColor = colors.accent)
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp, modifier = Modifier.testTag("wiz-actual-size"))
+                }
+            }
+        }
+        if (form.spanColumns > 1) {
+            Text(stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 2.dp).testTag("wiz-actual-size"))
+        }
+    }
+    ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.panel_wiz_size), color = colors.muted, fontSize = 12.sp)
+            SegmentedTextControl(
+                Sizes, form.spanColumns to form.spanRows,
+                { onForm(form.copy(spanColumns = it.first, spanRows = it.second)) },
+                Modifier.testTag("wiz-size"), small = true,
+            ) { "${it.first} × ${it.second}" }
+        }
+    }
+    Text(
+        stringResource(R.string.panel_wiz_size_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
+        modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-size-note"),
+    )
+}
+
+/** 向导页（独立路由，隐藏 dock）：状态在面板页的 [PanelViewModel] 里（和编辑草稿同一个实例）。 */
+@Composable
+fun PanelWizardScreen(parent: androidx.lifecycle.ViewModelStoreOwner, onClose: () -> Unit) {
+    val repository = io.github.xingyingyuzhui.modbusmobile.ui.LocalProjectRepository.current
+    val runtime = io.github.xingyingyuzhui.modbusmobile.ui.LocalPanelRuntime.current
+    val model = androidx.lifecycle.viewmodel.compose.viewModel<PanelViewModel>(viewModelStoreOwner = parent) { PanelViewModel(repository, runtime) }
+    val wizard by model.wizard.collectAsStateWithLifecycle()
+    val w = wizard
+    if (w == null) {
+        androidx.compose.runtime.LaunchedEffect(Unit) { onClose() }
+        return
+    }
+    val previews by model.previewSnapshots.collectAsStateWithLifecycle()
+    val sessionState by io.github.xingyingyuzhui.modbusmobile.ui.LocalSession.current.state.collectAsStateWithLifecycle()
+    val master = (sessionState as? io.github.xingyingyuzhui.modbusmobile.application.SessionState.Running)?.role == io.github.xingyingyuzhui.modbusmobile.core.model.Role.MASTER
+    androidx.lifecycle.compose.LifecycleStartEffect(model) {
+        model.setPreviewActive(true)
+        onStopOrDispose { model.setPreviewActive(false) }
+    }
+    PanelWizard(
+        wizard = w,
+        previewSnapshot = previews[PREVIEW_POINT_ID],
+        live = master && model.hasPreview,
+        actions = WizardActions(
+            onKind = model::wizardSelectKind,
+            onForm = model::wizardForm,
+            onNext = model::wizardNext,
+            onBack = { model.wizardBack() },
+            onExit = model::cancelWizard,
+        ),
+    )
+}

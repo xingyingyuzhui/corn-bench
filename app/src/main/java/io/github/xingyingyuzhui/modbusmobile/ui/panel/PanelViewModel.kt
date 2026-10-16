@@ -2,7 +2,13 @@ package io.github.xingyingyuzhui.modbusmobile.ui.panel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.xingyingyuzhui.modbusmobile.application.panel.FormResult
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime
+import io.github.xingyingyuzhui.modbusmobile.application.panel.PointDefinition
+import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetForm
+import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetKinds
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PointSnapshot
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PollStats
 import io.github.xingyingyuzhui.modbusmobile.application.panel.Project
@@ -40,6 +46,26 @@ data class EditState(
     val saving: Boolean = false,
     val error: EditError? = null,
 )
+
+/**
+ * 添加 / 编辑组件向导的状态（挂在编辑草稿上）。[step]：1 选类型、2 配置、3 外观。
+ * [editingWidgetId] 非空 = 改已有组件（从第 2 步开始）。[showErrors]：点过“下一步”后才显示红字。
+ */
+data class WizardState(
+    val step: Int,
+    val form: WidgetForm,
+    val widgetId: String,
+    val pointId: String,
+    val editingWidgetId: String? = null,
+    val original: WidgetForm? = null,
+    val showErrors: Boolean = false,
+) {
+    val dirty: Boolean get() = original == null || form != original
+
+    fun result(): FormResult = form.build(widgetId, pointId)
+}
+
+const val PREVIEW_POINT_ID = "preview"
 
 /** 面板页状态。P3：读出工程文件，把点位交给轮询调度器，显示每个点位的最新值和质量；编辑在后续 PR。[repository] 为空（截图 / 单测）按空工程处理。 */
 class PanelViewModel(
@@ -110,6 +136,7 @@ class PanelViewModel(
     }
 
     fun cancelEdit() {
+        cancelWizard()
         _edit.value = null
         editOriginal = null
     }
@@ -176,5 +203,119 @@ class PanelViewModel(
                 is ProjectSave.Failed -> _edit.value = current.copy(saving = false, error = EditError.SAVE_FAILED)
             }
         }
+    }
+
+    // ---- 添加 / 编辑组件向导 ----
+
+    private val _wizard = MutableStateFlow<WizardState?>(null)
+    val wizard: StateFlow<WizardState?> = _wizard.asStateFlow()
+
+    private var previewInstance: io.github.xingyingyuzhui.modbusmobile.application.panel.PointPreview? = null
+
+    private fun preview() = previewInstance ?: runtime?.newPreview(viewModelScope)?.also { previewInstance = it }
+    private var previewJob: Job? = null
+
+    /** 向导预览读到的值（key = [PREVIEW_POINT_ID]）；没有运行时 / 没有预览能力时恒为空。 */
+    val previewSnapshots: StateFlow<Map<String, PointSnapshot>> get() = preview()?.snapshots ?: noPreview
+
+    private val noPreview = MutableStateFlow<Map<String, PointSnapshot>>(emptyMap())
+
+    /** 向导能不能用实时预览（有运行时、主站会话由界面判断）。 */
+    val hasPreview: Boolean get() = runtime != null
+
+    /** [widgetId] 为空 = 添加新组件（从选类型开始）；否则改这个组件（直接进第 2 步）。必须在编辑模式里。 */
+    fun startWizard(widgetId: String? = null) {
+        val e = _edit.value ?: return
+        if (e.saving) return
+        val (newWidgetId, newPointId) = ProjectEdits.newIds(e.draft)
+        preview() // 先建好：界面按这个流收预览读数
+        if (widgetId == null) {
+            _wizard.value = WizardState(1, WidgetForm(), newWidgetId, newPointId)
+            return
+        }
+        val widget = e.draft.panels.firstOrNull { it.id == e.panelId }?.widgets?.firstOrNull { it.id == widgetId } ?: return
+        val form = WidgetForm.fromWidget(widget) ?: return
+        _wizard.value = WizardState(2, form, widget.id, widget.point?.id ?: newPointId, editingWidgetId = widget.id, original = form)
+        schedulePreview(form, immediate = true)
+    }
+
+    fun wizardSelectKind(kind: String) {
+        val w = _wizard.value ?: return
+        if (kind !in WidgetKinds.known) return
+        val form = WidgetForm.forKind(kind)
+        _wizard.value = w.copy(step = 2, form = form, showErrors = false)
+        schedulePreview(form, immediate = true)
+    }
+
+    fun wizardForm(form: WidgetForm) {
+        val w = _wizard.value ?: return
+        _wizard.value = w.copy(form = form)
+        schedulePreview(form)
+    }
+
+    fun wizardNext() {
+        val w = _wizard.value ?: return
+        when (w.step) {
+            1 -> Unit
+            2 -> if (w.result().ok) _wizard.value = w.copy(step = 3, showErrors = false) else _wizard.value = w.copy(showErrors = true)
+            else -> commitWizard()
+        }
+    }
+
+    /** 上一步；返回 false 表示已经在向导的第一页（调用方决定是否要退出向导）。 */
+    fun wizardBack(): Boolean {
+        val w = _wizard.value ?: return false
+        val first = if (w.editingWidgetId != null) 2 else 1
+        if (w.step <= first) return false
+        _wizard.value = w.copy(step = w.step - 1)
+        return true
+    }
+
+    fun cancelWizard() {
+        previewJob?.cancel()
+        previewInstance?.close()
+        _wizard.value = null
+    }
+
+    /** 把表单变成组件放进编辑草稿（添加到当前面板末尾 / 替换原组件）。还没“完成”之前不写盘。 */
+    fun commitWizard() {
+        val w = _wizard.value ?: return
+        val result = w.result()
+        val widget = result.widget
+        if (widget == null) {
+            _wizard.value = w.copy(step = 2, showErrors = true)
+            return
+        }
+        if (w.editingWidgetId == null) {
+            change { p, id -> ProjectEdits.addWidget(p, id, widget) }
+        } else {
+            change { p, id -> ProjectEdits.replaceWidget(p, id, widget) }
+        }
+        cancelWizard()
+    }
+
+    private fun schedulePreview(form: WidgetForm, immediate: Boolean = false) {
+        val target = preview() ?: return
+        previewJob?.cancel()
+        previewJob = viewModelScope.launch {
+            if (!immediate) delay(PREVIEW_DEBOUNCE_MS)
+            val point: PointDefinition? = form.build("preview", PREVIEW_POINT_ID).widget?.point
+            target.setPoint(point)
+            target.setActive(point != null)
+        }
+    }
+
+    /** 向导页离开前台 / 回到前台（切走应用）时暂停 / 恢复预览读取。 */
+    fun setPreviewActive(value: Boolean) {
+        val w = _wizard.value
+        if (!value || w == null) previewInstance?.setActive(false) else schedulePreview(w.form, immediate = true)
+    }
+
+    override fun onCleared() {
+        previewInstance?.close()
+    }
+
+    private companion object {
+        const val PREVIEW_DEBOUNCE_MS = 400L
     }
 }
