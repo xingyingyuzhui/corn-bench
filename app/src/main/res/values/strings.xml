@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Modbus Mobile</string>
+    <string name="session_channel">会话</string>
+    <string name="session_channel_description">USB 串口会话正在运行</string>
+    <string name="session_notification_title">Modbus 会话</string>
+    <string name="session_notification_text">USB 串口已由前台服务占用</string>
+    <string name="session_stop">停止</string>
+</resources>
