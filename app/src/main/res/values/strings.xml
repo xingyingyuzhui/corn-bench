@@ -121,17 +121,13 @@
     <string name="traffic_ambiguous">方向不明</string>
     <string name="traffic_dropped">丢弃</string>
 
-    <string name="panel_sample">示例</string>
-    <string name="sample_temp">温度</string>
-    <string name="sample_temp_value">26.4</string>
-    <string name="sample_temp_unit">°C</string>
-    <string name="sample_pressure">压力</string>
-    <string name="sample_pressure_value">1.20</string>
-    <string name="sample_pressure_unit">bar</string>
-    <string name="sample_compressor">压缩机</string>
-    <string name="sample_compressor_value">运行</string>
-    <string name="sample_valve">阀门</string>
-    <string name="sample_valve_value">开</string>
+    <string name="panel_empty_title">还没有组件</string>
+    <string name="panel_empty_body">面板用来显示你配置的寄存器点位，比如温度、状态灯、进度。添加组件的入口会在后续版本加入；现在这里不放假数据，避免和真实读数混淆。</string>
+    <string name="panel_configured_title">已配置 %1$d 个组件</string>
+    <string name="panel_configured_body">实时数值和图表将在后续版本接入，当前不会读取设备。</string>
+    <string name="panel_corrupt_title">工程文件无法读取</string>
+    <string name="panel_corrupt_body">原因：%1$s。</string>
+    <string name="panel_corrupt_body_saved">原因：%1$s。已把原文件另存了一份副本，没有删除任何内容。</string>
 
     <string name="curve_pending">曲线绘制在面板里程碑接入</string>
     <string name="curve_1m">1 分钟</string>
