@@ -4,6 +4,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.FrameInfo
 import io.github.xingyingyuzhui.modbusmobile.application.describeFrame
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.xingyingyuzhui.modbusmobile.application.RecordedItem
 import io.github.xingyingyuzhui.modbusmobile.application.RecorderState
 import io.github.xingyingyuzhui.modbusmobile.application.TrafficRecorder
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
@@ -74,7 +75,7 @@ class TrafficViewModel(
     /** null = 跟随最新（最后一页）。 */
     private var pinnedPage: Int? = null
 
-    // 按记录器下标对齐的解码缓存；记录器清除（generation 变）时整体丢弃。
+    // 按记录器下标对齐的解码缓存；记录器清除（generation 变）时整体丢弃。只在 takeSnapshot() 里读写。
     private val infos = ArrayList<FrameInfo?>()
     private var generation = recorder.generation
     private var matchingIndices: List<Int> = emptyList()
@@ -135,48 +136,67 @@ class TrafficViewModel(
 
     /** 导出用：全部已记录项（不受过滤和分页影响），按时间顺序。 */
     fun exportItems(): List<LogItem> {
-        sync()
-        return recorder.snapshot().mapIndexed { index, item -> toLogItem(index, item) }
+        val snap = takeSnapshot()
+        return snap.items.indices.map { toLogItem(snap.items[it], snap.infos[it]) }
     }
 
-    private fun sync() {
-        synchronized(infos) {
-            if (generation != recorder.generation) {
-                generation = recorder.generation
-                infos.clear()
-            }
-            val size = recorder.size
-            while (infos.size < size) {
-                val item = recorder.get(infos.size)
-                infos += item.event?.let { describeFrame(it.bytes, it.kind) }
+    /**
+     * 同一时刻的一份记录：[items] 是记录器的拷贝，[infos] 与它按下标一一对应（长度相同）。
+     * 记录器在后台协程里持续追加（TrafficRecorder.onEvent），所以界面只能基于这一份快照算，
+     * 不能再分两次读 `recorder.size` / `recorder.get(i)`（T-20261018-qa-01：两次读之间进了新帧就越界）。
+     */
+    private class Snapshot(val items: List<RecordedItem>, val infos: List<FrameInfo?>)
+
+    private fun takeSnapshot(): Snapshot {
+        var result: Snapshot? = null
+        while (result == null) {
+            // generation 在记录器锁内和 items.clear() 一起变；前后两次读到同一个值，说明 items 属于这一代。
+            val gen = recorder.generation
+            val items = recorder.snapshot()
+            if (recorder.generation != gen) continue // 拷贝期间被清除了：用新的一代重来
+            result = synchronized(infos) {
+                if (generation != gen || infos.size > items.size) {
+                    generation = gen
+                    infos.clear()
+                }
+                while (infos.size < items.size) {
+                    val item = items[infos.size]
+                    infos += item.event?.let { describeFrame(it.bytes, it.kind) }
+                }
+                Snapshot(items, ArrayList(infos.subList(0, items.size)))
             }
         }
+        return checkNotNull(result)
     }
 
-    private fun toLogItem(index: Int, item: io.github.xingyingyuzhui.modbusmobile.application.RecordedItem): LogItem {
+    private fun toLogItem(item: RecordedItem, cached: FrameInfo?): LogItem {
         val event = item.event ?: return LogMarker(item.seq, item.wallMs, item.epoch)
         val origin = recorder.originNs ?: event.monotonicNs
         return LogEntry(
             seq = item.seq,
             event = event,
-            info = synchronized(infos) { infos[index] } ?: describeFrame(event.bytes, event.kind),
+            info = cached ?: describeFrame(event.bytes, event.kind),
             wallMs = item.wallMs,
             offsetMs = ((event.monotonicNs - origin) / 1_000_000L).coerceAtLeast(0),
         )
     }
 
     private fun refresh() {
-        sync()
-        val total = recorder.size
+        // 整页只基于一次快照：循环、过滤、分页、toLogItem 都只用 snap，上限取两者较小值。
+        val snap = takeSnapshot()
+        val records = snap.items
+        val infos = snap.infos
+        val total = minOf(records.size, infos.size)
         val filter = _filter.value
         val indices = ArrayList<Int>()
+        var recorded = 0
         for (i in 0 until total) {
-            val item = recorder.get(i)
-            val event = item.event
+            val event = records[i].event
             if (event == null) {
                 indices += i // 分隔标记不被过滤掉
             } else {
-                val info = synchronized(infos) { infos[i] }
+                recorded++
+                val info = infos[i]
                 if (info != null && filter.accepts(event.kind, info)) indices += i
             }
         }
@@ -187,16 +207,18 @@ class TrafficViewModel(
         val page = (pinnedPage ?: (pageCount - 1)).coerceIn(0, pageCount - 1)
         val from = page * pageSize
         val to = minOf(count, from + pageSize)
-        val items = (from until to).map { toLogItem(indices[it], recorder.get(indices[it])) }
+        val items = (from until to).map { indices[it].let { index -> toLogItem(records[index], infos[index]) } }
+        val state = recorder.state.value
         _ui.value = LogUiState(
             items = items,
-            recorder = recorder.state.value,
-            recorded = recorder.frames,
+            recorder = state,
+            // 与 items 同一份快照（分隔标记不算帧），不再单独读 recorder.frames
+            recorded = recorded,
             matching = count,
             page = page,
             pageCount = pageCount,
             pageSize = pageSize,
-            following = following && recorder.state.value == RecorderState.RECORDING,
+            following = following && state == RecorderState.RECORDING,
         )
     }
 
