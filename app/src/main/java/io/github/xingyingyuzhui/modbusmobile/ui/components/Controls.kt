@@ -375,7 +375,7 @@ fun NumberInput(
                         field = if (text == next.text) next else TextFieldValue(text, TextRange(text.length))
                         if (text != value) onValue(text)
                     },
-                    textStyle = Mono.copy(color = colors.text, fontSize = 17.sp),
+                    textStyle = Mono.copy(color = colors.text, fontSize = 17.sp, lineHeight = 24.sp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                     cursorBrush = SolidColor(colors.accent),

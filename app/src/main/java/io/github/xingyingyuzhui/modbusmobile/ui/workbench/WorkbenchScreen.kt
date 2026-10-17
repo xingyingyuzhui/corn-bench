@@ -484,7 +484,7 @@ private fun ResultHead(model: WorkbenchViewModel, result: ReadResult, format: Nu
             SemanticBadge(SemanticKind.RX_LOCAL, stringResource(R.string.result_ok))
             Text(
                 stringResource(R.string.result_stats, result.elapsedMs, result.values.size),
-                style = Mono.copy(fontSize = 12.sp),
+                style = Mono.copy(fontSize = 12.sp, lineHeight = 16.sp),
                 color = colors.muted,
                 maxLines = 1,
             )
