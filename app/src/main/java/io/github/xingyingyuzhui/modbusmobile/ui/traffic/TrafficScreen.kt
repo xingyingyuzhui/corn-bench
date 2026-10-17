@@ -168,7 +168,7 @@ fun LogContent(
     if (landscape) {
         Row(
             Modifier.screenFrame().padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(spacing.gapM),
+            horizontalArrangement = Arrangement.spacedBy(spacing.group),
         ) {
             Column(Modifier.weight(1.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
@@ -206,7 +206,7 @@ fun LogContent(
         Column(Modifier.screenFrame()) {
             PageHeader(stringResource(R.string.title_log)) { LockButton(locked, onToggleLock) }
             SessionStrip(
-                Modifier.padding(bottom = spacing.gapS),
+                Modifier.padding(bottom = spacing.s),
                 trailing = { LogStripInfo(ui, maxFrames) },
             )
             RecorderBar(ui, onStart, onPause, onClear, onSave, Modifier.padding(bottom = 4.dp))
@@ -216,7 +216,7 @@ fun LogContent(
                 onSelect = null,
                 modifier = Modifier.weight(1f, fill = false),
             )
-            PageBar(ui, onPrevious, onNext, onLatest, Modifier.padding(bottom = dockClearance().takeIf { it > 0.dp } ?: spacing.gapS))
+            PageBar(ui, onPrevious, onNext, onLatest, Modifier.padding(bottom = dockClearance().takeIf { it > 0.dp } ?: spacing.s))
         }
     }
 }

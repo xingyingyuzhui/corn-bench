@@ -639,7 +639,7 @@ internal fun CurveLookStep(
     if (widget != null && config != null) {
         PanelGrid(
             columns = 2, spans = listOf(2), spanRows = listOf(curve.spanRows),
-            modifier = Modifier.fillMaxWidth().testTag("wiz-look-preview"), gap = spacing.gapS,
+            modifier = Modifier.fillMaxWidth().testTag("wiz-look-preview"), gap = spacing.s,
         ) {
             val now = rememberCurveNow()
             val frame = remember(config, now, history, live) {

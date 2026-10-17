@@ -116,7 +116,7 @@ fun ConnectionScreen() {
                 SerialCard(model)
                 AdvancedCard(model, state, echoDetected)
             }
-            ActionButton(model, state, compact = false, modifier = Modifier.padding(top = spacing.gapS))
+            ActionButton(model, state, compact = false, modifier = Modifier.padding(top = spacing.s))
         }
     }
     }
@@ -134,7 +134,7 @@ private fun ConnectionLandscape(
     val spacing = LocalSpacing.current
     Column(
         Modifier.screenFrame().padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+        verticalArrangement = Arrangement.spacedBy(spacing.s),
     ) {
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FadedScroll(Modifier.weight(1f).fillMaxHeight()) {
@@ -186,7 +186,7 @@ private fun FadedScroll(modifier: Modifier = Modifier, content: @Composable Colu
     Box(modifier) {
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll),
-            verticalArrangement = Arrangement.spacedBy(spacing.gapM),
+            verticalArrangement = Arrangement.spacedBy(spacing.group),
             content = content,
         )
         if (scroll.canScrollForward) {
