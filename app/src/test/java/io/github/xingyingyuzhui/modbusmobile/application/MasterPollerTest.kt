@@ -9,8 +9,13 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -168,6 +173,41 @@ class MasterPollerTest {
         poller.stop()
     }
 
+    @Test
+    fun aCrashInsideTheLoopTurnsTheButtonBackToStart() = runTest {
+        // 循环里抛异常（这里是 execute 抛）：finally 里 finish，状态不能卡在「运行中」，之后还能重新开始。
+        val session = FakeSession()
+        val errors = mutableListOf<Throwable>()
+        val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler) + CoroutineExceptionHandler { _, e -> errors += e })
+        val poller = MasterPoller(session, scope) { testScheduler.currentTime }
+        session.throwOnNext = IllegalStateException("boom")
+        poller.start(read, 1_000)
+        advance(100)
+        assertEquals(1, errors.size)
+        assertFalse("异常后按钮回到「开始」", poller.state.value.running)
+        poller.start(read, 1_000)
+        advance(3_000)
+        assertTrue(poller.state.value.running)
+        assertTrue(session.requests.size >= 4)
+        poller.close()
+        scope.cancel()
+    }
+
+    @Test
+    fun startRightAfterConnectingIsNotStoppedByTheStaleEpoch() = withPoller { poller, session ->
+        // poller 建好时还没连接（epoch = null），watcher 已经收过 Idle。
+        session.state.value = SessionState.Idle
+        advance(1)
+        // 刚连上（epoch 1），watcher 还没来得及收到，用户就点了开始：start() 要先同步 epoch，
+        // 否则 watcher 随后看到 1 ≠ null 会把刚开始的轮询停掉。
+        session.state.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 1)
+        poller.start(read, 1_000)
+        advance(3_000)
+        assertTrue("同一次连接内开始的轮询不能被停", poller.state.value.running)
+        assertTrue(session.requests.size >= 3)
+        poller.stop()
+    }
+
     private fun ok() = ModbusResult.Success(ModbusResponse.ReadRegisters(1, FunctionCode.READ_HOLDING_REGISTERS, listOf(1, 2)))
 
     private fun TestScope.advance(ms: Long) {
@@ -196,6 +236,7 @@ class MasterPollerTest {
     private class FakeSession : SessionManager {
         val requests = mutableListOf<ModbusRequest>()
         val next = ArrayDeque<ModbusResult>()
+        var throwOnNext: Throwable? = null
         override val state = MutableStateFlow<SessionState>(SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 1))
         override val traffic = MutableSharedFlow<TrafficEvent>()
         override val slaveBank = MutableStateFlow<VirtualRegisterBank?>(null)
@@ -208,6 +249,7 @@ class MasterPollerTest {
         }
         override suspend fun execute(request: ModbusRequest): ModbusResult {
             requests += request
+            throwOnNext?.let { throwOnNext = null; throw it }
             next.removeFirstOrNull()?.let { return it }
             return ModbusResult.Success(ModbusResponse.ReadRegisters(request.unitId, FunctionCode.READ_HOLDING_REGISTERS, listOf(1, 2)))
         }
