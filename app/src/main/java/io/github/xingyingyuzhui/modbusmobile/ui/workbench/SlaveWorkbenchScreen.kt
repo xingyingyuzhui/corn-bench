@@ -312,7 +312,7 @@ private fun SaveFailedNote(model: SlaveViewModel) {
 
 @Composable
 private fun sourceBadge(row: SlaveRow): RowBadge? {
-    val age = row.ageSeconds?.let { ageText(it) }.orEmpty()
+    val age = row.ageSeconds?.let { ageText(it, row.changedWallMs) }.orEmpty()
     return when (row.source) {
         null -> null
         RowSource.EXTERNAL -> RowBadge(stringResource(R.string.slave_src_external, age), SemanticKind.TX)
@@ -325,12 +325,12 @@ private fun sourceBadge(row: SlaveRow): RowBadge? {
     }
 }
 
+/** 1 分钟内写“N s”（每秒刷新），超过 1 分钟写改值时刻 HH:mm:ss（不再走字）。 */
 @Composable
-private fun ageText(seconds: Long): String = when {
+private fun ageText(seconds: Long, wallMs: Long?): String = when {
     seconds < 1 -> stringResource(R.string.slave_age_now)
-    seconds < 60 -> stringResource(R.string.slave_age_s, seconds.toInt())
-    seconds < 3_600 -> stringResource(R.string.slave_age_min, (seconds / 60).toInt())
-    else -> stringResource(R.string.slave_age_h, (seconds / 3_600).toInt())
+    seconds < 60 || wallMs == null -> stringResource(R.string.slave_age_s, seconds.toInt())
+    else -> java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(wallMs))
 }
 
 @Composable

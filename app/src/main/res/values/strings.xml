@@ -607,8 +607,6 @@
     <string name="slave_src_sim_plain">模拟</string>
     <string name="slave_age_now">刚刚</string>
     <string name="slave_age_s">%1$d s</string>
-    <string name="slave_age_min">%1$d min</string>
-    <string name="slave_age_h">%1$d h</string>
     <string name="wave_constant">常量</string>
     <string name="wave_ramp">递增</string>
     <string name="wave_sine">正弦</string>

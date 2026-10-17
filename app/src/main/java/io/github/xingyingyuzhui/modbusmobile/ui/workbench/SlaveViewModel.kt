@@ -36,6 +36,8 @@ data class SlaveRow(
     val source: RowSource? = null,
     val ageSeconds: Long? = null,
     val wave: WaveKind? = null,
+    /** 改值时刻（墙钟毫秒）；超过 1 分钟的来源显示这个时刻而不是秒数。 */
+    val changedWallMs: Long? = null,
 )
 
 /** 正在改值的那一格（只有字区；位区点一下直接翻转）。 */
@@ -58,9 +60,11 @@ data class SlaveAddUnit(val draft: String = "", val error: UiText? = null)
  */
 class SlaveViewModel(
     private val session: SessionManager,
-    private val clock: () -> Long = { SystemClock.elapsedRealtime() },
     /** 单调时钟（纳秒），和寄存器库记录改值时间用的是同一种。 */
     private val monotonicNs: () -> Long = { System.nanoTime() },
+    private val wallMs: () -> Long = { System.currentTimeMillis() },
+    /** 放在最后：测试用尾随 lambda 传它。 */
+    private val clock: () -> Long = { SystemClock.elapsedRealtime() },
 ) : ViewModel() {
     val sessionState = session.state
     val units = session.slaveUnits
@@ -96,6 +100,9 @@ class SlaveViewModel(
     private val changedAt = HashMap<Triple<Int, RegisterArea, Int>, Long>()
     private var bank: VirtualRegisterBank? = null
 
+    // 放在 init 之前：init 里的协程可能立刻跑到 publish → ensureTicker。
+    private var ticker: kotlinx.coroutines.Job? = null
+
     init {
         viewModelScope.launch {
             session.slaveBank.collectLatest { next ->
@@ -124,9 +131,18 @@ class SlaveViewModel(
                 bank?.let { publish(it) }
             }
         }
-        // “外部写 · 2 s”里的秒数每秒走一次。
-        viewModelScope.launch {
-            while (true) {
+    }
+
+    /**
+     * “外部写 · 2 s”里的秒数：只在有不到 1 分钟的来源时每秒刷新，全部超过 1 分钟就停（之后显示改值时刻，不需要再走）。
+     * 不用常驻的无限循环：页面不需要时不唤醒，测试里的 advanceUntilIdle 也能结束。
+     */
+    private fun ensureTicker() {
+        if (ticker?.isActive == true) return
+        if (rows.values.none { list -> list.any { (it.ageSeconds ?: Long.MAX_VALUE) < FreshSeconds } }) return
+        // 固定最多走 60 拍就停（按拍数而不是按时钟判断，测试里的虚拟时间也一定能走完）；之后有新的改值会再起。
+        ticker = viewModelScope.launch {
+            repeat(FreshSeconds.toInt()) {
                 delay(1_000)
                 bank?.let { publish(it) }
             }
@@ -282,6 +298,7 @@ class SlaveViewModel(
     private fun publish(bank: VirtualRegisterBank) {
         val now = clock()
         val nowNs = monotonicNs()
+        val nowWall = wallMs()
         val rules = session.simulation.value?.states?.value.orEmpty()
         val u = unit
         fun row(area: RegisterArea, address: Int, value: Int): SlaveRow {
@@ -299,6 +316,7 @@ class SlaveViewModel(
                 changedAt = changedAt[Triple(u, area, address)]?.takeIf { now - it < FlashWindowMs },
                 source = source,
                 ageSeconds = change?.let { ((nowNs - it.monotonicNs) / 1_000_000_000L).coerceAtLeast(0) },
+                changedWallMs = change?.let { nowWall - ((nowNs - it.monotonicNs) / 1_000_000L).coerceAtLeast(0) },
                 wave = if (source == RowSource.SIMULATION) waveAt(rules, u, area, address) else null,
             )
         }
@@ -309,12 +327,14 @@ class SlaveViewModel(
                 bank.words(u, area).map { row(area, it.address, it.value) }
             }
         }
+        ensureTicker()
     }
 
     companion object {
         const val MaxAddress = 0xFFFF
         const val MaxRangeCount = 125
         private const val FlashWindowMs = 2_000L
+        private const val FreshSeconds = 60L
         private val SlaveAreasInOrder = io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveAreas
     }
 }
