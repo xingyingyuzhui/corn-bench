@@ -55,6 +55,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.pageStart
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
