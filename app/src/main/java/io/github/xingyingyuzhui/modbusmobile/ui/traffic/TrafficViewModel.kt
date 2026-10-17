@@ -1,5 +1,7 @@
 package io.github.xingyingyuzhui.modbusmobile.ui.traffic
 
+import io.github.xingyingyuzhui.modbusmobile.application.FrameInfo
+import io.github.xingyingyuzhui.modbusmobile.application.describeFrame
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.xingyingyuzhui.modbusmobile.application.RecorderState

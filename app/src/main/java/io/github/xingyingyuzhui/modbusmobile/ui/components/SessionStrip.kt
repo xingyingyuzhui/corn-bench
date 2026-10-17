@@ -33,6 +33,7 @@ import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.BusTopology
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
+import io.github.xingyingyuzhui.modbusmobile.application.SessionCounters
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
@@ -49,6 +50,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
  * [trailing] = 右侧文字区（日志的“1,000 条上限 / 已暂停滚动”等，由页面给）。
  * [showEcho] = 副行末尾加“回显 有 / 无”（从站页；回显还没判出来时不写）。
  * 从站副行写“总线拓扑 · 串口参数”，主站写“设备名 · 串口参数”。
+ * 主站运行中且页面没给 [trailing] 时，右侧显示本次会话的收发计数（稿面 b1-2：TX / RX 一行，错误一行）。
  */
 @Composable
 fun SessionStrip(
@@ -64,6 +66,7 @@ fun SessionStrip(
     val serial by session.serial.collectAsStateWithLifecycle()
     val devices by session.usbDevices.collectAsStateWithLifecycle()
     val echoDetected by session.echoDetected.collectAsStateWithLifecycle()
+    val counters by session.counters.collectAsStateWithLifecycle()
     val open = LocalOpenConnection.current
     val deviceName = (state as? SessionState.Running)?.let { running ->
         when (val target = running.target) {
@@ -78,9 +81,33 @@ fun SessionStrip(
         echoDetected = if (showEcho) echoDetected else null,
         titleOverride = title,
         detailOverride = detail,
-        trailing = trailing,
+        trailing = trailing ?: masterCounters(state, counters),
     )
 }
+
+/** 主站运行中才给计数；从站的计数在从站页的统计格里，不挤在会话条上。 */
+private fun masterCounters(state: SessionState, counters: SessionCounters): (@Composable () -> Unit)? {
+    val running = state as? SessionState.Running ?: return null
+    if (running.role != Role.MASTER) return null
+    return { CounterTrailing(counters) }
+}
+
+/** 稿面 .cnt：右对齐、mono 11 / 行高 15；TX 琥珀、RX 绿、错误红。 */
+@Composable
+fun CounterTrailing(counters: SessionCounters, modifier: Modifier = Modifier) {
+    val colors = LocalModbusColors.current
+    val style = Mono.copy(fontSize = 11.sp, lineHeight = 15.sp)
+    Column(modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.End) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.counter_tx, groupedCount(counters.tx)), style = style, color = colors.txText)
+            Text(stringResource(R.string.counter_rx, groupedCount(counters.rx)), style = style, color = colors.rxLocal)
+        }
+        Text(stringResource(R.string.counter_errors, groupedCount(counters.errors)), style = style, color = colors.error)
+    }
+}
+
+/** 千分位，与稿面“1,284”一致；固定用 ROOT，不随系统语言换分隔符。 */
+fun groupedCount(value: Long): String = "%,d".format(java.util.Locale.ROOT, value)
 
 @Composable
 fun SessionStripContent(

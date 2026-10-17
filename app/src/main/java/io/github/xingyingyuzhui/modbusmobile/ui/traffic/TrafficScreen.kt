@@ -1,5 +1,6 @@
 package io.github.xingyingyuzhui.modbusmobile.ui.traffic
 
+import io.github.xingyingyuzhui.modbusmobile.application.FieldKind
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable

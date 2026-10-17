@@ -584,6 +584,14 @@
     <string name="value_off">OFF</string>
     <string name="strip_echo_yes">回显 有</string>
     <string name="strip_echo_none">回显 无</string>
+    <string name="counter_tx">TX %1$s</string>
+    <string name="counter_rx">RX %1$s</string>
+    <string name="counter_errors">错误 %1$s</string>
+    <string name="slave_stat_local">本机请求</string>
+    <string name="slave_stat_responses">已响应</string>
+    <string name="slave_stat_exceptions">异常</string>
+    <string name="slave_stat_foreign">外站帧</string>
+    <string name="slave_stat_ambiguous">方向不明 %1$s</string>
     <string name="mine_section_settings">设置</string>
     <string name="mine_settings_title">设置</string>
     <string name="cd_back">返回</string>

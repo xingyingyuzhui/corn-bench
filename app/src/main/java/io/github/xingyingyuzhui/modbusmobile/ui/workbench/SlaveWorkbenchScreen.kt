@@ -16,6 +16,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -27,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
+import io.github.xingyingyuzhui.modbusmobile.application.SessionCounters
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.application.modiconLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
@@ -40,12 +44,14 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SecondaryButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SegmentedTextControl
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
 import io.github.xingyingyuzhui.modbusmobile.ui.components.WarnIcon
+import io.github.xingyingyuzhui.modbusmobile.ui.components.groupedCount
 import io.github.xingyingyuzhui.modbusmobile.ui.resolve
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 
 private val SlaveAreas = listOf(
     RegisterArea.HOLDING_REGISTER,
@@ -79,6 +85,7 @@ private fun SlavePortrait(model: SlaveViewModel, settings: UiSettings, target: C
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (target == ConnectionTarget.Demo) DemoNote()
+            SlaveStats(columns = 4)
             AreaSegment(model)
             AreaTable(model, settings, landscape = false)
             SecondaryButton(stringResource(R.string.slave_add_range), model::openAddRange, Modifier.fillMaxWidth(), compact = true)
@@ -98,12 +105,73 @@ private fun SlaveLandscape(model: SlaveViewModel, settings: UiSettings, target: 
         ) {
             SessionStrip(showEcho = true)
             if (target == ConnectionTarget.Demo) DemoNote()
+            SlaveStats(columns = 2)
             AreaSegment(model)
             SecondaryButton(stringResource(R.string.slave_add_range), model::openAddRange, Modifier.fillMaxWidth(), compact = true)
         }
         Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
             AreaTable(model, settings, landscape = true)
         }
+    }
+}
+
+const val SlaveStatsTag = "slave_stats"
+
+/**
+ * 稿面 b1-5 的四个统计格：本机请求 / 已响应 / 异常 / 外站帧，下面一行“方向不明 N”。
+ * 数字来自 [io.github.xingyingyuzhui.modbusmobile.application.SessionManager.counters]，本次连接从 0 开始。
+ * 稿面还有“CRC 错”：扫描器丢弃的字节不会发布成报文，application 层数不到，所以不画，不编数字。
+ */
+@Composable
+private fun SlaveStats(columns: Int) {
+    val counters by LocalSession.current.counters.collectAsStateWithLifecycle()
+    SlaveStatsContent(counters, columns)
+}
+
+/** [columns]：竖屏 4（稿面一行四格），横屏左栏只有 280dp 宽，用 2 × 2，免得数字被截断。 */
+@Composable
+fun SlaveStatsContent(counters: SessionCounters, columns: Int = 4, modifier: Modifier = Modifier) {
+    val colors = LocalModbusColors.current
+    val tiles = listOf(
+        Triple(R.string.slave_stat_local, counters.localRequests, colors.text),
+        Triple(R.string.slave_stat_responses, counters.responses, colors.rxLocal),
+        Triple(R.string.slave_stat_exceptions, counters.exceptions, colors.error),
+        Triple(R.string.slave_stat_foreign, counters.foreignFrames, colors.foreign),
+    )
+    Column(modifier.testTag(SlaveStatsTag), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        tiles.chunked(columns.coerceIn(1, 4)).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { (label, value, color) -> StatTile(stringResource(label), value, color, Modifier.weight(1f)) }
+            }
+        }
+        Text(
+            stringResource(R.string.slave_stat_ambiguous, groupedCount(counters.ambiguous)),
+            color = colors.muted,
+            fontSize = 12.sp,
+            modifier = Modifier.align(Alignment.End),
+        )
+    }
+}
+
+/** 稿面 .st：底 s1、1px line、圆角 12、内边距 8/8/7；标签 10.5 muted，数值 mono 17 SemiBold。 */
+@Composable
+private fun StatTile(label: String, value: Long, valueColor: androidx.compose.ui.graphics.Color, modifier: Modifier) {
+    val colors = LocalModbusColors.current
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier
+            .background(colors.surface1, shape)
+            .border(1.dp, colors.line, shape)
+            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 7.dp),
+    ) {
+        Text(label, color = colors.muted, fontSize = 10.5.sp, lineHeight = 14.sp, maxLines = 1)
+        Text(
+            groupedCount(value),
+            style = Mono.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
+            color = valueColor,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }
 

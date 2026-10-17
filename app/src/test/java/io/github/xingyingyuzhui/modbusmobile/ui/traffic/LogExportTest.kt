@@ -1,5 +1,6 @@
 package io.github.xingyingyuzhui.modbusmobile.ui.traffic
 
+import io.github.xingyingyuzhui.modbusmobile.application.describeFrame
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficDirection
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficKind

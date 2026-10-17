@@ -5,13 +5,19 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.unit.width
+import io.github.xingyingyuzhui.modbusmobile.ui.workbench.SlaveStatsTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.MemorySettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
+import io.github.xingyingyuzhui.modbusmobile.application.SessionCounters
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
@@ -59,6 +65,27 @@ class SlaveScreenshotTest {
 
     @Test @Config(qualifiers = "w780dp-h360dp-land")
     fun slave_workbench_dark_landscape() = shot(ThemeMode.DARK, ConnectionTarget.Demo, externalWrite = true)
+
+    @Test
+    fun statsTilesShowTheSessionCounters() {
+        show(ThemeMode.DARK, ConnectionTarget.Demo, bank())
+        val stats = compose.onNodeWithTag(SlaveStatsTag, useUnmergedTree = true)
+        stats.assertIsDisplayed()
+        compose.onNodeWithText("本机请求").assertIsDisplayed()
+        compose.onNodeWithText("1,284").assertIsDisplayed()
+        compose.onNodeWithText("1,280").assertIsDisplayed()
+        compose.onNodeWithText("3,902").assertIsDisplayed()
+        compose.onNodeWithText("方向不明 1").assertIsDisplayed()
+        // 竖屏一行四格：整块宽度 = 内容区宽（360 − 左右各 14）
+        assertEquals(332f, stats.getBoundsInRoot().width.value, 1.5f)
+    }
+
+    @Test @Config(qualifiers = "w780dp-h360dp-land")
+    fun landscapeStatsUseTwoColumnsSoNumbersFit() {
+        show(ThemeMode.DARK, ConnectionTarget.Demo, bank())
+        compose.onNodeWithText("1,284").assertIsDisplayed()
+        compose.onNodeWithText("3,902").assertIsDisplayed()
+    }
 
     @Test
     fun usbSlaveHasNoDemoNote() {
@@ -122,6 +149,10 @@ private class SlaveShotSession(target: ConnectionTarget, bank: VirtualRegisterBa
     override val usbDevices = MutableStateFlow<List<UsbDeviceSummary>>(emptyList())
     override val echoDetected = MutableStateFlow<Boolean?>(null)
     override val serial = MutableStateFlow<SerialSettings?>(SerialSettings())
+    // 稿面 b1-5 的统计数字
+    override val counters = MutableStateFlow(
+        SessionCounters(localRequests = 1_284, responses = 1_280, exceptions = 4, foreignFrames = 3_902, ambiguous = 1),
+    )
 
     override suspend fun connect(target: ConnectionTarget, serial: SerialSettings, role: Role) = Unit
     override suspend fun disconnect() = Unit

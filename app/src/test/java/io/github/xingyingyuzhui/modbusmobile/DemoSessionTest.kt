@@ -5,6 +5,7 @@ package io.github.xingyingyuzhui.modbusmobile
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.DefaultSessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
+import io.github.xingyingyuzhui.modbusmobile.application.SessionCounters
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
@@ -62,6 +63,51 @@ class DemoSessionTest {
         val traffic = session.traffic.replayCache
         assertTrue(traffic.any { it.direction == TrafficDirection.RX })
         assertTrue(traffic.any { it.direction == TrafficDirection.TX })
+        session.disconnect()
+    }
+
+    @Test
+    fun masterCountersFollowTheSessionAndResetOnDisconnect() = runTest {
+        val session = session()
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.MASTER)
+        assertEquals("连接时从 0 开始", SessionCounters.Empty, session.counters.value)
+        assertTrue(session.execute(ModbusRequest.ReadHoldingRegisters(1, 0, 10)) is ModbusResult.Success)
+        // 地址 100 没有映射，演示从站回异常 02：算一次错误。
+        assertTrue(session.execute(ModbusRequest.ReadHoldingRegisters(1, 100, 1)) is ModbusResult.Exception)
+        runCurrent()
+        val counters = session.counters.value
+        assertEquals(2, counters.tx)
+        assertEquals(2, counters.rx)
+        assertEquals(1, counters.errors)
+        session.disconnect()
+        assertEquals("断开后归零", SessionCounters.Empty, session.counters.value)
+    }
+
+    @Test
+    fun slaveCountersCountLocalRequestsAndResponses() = runTest {
+        val session = session()
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.SLAVE)
+        advanceTimeBy(5_100)
+        runCurrent()
+        val counters = session.counters.value
+        assertTrue("演示主站每秒读一次：${counters.localRequests}", counters.localRequests >= 5)
+        assertEquals("每个本机请求都回了", counters.localRequests, counters.responses)
+        assertEquals(0, counters.exceptions)
+        assertEquals(0, counters.foreignFrames)
+        session.disconnect()
+    }
+
+    @Test
+    fun previewFrameIsTheBytesTheMasterSends() = runTest {
+        val session = session()
+        val request = ModbusRequest.WriteSingleRegister(1, 5, 123)
+        val preview = session.previewFrame(request)
+        assertEquals("01 06 00 05 00 7B D9 E8", preview.joinToString(" ") { "%02X".format(it.toInt() and 0xFF) })
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.MASTER)
+        assertTrue(session.execute(request) is ModbusResult.Success)
+        runCurrent()
+        val sent = session.traffic.replayCache.last { it.direction == TrafficDirection.TX }
+        assertTrue("预览和实际发出的字节一致", preview.contentEquals(sent.bytes))
         session.disconnect()
     }
 
