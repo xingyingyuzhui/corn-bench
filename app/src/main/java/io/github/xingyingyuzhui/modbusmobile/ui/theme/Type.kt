@@ -108,5 +108,9 @@ object ModbusType {
     val monoCaption = mono(11.sp, 16.sp, FontWeight.Medium)
 }
 
-/** 旧写法 `style = Mono`（§3.4 映射表第 2 行）：= [ModbusType.monoBody]。 */
-val Mono: TextStyle = ModbusType.monoBody
+/**
+ * 旧写法 `style = Mono`（§3.4 映射表第 2 行）：= [ModbusType.monoBody]。
+ * 必须是 getter：写成初始化式时，若先访问 ModbusType，它的初始化会触发本文件的静态初始化，
+ * 此时 ModbusType 还没初始化完，Mono 会拿到 null（云端单测 3321b3f50f3648b4 抓到）。
+ */
+val Mono: TextStyle get() = ModbusType.monoBody
