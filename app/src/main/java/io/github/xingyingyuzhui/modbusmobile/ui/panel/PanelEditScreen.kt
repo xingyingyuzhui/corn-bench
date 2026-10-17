@@ -146,7 +146,7 @@ fun PanelEditor(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(start = pageStart(), end = spacing.page, top = 8.dp, bottom = dockClearance()),
-            verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+            verticalArrangement = Arrangement.spacedBy(spacing.s),
         ) {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NumberInput(
@@ -173,7 +173,7 @@ fun PanelEditor(
                     modifier = Modifier.padding(vertical = 4.dp).testTag("edit-empty"),
                 )
             } else {
-                EditGrid(widgets, columns, panel.columns, snapshots, actions, spacing.gapS)
+                EditGrid(widgets, columns, panel.columns, snapshots, actions, spacing.s)
             }
             AddWidgetButton(actions.onAddWidget)
             if (edit.draft.panels.size > 1) {

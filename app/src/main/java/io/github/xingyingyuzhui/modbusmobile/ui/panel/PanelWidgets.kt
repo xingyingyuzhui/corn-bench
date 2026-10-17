@@ -426,7 +426,7 @@ private fun TableBody(widget: Widget, name: String, editing: Boolean, snapshots:
     rows.forEachIndexed { i, row ->
         val snap = snaps[i]
         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
-        Row(Modifier.fillMaxWidth().height(rowHeight).testTag("panel-row-${widget.id}-$i"), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = rowHeight).testTag("panel-row-${widget.id}-$i"), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.width(TABLE_ADDR_W)) {
                 Text(addressLabel(row), style = Mono.copy(fontSize = 13.sp, lineHeight = 16.sp), color = colors.text, maxLines = 1)
                 Text(modiconLabel(row.area, row.address), style = Mono.copy(fontSize = 10.sp, lineHeight = 12.sp), color = colors.dim, maxLines = 1)

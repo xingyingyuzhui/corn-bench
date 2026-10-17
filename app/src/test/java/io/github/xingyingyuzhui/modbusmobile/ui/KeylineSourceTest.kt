@@ -27,4 +27,16 @@ class KeylineSourceTest {
     fun noPageStartMinusNudges() {
         assertEquals(emptyList<String>(), hits(Regex("""pageStart\(\) - """)))
     }
+
+    /** 05:51 追加的完成标准：v1 间距旧名已迁移并删除（按整词匹配，CurveMath 的 gapMs / gapStart 不是间距）。 */
+    @Test
+    fun noLegacySpacingNames() {
+        val main = File("src/main/java")
+        assertTrue("找不到 main 源码目录：${main.absolutePath}", main.isDirectory)
+        val legacy = Regex("""\bgap[SM]\b""")
+        val hits = main.walkTopDown().filter { it.isFile && it.extension == "kt" }
+            .flatMap { f -> f.readLines().mapIndexedNotNull { i, l -> if (legacy.containsMatchIn(l)) "${f.name}:${i + 1}" else null } }
+            .toList()
+        assertEquals(emptyList<String>(), hits)
+    }
 }

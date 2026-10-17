@@ -55,6 +55,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.pageStart
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
@@ -144,7 +145,6 @@ fun PanelContent(
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
-    val dock = LocalDockInsets.current
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val sessionState by LocalSession.current.state.collectAsStateWithLifecycle()
     val masterRunning = (sessionState as? SessionState.Running)?.role == Role.MASTER
@@ -196,7 +196,7 @@ fun PanelContent(
                         else -> null
                     }
                     SessionStrip(
-                        Modifier.padding(bottom = spacing.gapS).testTag("panel-strip"),
+                        Modifier.padding(bottom = spacing.s).testTag("panel-strip"),
                         title = title,
                         detail = detail,
                         trailing = if (masterRunning && anyPolled) {
@@ -206,7 +206,7 @@ fun PanelContent(
                         },
                     )
                     if (panels.size > 1) {
-                        PanelChips(panels, current, false, onSelectPanel, Modifier.padding(bottom = spacing.gapS))
+                        PanelChips(panels, current, false, onSelectPanel, Modifier.padding(bottom = spacing.s))
                     }
                 }
             }
@@ -216,7 +216,7 @@ fun PanelContent(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(start = pageStart(), end = spacing.page, bottom = dockClearance()),
-                verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+                verticalArrangement = Arrangement.spacedBy(spacing.s),
             ) {
                 when (state) {
                     PanelUiState.Loading -> Unit
@@ -257,7 +257,7 @@ fun PanelContent(
                                 spans = widgets.map { it.spanColumns },
                                 spanRows = widgets.map { it.spanRows },
                                 modifier = Modifier.fillMaxWidth().testTag("panel-grid"),
-                                gap = spacing.gapS,
+                                gap = spacing.s,
                             ) { index ->
                                 val widget: Widget = widgets[index]
                                 if (widget.curve != null) {

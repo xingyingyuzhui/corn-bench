@@ -42,7 +42,7 @@ fun Modifier.screenFrame(): Modifier {
 }
 
 /**
- * 让最后一行留在浮动 Dock 上方的留白：Dock 占位 + space.dockGap（16，tokens_v2；原 gapS 8）。
+ * 让最后一行留在浮动 Dock 上方的留白：Dock 占位 + space.dockGap（16，tokens_v2；v1 时是 8）。
  * 放在 verticalScroll 之后、滚动内容里面。
  */
 @Composable

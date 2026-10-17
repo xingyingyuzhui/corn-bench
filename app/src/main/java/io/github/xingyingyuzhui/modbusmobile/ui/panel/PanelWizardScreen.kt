@@ -169,8 +169,8 @@ fun PanelWizard(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(start = pageStart(), end = spacing.page, top = 4.dp, bottom = spacing.gapS),
-            verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+                .padding(start = pageStart(), end = spacing.page, top = 4.dp, bottom = spacing.s),
+            verticalArrangement = Arrangement.spacedBy(spacing.s),
         ) {
             val curve = wizard.curve
             val sheetSeries = wizard.sheet?.let { curve?.series?.getOrNull(it) }
@@ -1035,7 +1035,7 @@ private fun LookStep(
             spans = if (form.spanColumns == 1) listOf(1, 1) else listOf(2),
             spanRows = if (form.spanColumns == 1) listOf(form.spanRows, form.spanRows) else listOf(form.spanRows),
             modifier = Modifier.fillMaxWidth().testTag("wiz-look-preview"),
-            gap = spacing.gapS,
+            gap = spacing.s,
         ) { index ->
             if (index == 0) {
                 WidgetCard(widget, if (live) snapshot else null, Modifier, borderColor = colors.accent, snapshots = if (live) snapshots else emptyMap())

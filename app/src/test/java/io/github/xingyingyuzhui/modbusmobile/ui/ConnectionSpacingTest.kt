@@ -93,9 +93,9 @@ class ConnectionSpacingTest {
         assertClose("“高级”折叠卡总高", advanced.height.value, 46f, 1f)
 
         // 卡间距 10；设备卡底 = 最后一个设备行底 + 13
-        assertClose("设备卡→角色卡", roleCard.top - deviceCard.bottom, 10f)
-        assertClose("角色卡→串口卡", serialCard.top - roleCard.bottom, 10f)
-        assertClose("串口卡→高级卡", advanced.top - serialCard.bottom, 10f)
+        assertClose("设备卡→角色卡", roleCard.top - deviceCard.bottom, 16f) // space.group 16（CL-16，v1 是 10）
+        assertClose("角色卡→串口卡", serialCard.top - roleCard.bottom, 16f) // space.group 16（CL-16，v1 是 10）
+        assertClose("串口卡→高级卡", advanced.top - serialCard.bottom, 16f) // space.group 16（CL-16，v1 是 10）
         val lastDevice = b(compose.onAllNodesWithTag("device-row")[1].getBoundsInRoot())
         assertClose("设备卡底内边距", deviceCard.bottom - lastDevice.bottom, 12f) // CL-16：卡片内边距只有 12（去掉 border-box 的 1dp）
         compose.onRoot().captureRoboImage("src/test/screenshots/connection-spacing/idle_light.png")

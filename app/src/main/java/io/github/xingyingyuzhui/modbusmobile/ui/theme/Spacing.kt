@@ -7,7 +7,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.DensityMode
 
 /**
  * 间距刻度（设计规范_v2 §2，tokens_v2.json spacing）。两层：组件级 4dp 网格（xs 4 / s 8 / card 12），
- * 布局级 8dp 网格（page 16 / group 16 / section 24 / empty 32 / dockGap 16）。v1 的 2、6 两档已删除。
+ * 布局级 8dp 网格（page 16 / group 16 / section 24 / empty 32 / dockGap 16）。v1 的 2、6 两档和两个 v1 旧名已删除（CL-16 已迁到 s / group）。
  * page / group / s 随密度查表（§2.3）：标准 16 / 16 / 8，紧凑 16 / 8 / 4（屏幕边距不缩）；其余档位不随密度变。
  */
 data class ModbusSpacing(
@@ -17,10 +17,6 @@ data class ModbusSpacing(
     val group: Dp,
     /** space.s：组内元素（卡内行、并排按钮、chip 之间、badge 与文字）；面板网格卡片间距。标准 8 / 紧凑 4。 */
     val s: Dp,
-    /** 旧引用 gapS（8 / 6），各屏改用 [s] 之前保持原值，CL-16 迁移完删除。 */
-    val gapS: Dp,
-    /** 旧引用 gapM（10 / 8），各屏改用 [group] 之前保持原值，CL-16 迁移完删除。 */
-    val gapM: Dp,
 ) {
     /** space.xs = 4：标签与值、输入格与错误文字、图标与文字（≤16dp 图标）。 */
     val xs: Dp get() = 4.dp
@@ -38,8 +34,8 @@ data class ModbusSpacing(
     val dockGap: Dp get() = 16.dp
 
     companion object {
-        val Comfortable = ModbusSpacing(page = 16.dp, group = 16.dp, s = 8.dp, gapS = 8.dp, gapM = 10.dp)
-        val Compact = ModbusSpacing(page = 16.dp, group = 8.dp, s = 4.dp, gapS = 6.dp, gapM = 8.dp)
+        val Comfortable = ModbusSpacing(page = 16.dp, group = 16.dp, s = 8.dp)
+        val Compact = ModbusSpacing(page = 16.dp, group = 8.dp, s = 4.dp)
 
         fun of(mode: DensityMode): ModbusSpacing = when (mode) {
             DensityMode.COMFORTABLE -> Comfortable
