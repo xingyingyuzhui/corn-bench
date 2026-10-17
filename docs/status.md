@@ -1,6 +1,6 @@
 # 当前完成状态
 
-更新：2026-10-17。依据：`docs/spec.md`（V5.1）、`docs/ui-plan.md`、设计稿 `docs/design/v2-b1..b6.png`、`docs/注意事项.md`。
+更新：2026-10-18。依据：`docs/spec.md`（V5.1）、`docs/ui-plan.md`、设计稿 `docs/design/v2-b1..b6.png`、`docs/注意事项.md`。
 
 ## 分支与 PR
 
@@ -46,10 +46,20 @@
 - 已有：`ui/workbench/SimulationRuleForm.kt`（规则草稿 ↔ `SimulationRule`、逐字段校验、预览采样）；`SlaveViewModel` 里的规则列表状态、编辑草稿、保存 / 删除、暂停 / 恢复、全部暂停 / 恢复；错误提示文案。
 - 还没有：规则列表区块和编辑页的界面、对应测试。**本次整合的两项完整 CI 均已通过；新增规则逻辑的专项测试仍待补齐**。
 
+## 当前开发分支 `codex/slave-simulation-ui`
+
+- 接续从站模拟规则：规则列表、全页编辑、波形预览、规则暂停/恢复与全部暂停/恢复。
+- 规则草稿补 Unit、非有限数与上下限校验；参数绝对值限制为 10¹²，避免有限输入在波形计算中溢出；预览按实际刷新步数采样。
+- 补六种波形往返、边界校验、ViewModel 配置一致性与 Compose 交互/布局测试。
+- 增删 Unit 后保存失败向界面返回失败，运行时配置仍生效，可重试保存。
+- “保存并运行”立即启动当前规则；“启动从站时自动运行”只控制重连时的状态。保存失败保留草稿并提示运行时规则可能已生效，重试沿用同一 ID。
+- 本阶段尚未合并 main；验证结果见下方和 `board.md`，不能用旧 PR 的 CI 代替本次验证。
+
 ## 验证情况
 - 单元测试、Robolectric 界面测试、lint、APK 打包：PR #9 和 PR #10 的 CI 全部通过（`main` 合并时带 `[skip ci]`，以各分支 CI 为准）。
 - cloud-workbench 云编译：`slave-units-setup@c06a316` 的 `assembleDebug` 成功。
-- 模拟器：**未验证**（cloud-workbench 连接不稳定；已新增 `mac-apk-delivery-install_build_apk`，还没用上）。
+- 当前开发分支：本地未构建（规定的 `/opt/android/build.sh` 不存在），GitHub CI 待运行。
+- 模拟器：**未验证**（本阶段未运行 GUI 测试）。
 - 真机、真实 USB-RS485、多站总线：**未验证**。
 
 ## 已知限制
