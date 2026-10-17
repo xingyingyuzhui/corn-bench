@@ -356,7 +356,6 @@ class WorkbenchViewModel(
     override fun onCleared() {
         detachPoller()
         if (ownsPoller) poller.close()
-        super.onCleared()
     }
 
     fun clearResult() {
