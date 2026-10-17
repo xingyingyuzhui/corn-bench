@@ -173,6 +173,39 @@ class DesignTokensTest {
     }
 
     @Test
+    fun sizesAndMotionMatchTokensJson() {
+        val size = obj("size")
+        fun dp(key: String) = ((size[key] as Map<*, *>)["dp"] as Number).toFloat()
+        assertEquals(dp("touch"), ModbusSize.touch.value, 0f)
+        assertEquals(dp("button"), ModbusSize.button.value, 0f)
+        assertEquals(dp("buttonCompact"), ModbusSize.buttonCompact.value, 0f)
+        assertEquals(dp("buttonSmall"), ModbusSize.buttonSmall.value, 0f)
+        assertEquals(dp("header"), ModbusSize.header.value, 0f)
+        assertEquals(dp("sessionStrip"), ModbusSize.sessionStrip.value, 0f)
+        assertEquals(dp("dock"), ModbusSize.dock.value, 0f)
+        assertEquals(dp("rail"), ModbusSize.rail.value, 0f)
+        assertEquals(dp("icon.s"), ModbusSize.iconS.value, 0f)
+        assertEquals(dp("icon.m"), ModbusSize.iconM.value, 0f)
+        assertEquals(dp("icon.l"), ModbusSize.iconL.value, 0f)
+        assertEquals(dp("icon.nav"), ModbusSize.iconNav.value, 0f)
+        assertEquals(dp("progress"), ModbusSize.progress.value, 0f)
+        val motion = obj("motion")
+        fun ms(key: String) = ((motion[key] as Map<*, *>)["ms"] as Number).toLong()
+        assertEquals(ms("instant"), ModbusMotion.INSTANT.toLong())
+        assertEquals(ms("fast"), ModbusMotion.FAST.toLong())
+        assertEquals(ms("standard"), ModbusMotion.STANDARD.toLong())
+        assertEquals(ms("enter"), ModbusMotion.ENTER.toLong())
+        assertEquals(ms("exit"), ModbusMotion.EXIT.toLong())
+        assertEquals(ms("flash"), ModbusMotion.FLASH.toLong())
+        assertEquals(ms("undo"), ModbusMotion.UNDO)
+        val stroke = obj("stroke")
+        fun st(key: String) = ((stroke[key] as Map<*, *>)["dp"] as Number).toFloat()
+        assertEquals(st("hairline"), StrokeHairline.value, 0f)
+        assertEquals(st("control"), StrokeControl.value, 0f)
+        assertEquals(st("selected"), StrokeSelected.value, 0f)
+    }
+
+    @Test
     fun typeScaleMatchesTokensJson() {
         val styles: Map<String, TextStyle> = mapOf(
             "headline" to ModbusType.headline, "titleL" to ModbusType.titleL, "titleM" to ModbusType.titleM,
