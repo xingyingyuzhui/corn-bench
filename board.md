@@ -41,3 +41,4 @@
 - 首次本地 Android 构建：core 58 + app 804 项测试、lint、debug/release 打包通过，APK 检查确认 release 不含桥接 socket 名称、两变体均无 INTERNET 权限。
 - 真实模拟器联调发现 debug LocalSocket 的 SO_TIMEOUT 超时抛普通 IOException（Try again），首次空闲 1 秒误断开，导致首次独立探测 28 项失败；不计作协议引擎失败或联调通过。已改为 Os.poll 有限等待读，并新增空闲/数据/EOF 专项测试，准备复验。
 - 独立审阅发现并修复主机中继部分写丢字节、分块跨帧乱序、陈旧PID状态误报、短成功读取误判四项；主机工具测试增至10项。
+- 复验通过（2026-10-18 01:22，可见窗口 Pixel_9_Pro:5582）。开始前模拟器进程消失过，已用同一 AVD、`-scale 0.4`、`-no-snapshot-load` 重新打开窗口，未做 AVD wipe；通过记录来自重启后的实例。手机作从站：`peer.py probe --baudrate 9600 --timeout 2 --broadcast` 28/28 通过，含两 Unit 的 FC01–04、FC05/06/15/16 写后读回、非法地址异常码 2、广播 4321 读回。手机作主站：对 PyModbus server 发出 FC03 数量 10，收到 1000..1009；默认 FC06 将 HR0 写为 0，应答与请求同帧。主机中继单测 10 项通过。原始报告留在本机 `/tmp`，未入库。真机 USB-RS485 与多站电气仍未验证。详见 `docs/virtual-rtu-lab.md`。

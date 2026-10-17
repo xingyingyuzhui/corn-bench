@@ -10,7 +10,7 @@
 | `slave-units-setup`（PR #9） | **已合并**，CI 通过 | 从站多 Unit、从站配置保存、最近来源列、页内浮层 |
 | `slave-sim-rules` | **现有进度已通过 PR #10 合并**（基于 `slave-units-setup`） | 模拟规则的表单逻辑和 ViewModel；界面还没接 |
 
-此前整合已获授权，PR #9 和 PR #10 已合并。模拟规则界面现已在后续开发分支实现，尚未合并 main。
+此前整合已获授权，PR #9 和 PR #10 已合并。模拟规则界面已在 `codex/slave-simulation-ui`（草稿 PR #11）实现。当前分支 `codex/virtual-rtu-lab` 的代码停在 `607e2fe`，包含这些提交，并增加本机 PTY 与 debug ADB 虚拟串口。两条分支都尚未合并 main，虚拟串口分支也还没有 PR。
 
 ## 已完成（在 main 上）
 
@@ -55,11 +55,17 @@
 - “保存并运行”立即启动当前规则；“启动从站时自动运行”只控制重连时的状态。保存失败保留草稿并提示运行时规则可能已生效，重试沿用同一 ID。
 - 本阶段已在草稿 PR #11 完成实现及验证，尚未合并 main；验证结果见下方和 `board.md`。
 
+## 当前分支 `codex/virtual-rtu-lab`
+
+- 在模拟规则分支之上增加本机串口对串口测试台：debug-only Android abstract LocalSocket、`adb forward`、主机 PTY 中继、独立 PyModbus 对端。Release 不含桥接 socket 名，不增加 INTERNET 权限。
+- 代码提交 `607e2fe` 已推送。本地虚拟串口双向联调已完成，记录见 `docs/virtual-rtu-lab.md` 和 `board.md`。尚未建 PR，不合并。
+
 ## 验证情况
 - 单元测试、Robolectric 界面测试、lint、APK 打包：PR #9 和 PR #10 的 CI 全部通过（`main` 合并时带 `[skip ci]`，以各分支 CI 为准）。
 - cloud-workbench 云编译：`slave-units-setup@c06a316` 的 `assembleDebug` 成功。
 - 当前开发分支：本地已完成 core 58 项 + app 801 项测试、Roborazzi 录制、lint 和 APK 打包；修正测试滚动后的 6 项交互专项也通过。横屏手势区安全间距修复及 24dp 回归已通过最终复验。代码 `1003fb7` 的两项完整 CI（39049452334 / 39049448534）均已通过；之后只有文档提交。
 - 本地模拟器：Pixel_9_Pro / API 35，已验证演示从站规则新建、真实改值、暂停/恢复、放弃修改、删除与空列表、键盘弹出和横竖屏布局。前半流程用隔离 QA 包验证，最后已清理旧测试包并安装正常 applicationId 的最新 APK，横屏系统手势区修复截图已确认；截图只在本地。
+- 本地虚拟串口（2026-10-18 01:22，可见窗口 `emulator-5582`）：手机作从站时 PyModbus 探测 28/28 通过（9600 8N1，超时 2 秒，含广播）；手机作主站时 FC03 读回 1000..1009，FC06 将 HR0 写为 0 并收到同帧应答。主机中继单测 10 项通过。这批结果不替代 USB 与 RS485。
 - 真机、真实 USB-RS485、多站总线：**未验证**。
 
 ## 已知限制
