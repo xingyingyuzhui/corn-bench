@@ -6,11 +6,11 @@
 
 | 分支 | 状态 | 内容 |
 |---|---|---|
-| `main` | 已合并到 PR #8 | 下表“已完成”的全部内容 |
-| `slave-units-setup`（PR #9） | **未合并**，CI 通过 | 从站多 Unit、从站配置保存、最近来源列、页内浮层 |
-| `slave-sim-rules` | **进行中，未开 PR，未跑 CI**（基于 `slave-units-setup`） | 模拟规则的表单逻辑和 ViewModel；界面还没接 |
+| `main` | 已合并到 PR #9 | 下表“已完成”的全部内容 |
+| `slave-units-setup`（PR #9） | **已合并**，CI 通过 | 从站多 Unit、从站配置保存、最近来源列、页内浮层 |
+| `slave-sim-rules` | **进行中，PR #10 待 CI 验证和合并**（基于 `slave-units-setup`） | 模拟规则的表单逻辑和 ViewModel；界面还没接 |
 
-合并顺序：先 PR #9，再 `slave-sim-rules`。合并进 `main` 需要老板在聊天里确认（注意事项 #24）。
+用户已在聊天中授权合并所有未合并分支；PR #9 已合并，PR #10 正在整合。模拟规则界面仍属于后续工作。
 
 ## 已完成（在 main 上）
 
@@ -36,7 +36,7 @@
 - 日志页（记录 / 分页 / 保存、帧详情）；“我的”页与设置。
 - 面板：网格、编辑模式（草稿制）、添加组件向导、数值 / 指示灯 / 状态文本 / 进度条 / 仪表 / 曲线 / 开关 / 按钮 / 寄存器表、曲线全屏与快照、写入经确认。
 
-## PR #9（未合并）
+## PR #9（已合并）
 - `application/slave/`：`SlaveSetup`（Unit、地址段、值、模拟规则）、JSON 格式（读不懂的部分原样写回）、`FileSlaveSetupStore`（`files/projects/slave.json`，原子写 + `.bak` + 坏文件另存 + 新版本只读）。
 - 会话层：从站会话按配置装载；`slaveUnits` / `setSlaveUnits()`（运行中在两帧之间重建从站引擎）/ `saveSlaveSetup()`。
 - 从站工作台：Unit 切换 / 添加 / 删除（需确认）；“最近来源”列；改值、加地址段、增删 Unit 改为页内浮层。
