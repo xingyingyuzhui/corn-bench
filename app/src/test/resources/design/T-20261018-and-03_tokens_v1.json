@@ -1,0 +1,776 @@
+{
+  "meta": {
+    "card": "T-20261018-and-03",
+    "version": "v1",
+    "base": "main 05ea1e2",
+    "note": "值以 ModbusColors.kt / Spacing.kt / Type.kt 为落点；status=沿用/修改/新增"
+  },
+  "color": {
+    "light": {
+      "bg": {
+        "value": "#F4F6F9",
+        "status": "沿用",
+        "kotlin": "ModbusColors.bg"
+      },
+      "surface1": {
+        "value": "#FFFFFF",
+        "status": "沿用",
+        "kotlin": "ModbusColors.surface1"
+      },
+      "surface2": {
+        "value": "#EEF1F5",
+        "status": "沿用",
+        "kotlin": "ModbusColors.surface2"
+      },
+      "surface3": {
+        "value": "#E2E7EE",
+        "status": "沿用",
+        "kotlin": "ModbusColors.surface3"
+      },
+      "line": {
+        "value": "#DCE2EA",
+        "status": "沿用",
+        "kotlin": "ModbusColors.line"
+      },
+      "rowLine": {
+        "value": "#EDF0F4",
+        "status": "沿用",
+        "kotlin": "ModbusColors.rowLine"
+      },
+      "outlineControl": {
+        "value": "#7A8494",
+        "status": "新增",
+        "kotlin": "ModbusColors.outlineControl（新增）"
+      },
+      "text": {
+        "value": "#121A24",
+        "status": "沿用",
+        "kotlin": "ModbusColors.text"
+      },
+      "muted": {
+        "value": "#5A6574",
+        "status": "沿用",
+        "kotlin": "ModbusColors.muted"
+      },
+      "dim": {
+        "value": "#7A8494",
+        "status": "修改",
+        "kotlin": "ModbusColors.dim"
+      },
+      "tx": {
+        "value": "#F5A524",
+        "status": "沿用",
+        "kotlin": "ModbusColors.tx"
+      },
+      "txText": {
+        "value": "#955800",
+        "status": "修改",
+        "kotlin": "ModbusColors.txText"
+      },
+      "rxLocal": {
+        "value": "#177334",
+        "status": "修改（仅浅色）",
+        "kotlin": "ModbusColors.rxLocal"
+      },
+      "error": {
+        "value": "#CF222E",
+        "status": "沿用",
+        "kotlin": "ModbusColors.error"
+      },
+      "foreign": {
+        "value": "#0969DA",
+        "status": "沿用",
+        "kotlin": "ModbusColors.foreign"
+      },
+      "echo": {
+        "value": "#7A48D6",
+        "status": "修改（仅浅色）",
+        "kotlin": "ModbusColors.echo"
+      },
+      "ambiguous": {
+        "value": "#B3347F",
+        "status": "修改（仅浅色）",
+        "kotlin": "ModbusColors.ambiguous"
+      },
+      "dropped": {
+        "value": "#656D76",
+        "status": "修改",
+        "kotlin": "ModbusColors.dropped"
+      },
+      "warning": {
+        "value": "#955800",
+        "status": "新增",
+        "kotlin": "ModbusColors.warning（新增，语义别名）"
+      },
+      "success": {
+        "value": "#177334",
+        "status": "新增",
+        "kotlin": "ModbusColors.success（新增，别名=rxLocal）"
+      },
+      "dangerFill": {
+        "value": "#CF222E",
+        "status": "新增",
+        "kotlin": "ModbusColors.dangerFill（新增）"
+      },
+      "onDanger": {
+        "value": "#FFFFFF",
+        "status": "新增",
+        "kotlin": "ModbusColors.onDanger（新增）"
+      },
+      "island": {
+        "value": "#FFFFFF",
+        "alpha": 0.95,
+        "status": "沿用",
+        "kotlin": "ModbusColors.island"
+      },
+      "scrim": {
+        "value": "#0A1423",
+        "alpha": 0.38,
+        "status": "新增",
+        "kotlin": "ModbusColors.scrim（新增）"
+      }
+    },
+    "dark": {
+      "bg": {
+        "value": "#0D1117",
+        "status": "沿用",
+        "kotlin": "ModbusColors.bg"
+      },
+      "surface1": {
+        "value": "#151B23",
+        "status": "沿用",
+        "kotlin": "ModbusColors.surface1"
+      },
+      "surface2": {
+        "value": "#1C2430",
+        "status": "沿用",
+        "kotlin": "ModbusColors.surface2"
+      },
+      "surface3": {
+        "value": "#253041",
+        "status": "沿用",
+        "kotlin": "ModbusColors.surface3"
+      },
+      "line": {
+        "value": "#2B3544",
+        "status": "沿用",
+        "kotlin": "ModbusColors.line"
+      },
+      "rowLine": {
+        "value": "#1E2631",
+        "status": "沿用",
+        "kotlin": "ModbusColors.rowLine"
+      },
+      "outlineControl": {
+        "value": "#6E7A8A",
+        "status": "新增",
+        "kotlin": "ModbusColors.outlineControl（新增）"
+      },
+      "text": {
+        "value": "#E6EDF3",
+        "status": "沿用",
+        "kotlin": "ModbusColors.text"
+      },
+      "muted": {
+        "value": "#8B98A8",
+        "status": "沿用",
+        "kotlin": "ModbusColors.muted"
+      },
+      "dim": {
+        "value": "#6E7A8A",
+        "status": "修改",
+        "kotlin": "ModbusColors.dim"
+      },
+      "tx": {
+        "value": "#F5A524",
+        "status": "沿用",
+        "kotlin": "ModbusColors.tx"
+      },
+      "txText": {
+        "value": "#F5A524",
+        "status": "修改",
+        "kotlin": "ModbusColors.txText"
+      },
+      "rxLocal": {
+        "value": "#3FB950",
+        "status": "修改（仅浅色）",
+        "kotlin": "ModbusColors.rxLocal"
+      },
+      "error": {
+        "value": "#F85149",
+        "status": "沿用",
+        "kotlin": "ModbusColors.error"
+      },
+      "foreign": {
+        "value": "#58A6FF",
+        "status": "沿用",
+        "kotlin": "ModbusColors.foreign"
+      },
+      "echo": {
+        "value": "#A371F7",
+        "status": "修改（仅浅色）",
+        "kotlin": "ModbusColors.echo"
+      },
+      "ambiguous": {
+        "value": "#DB61A2",
+        "status": "修改（仅浅色）",
+        "kotlin": "ModbusColors.ambiguous"
+      },
+      "dropped": {
+        "value": "#8B949E",
+        "status": "修改",
+        "kotlin": "ModbusColors.dropped"
+      },
+      "warning": {
+        "value": "#F5A524",
+        "status": "新增",
+        "kotlin": "ModbusColors.warning（新增，语义别名）"
+      },
+      "success": {
+        "value": "#3FB950",
+        "status": "新增",
+        "kotlin": "ModbusColors.success（新增，别名=rxLocal）"
+      },
+      "dangerFill": {
+        "value": "#DA3633",
+        "status": "新增",
+        "kotlin": "ModbusColors.dangerFill（新增）"
+      },
+      "onDanger": {
+        "value": "#FFFFFF",
+        "status": "新增",
+        "kotlin": "ModbusColors.onDanger（新增）"
+      },
+      "island": {
+        "value": "#1C2430",
+        "alpha": 0.94,
+        "status": "沿用",
+        "kotlin": "ModbusColors.island"
+      },
+      "scrim": {
+        "value": "#010306",
+        "alpha": 0.6,
+        "status": "新增",
+        "kotlin": "ModbusColors.scrim（新增）"
+      }
+    },
+    "washAlpha": {
+      "light": 0.07,
+      "dark": 0.1
+    },
+    "accent": {
+      "amber": {
+        "light": {
+          "fill": "#F5A524",
+          "on": "#1A1200",
+          "text": "#955800",
+          "border": "#955800"
+        },
+        "dark": {
+          "fill": "#F5A524",
+          "on": "#1A1200",
+          "text": "#F5A524",
+          "border": "#F5A524"
+        },
+        "status": "沿用（浅色 text 修改）",
+        "previous": "浅 text #B76E00",
+        "usage": "默认强调色：主按钮、选中态、焦点环"
+      },
+      "blue": {
+        "light": {
+          "fill": "#1F6FEB",
+          "on": "#FFFFFF",
+          "text": "#0A60C9",
+          "border": "#1F6FEB"
+        },
+        "dark": {
+          "fill": "#4493F8",
+          "on": "#0D1117",
+          "text": "#4493F8",
+          "border": "#4493F8"
+        },
+        "status": "修改",
+        "previous": "#2F81F7 / on #FFFFFF（两主题同值）",
+        "usage": "可选强调色"
+      },
+      "green": {
+        "light": {
+          "fill": "#1A7F37",
+          "on": "#FFFFFF",
+          "text": "#177334",
+          "border": "#1A7F37"
+        },
+        "dark": {
+          "fill": "#2DA44E",
+          "on": "#0D1117",
+          "text": "#2DA44E",
+          "border": "#2DA44E"
+        },
+        "status": "修改（去留需 Xing 拍板）",
+        "previous": "#2DA44E / on #FFFFFF",
+        "usage": "可选强调色；与 rxLocal 同色系"
+      },
+      "teal": {
+        "light": {
+          "fill": "#0B7373",
+          "on": "#FFFFFF",
+          "text": "#0B7373",
+          "border": "#0B7373"
+        },
+        "dark": {
+          "fill": "#14A3A3",
+          "on": "#0D1117",
+          "text": "#14A3A3",
+          "border": "#14A3A3"
+        },
+        "status": "修改",
+        "previous": "#0E8A8A / on #FFFFFF",
+        "usage": "可选强调色"
+      },
+      "purple": {
+        "light": {
+          "fill": "#8250DF",
+          "on": "#FFFFFF",
+          "text": "#6E40C9",
+          "border": "#8250DF"
+        },
+        "dark": {
+          "fill": "#A371F7",
+          "on": "#0D1117",
+          "text": "#A371F7",
+          "border": "#A371F7"
+        },
+        "status": "修改（去留需 Xing 拍板）",
+        "previous": "#8250DF / on #FFFFFF",
+        "usage": "可选强调色；与 echo 完全同色"
+      }
+    }
+  },
+  "spacing": {
+    "2xs": {
+      "dp": 2,
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "图标与文字的微调、表头文字内边距；不用于布局分组"
+    },
+    "xs": {
+      "dp": 4,
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "标签与值之间、输入格与错误文字之间"
+    },
+    "s": {
+      "dp": 6,
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "chip 之间、badge 与文字之间、统计格之间"
+    },
+    "m": {
+      "dp": 8,
+      "status": "沿用",
+      "previous": "",
+      "usage": "组内元素间距（卡片内行、按钮并排）"
+    },
+    "l": {
+      "dp": 10,
+      "status": "沿用",
+      "previous": "",
+      "usage": "同一屏内组与组之间（卡片之间）"
+    },
+    "xl": {
+      "dp": 12,
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "卡片内边距、行内水平内边距"
+    },
+    "page": {
+      "dp": 14,
+      "status": "沿用",
+      "previous": "",
+      "usage": "屏幕左右边距；弹层水平内边距（ConfirmSheet 16→14）"
+    },
+    "2xl": {
+      "dp": 16,
+      "status": "新增",
+      "previous": "",
+      "usage": "向导等长表单的分区之间（替代外层卡片）"
+    },
+    "3xl": {
+      "dp": 24,
+      "status": "新增",
+      "previous": "",
+      "usage": "空态块上下留白"
+    },
+    "compact.page": {
+      "dp": 12,
+      "status": "修改",
+      "previous": "14×0.75=10.5",
+      "usage": "紧凑密度屏幕边距"
+    },
+    "compact.gapS": {
+      "dp": 6,
+      "status": "修改",
+      "previous": "8×0.75=6",
+      "usage": "紧凑密度组内"
+    },
+    "compact.gapM": {
+      "dp": 8,
+      "status": "修改",
+      "previous": "10×0.75=7.5",
+      "usage": "紧凑密度组间"
+    }
+  },
+  "radius": {
+    "badge": {
+      "dp": 6,
+      "status": "沿用",
+      "previous": "",
+      "usage": "Badge"
+    },
+    "iconBlock": {
+      "dp": 8,
+      "status": "沿用",
+      "previous": "",
+      "usage": "设置行图标底块、BitPicker 位格"
+    },
+    "field": {
+      "dp": 10,
+      "status": "沿用",
+      "previous": "",
+      "usage": "输入格、ChoiceTile、SmallButton"
+    },
+    "row": {
+      "dp": 12,
+      "status": "沿用（值）",
+      "previous": "原散落 RoundedCornerShape(12.dp) ×8",
+      "usage": "设备行、设置行选中底、统计格、分段外框"
+    },
+    "button": {
+      "dp": 14,
+      "status": "沿用",
+      "previous": "",
+      "usage": "主/次按钮、SessionStrip、菜单"
+    },
+    "card": {
+      "dp": 16,
+      "status": "沿用",
+      "previous": "",
+      "usage": "卡片、寄存器表、日志容器"
+    },
+    "chip": {
+      "dp": 16,
+      "status": "沿用",
+      "previous": "",
+      "usage": "chip（胶囊）"
+    },
+    "sheet": {
+      "dp": 24,
+      "status": "修改",
+      "previous": "InPageSheet / RowEntrySheet 22",
+      "usage": "所有底部弹层顶角"
+    },
+    "island": {
+      "dp": 24,
+      "status": "沿用",
+      "previous": "",
+      "usage": "Dock / Rail"
+    }
+  },
+  "stroke": {
+    "hairline": {
+      "dp": 1,
+      "status": "沿用",
+      "previous": "",
+      "usage": "卡片描边、分隔线、chip 描边"
+    },
+    "control": {
+      "dp": 1.5,
+      "status": "沿用",
+      "previous": "",
+      "usage": "次按钮描边、焦点环、出错输入格、编辑虚线框、开关关闭轨道描边"
+    },
+    "selected": {
+      "dp": 1.5,
+      "status": "修改",
+      "previous": "KindCard 选中 2（PanelWizardScreen.kt:314）",
+      "usage": "选中卡片描边（与 chip 选中 1dp 区分：卡片 1.5、chip 1）"
+    }
+  },
+  "elevation": {
+    "island": {
+      "dp": 1,
+      "status": "沿用",
+      "previous": "",
+      "usage": "只有 Dock/Rail 有投影"
+    },
+    "menu": {
+      "dp": 8,
+      "status": "沿用",
+      "previous": "",
+      "usage": "下拉菜单"
+    },
+    "card": {
+      "dp": 0,
+      "status": "沿用",
+      "previous": "",
+      "usage": "卡片、弹层不加投影（弹层靠遮罩分层）"
+    }
+  },
+  "type": {
+    "headline": {
+      "sizeSp": 20,
+      "lineHeightSp": 26,
+      "weight": "Bold 700",
+      "family": "系统",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "PageHeader / SubPageHeader / 编辑页标题"
+    },
+    "titleL": {
+      "sizeSp": 17,
+      "lineHeightSp": 24,
+      "weight": "Bold 700",
+      "family": "系统",
+      "status": "修改",
+      "previous": "ConfirmSheet 18/24、AlertDialog 18",
+      "usage": "弹层与对话框标题"
+    },
+    "titleM": {
+      "sizeSp": 16,
+      "lineHeightSp": 22,
+      "weight": "Bold 700",
+      "family": "系统",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "横屏页标题、帧详情标题、曲线全屏标题"
+    },
+    "titleS": {
+      "sizeSp": 15,
+      "lineHeightSp": 20,
+      "weight": "SemiBold 600",
+      "family": "系统",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "提示卡标题、开关/灯状态文字"
+    },
+    "body": {
+      "sizeSp": 14,
+      "lineHeightSp": 20,
+      "weight": "Regular 400 / SemiBold 600",
+      "family": "系统",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "正文、设置行、设备名、紧凑按钮"
+    },
+    "bodyS": {
+      "sizeSp": 13,
+      "lineHeightSp": 18,
+      "weight": "Regular 400",
+      "family": "系统",
+      "status": "修改",
+      "previous": "13/19、13.5",
+      "usage": "说明段落、空态正文、读取失败说明"
+    },
+    "label": {
+      "sizeSp": 12,
+      "lineHeightSp": 17,
+      "weight": "Regular 400",
+      "family": "系统",
+      "status": "修改",
+      "previous": "12.5、11.5、12",
+      "usage": "SectionLabel、chip、SmallButton、输入错误、提示"
+    },
+    "caption": {
+      "sizeSp": 11,
+      "lineHeightSp": 15,
+      "weight": "Regular 400 / SemiBold 600(badge)",
+      "family": "系统",
+      "status": "修改",
+      "previous": "10、10.5、9.5、11",
+      "usage": "输入格标签、表头、badge、Dock 标签；全 App 最小字号"
+    },
+    "button": {
+      "sizeSp": 16,
+      "lineHeightSp": 22,
+      "weight": "Bold 700",
+      "family": "系统",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "52dp 主/次按钮"
+    },
+    "buttonCompact": {
+      "sizeSp": 14,
+      "lineHeightSp": 20,
+      "weight": "Bold 700 / SemiBold 600",
+      "family": "系统",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "44dp 按钮"
+    },
+    "mono.display": {
+      "sizeSp": 26,
+      "lineHeightSp": 32,
+      "weight": "SemiBold 600",
+      "family": "JetBrains Mono",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "面板数值卡主值"
+    },
+    "mono.valueL": {
+      "sizeSp": 22,
+      "lineHeightSp": 28,
+      "weight": "SemiBold 600",
+      "family": "JetBrains Mono",
+      "status": "沿用（值）",
+      "previous": "曲线全屏 22、仪表 20",
+      "usage": "写入确认 当前→新值、曲线全屏当前值、仪表中心值（20→22 需截图确认能放下）"
+    },
+    "mono.valueM": {
+      "sizeSp": 17,
+      "lineHeightSp": 22,
+      "weight": "SemiBold 600",
+      "family": "JetBrains Mono",
+      "status": "沿用（值）",
+      "previous": "",
+      "usage": "输入格值、FieldTile、结果表值、统计格"
+    },
+    "mono.body": {
+      "sizeSp": 13,
+      "lineHeightSp": 18,
+      "weight": "Medium 500",
+      "family": "JetBrains Mono",
+      "status": "沿用（值）",
+      "previous": "Mono 13（无行高）",
+      "usage": "地址、最近写入摘要、HEX 帧"
+    },
+    "mono.small": {
+      "sizeSp": 12,
+      "lineHeightSp": 16,
+      "weight": "Medium 500",
+      "family": "JetBrains Mono",
+      "status": "修改",
+      "previous": "11.5、12.5",
+      "usage": "HEX 列、日志时间/字节、会话条副行"
+    },
+    "mono.caption": {
+      "sizeSp": 11,
+      "lineHeightSp": 15,
+      "weight": "Medium 500",
+      "family": "JetBrains Mono",
+      "status": "修改",
+      "previous": "10、10.5",
+      "usage": "面板 meta、参考号小字、坐标轴、计数"
+    }
+  },
+  "motion": {
+    "instant": {
+      "ms": 0,
+      "easing": "—",
+      "status": "新增",
+      "usage": "系统“移除动画”时所有动画的时长"
+    },
+    "fast": {
+      "ms": 100,
+      "easing": "FastOutSlowIn (0.4,0,0.2,1)",
+      "status": "新增",
+      "usage": "按压、chip/分段切换、开关滑块"
+    },
+    "standard": {
+      "ms": 200,
+      "easing": "FastOutSlowIn (0.4,0,0.2,1)",
+      "status": "新增",
+      "usage": "折叠展开、结果条出现/消失、弹层淡入"
+    },
+    "enter": {
+      "ms": 250,
+      "easing": "LinearOutSlowIn (0,0,0.2,1)",
+      "status": "新增",
+      "usage": "底部弹层进入、页面进入"
+    },
+    "exit": {
+      "ms": 150,
+      "easing": "FastOutLinearIn (0.4,0,1,1)",
+      "status": "新增",
+      "usage": "弹层退出"
+    },
+    "flash": {
+      "ms": 2000,
+      "easing": "Linear",
+      "status": "沿用",
+      "usage": "寄存器值变化高亮淡出（只作修饰，静态标记见 §8.4）"
+    },
+    "undo": {
+      "ms": 5000,
+      "easing": "—",
+      "status": "新增",
+      "usage": "撤销条停留时长"
+    }
+  },
+  "size": {
+    "touch": {
+      "dp": 48,
+      "status": "沿用",
+      "usage": "所有可点元素最小触控区"
+    },
+    "button": {
+      "dp": 52,
+      "status": "沿用",
+      "usage": "主按钮高"
+    },
+    "buttonCompact": {
+      "dp": 44,
+      "status": "沿用",
+      "usage": "紧凑按钮高"
+    },
+    "buttonSmall": {
+      "dp": 32,
+      "status": "沿用",
+      "usage": "SmallButton 视觉高（触控补到 48）"
+    },
+    "header": {
+      "dp": 52,
+      "status": "沿用",
+      "usage": "页头高"
+    },
+    "sessionStrip": {
+      "dp": 56,
+      "status": "沿用",
+      "usage": "会话条最小高"
+    },
+    "dock": {
+      "dp": 64,
+      "status": "沿用",
+      "usage": "Dock 高"
+    },
+    "rail": {
+      "dp": 62,
+      "status": "沿用",
+      "usage": "Rail 宽"
+    },
+    "icon.s": {
+      "dp": 14,
+      "status": "沿用",
+      "usage": "行内小图标（✎、锁、警告）"
+    },
+    "icon.m": {
+      "dp": 16,
+      "status": "沿用",
+      "usage": "页头图标钮内图标"
+    },
+    "icon.l": {
+      "dp": 20,
+      "status": "沿用",
+      "usage": "设备图标、Rail 图标"
+    },
+    "icon.nav": {
+      "dp": 22,
+      "status": "沿用",
+      "usage": "Dock 图标"
+    },
+    "progress": {
+      "dp": 16,
+      "status": "新增",
+      "usage": "按钮内 loading 圈（stroke 2dp）"
+    }
+  }
+}

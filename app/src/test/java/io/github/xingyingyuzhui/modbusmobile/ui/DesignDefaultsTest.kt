@@ -31,7 +31,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** G#1/2/10：全局默认值按稿面尺寸；触控热区保持 ≥ 48dp（真机触控未验证）。G#7：浅底按颜色取值。 */
+/** G#1/2/10：全局默认值按稿面尺寸；触控热区保持 ≥ 48dp（真机触控未验证）。浅底透明度按规范_v1 §4.3 统一。 */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [33], qualifiers = "w360dp-h780dp")
@@ -76,19 +76,16 @@ class DesignDefaultsTest {
         assertTrue("热区（touchBounds）高度 ≥48：${node.touchBoundsInRoot.height}", node.touchBoundsInRoot.height >= 47.9f)
     }
 
+    /** T-20261018-and-06：规范_v1 §4.3 把 7 档浅底统一为一档（深 .10 / 浅 .07），替换原来的按颜色取值。 */
     @Test
-    fun washAlphaFollowsTheDesignPerColor() {
+    fun washAlphaIsOneValuePerTheme() {
         val dark = modbusColors(true, AccentColor.AMBER)
         val light = modbusColors(false, AccentColor.AMBER)
-        assertEquals(0.14f, dark.wash(dark.tx).alpha, 0.006f)
-        assertEquals(0.16f, light.wash(light.tx).alpha, 0.006f)
-        assertEquals(0.14f, dark.wash(dark.rxLocal).alpha, 0.006f)
-        assertEquals(0.10f, light.wash(light.rxLocal).alpha, 0.006f)
-        assertEquals(0.09f, light.wash(light.error).alpha, 0.006f)
-        assertEquals(0.13f, dark.wash(dark.foreign).alpha, 0.006f)
-        assertEquals(0.15f, dark.wash(dark.echo).alpha, 0.006f)
-        assertEquals(0.10f, light.wash(light.ambiguous).alpha, 0.006f)
-        assertEquals(0.18f, dark.wash(dark.dropped).alpha, 0.006f)
-        assertEquals(0.12f, light.wash(light.dropped).alpha, 0.006f)
+        for (c in listOf(dark.tx, dark.rxLocal, dark.error, dark.foreign, dark.echo, dark.dropped)) {
+            assertEquals(0.10f, dark.wash(c).alpha, 0.006f)
+        }
+        for (c in listOf(light.tx, light.rxLocal, light.error, light.foreign, light.ambiguous, light.dropped)) {
+            assertEquals(0.07f, light.wash(c).alpha, 0.006f)
+        }
     }
 }

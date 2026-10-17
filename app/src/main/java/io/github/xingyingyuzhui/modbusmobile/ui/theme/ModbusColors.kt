@@ -4,17 +4,30 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
 
+/**
+ * 颜色 token（设计规范_v1 §4，值与 T-20261018-and-03_tokens_v1.json 一致，DesignTokensTest 比对）。
+ * 字段名就是语义名；各屏只从这里取色，不写字面 Color(0x…)。
+ */
 data class ModbusColors(
     val isDark: Boolean,
+    // §4.1 表面与线
     val bg: Color,
     val surface1: Color,
     val surface2: Color,
     val surface3: Color,
     val line: Color,
     val rowLine: Color,
+    /** 控件边界：开关关闭轨道描边、单选环、分段选中环（对 surface1 ≥3:1）。新增。 */
+    val outlineControl: Color,
+    val island: Color,
+    /** 所有弹层遮罩。新增。 */
+    val scrim: Color,
+    // §4.2 文字
     val text: Color,
     val muted: Color,
+    /** 只用于禁用文字、占位“—”、装饰图标、图表网格；不用于有效信息文字。 */
     val dim: Color,
+    // §4.3 语义色
     val tx: Color,
     val txText: Color,
     val rxLocal: Color,
@@ -23,85 +36,121 @@ data class ModbusColors(
     val echo: Color,
     val ambiguous: Color,
     val dropped: Color,
+    /** 预警、写入未知；必须配 WarnIcon + 文字。新增。 */
+    val warning: Color,
+    /** 刚刚完成的操作成功（别名 = rxLocal）。持续正常不着色。新增。 */
+    val success: Color,
+    /** 危险主按钮填充。新增。 */
+    val dangerFill: Color,
+    /** 危险主按钮文字。新增。 */
+    val onDanger: Color,
+    /** 语义浅底统一透明度（深 .10 / 浅 .07）。 */
+    val washAlpha: Float,
+    // §4.4 强调色（按主题取值）
+    /** accent.fill：主按钮、开关开、选中填充。 */
     val accent: Color,
+    /** accent.on：fill 上的文字。 */
     val onAccent: Color,
-    val island: Color,
+    /** accent.text：surface 上的选中文字 / 链接。 */
+    val accentText: Color,
+    /** accent.border：焦点环 / 选中描边。 */
+    val accentBorder: Color,
 ) {
-    /**
-     * 语义色浅底：稿面每个颜色单独取值（G#7）。
-     * 深色 amber/green/red .14、blue .13、purple/pink .15、gray .18；浅色 amber .16、green .10、red/blue .09、purple/pink .10、gray .12。
-     * 不是上面这些语义色的（比如用户选的强调色）按 amber 档。
-     */
-    fun wash(color: Color): Color {
-        val opaque = color.copy(alpha = 1f)
-        val alpha = when (opaque) {
-            rxLocal -> if (isDark) 0.14f else 0.10f
-            error -> if (isDark) 0.14f else 0.09f
-            foreign -> if (isDark) 0.13f else 0.09f
-            echo -> if (isDark) 0.15f else 0.10f
-            ambiguous -> if (isDark) 0.15f else 0.10f
-            dropped -> if (isDark) 0.18f else 0.12f
-            else -> if (isDark) 0.14f else 0.16f
-        }
-        return color.copy(alpha = alpha)
-    }
-
-    val accentText: Color
-        get() = if (!isDark && accent == Color(0xFFF5A524)) txText else accent
+    /** 语义色浅底：全 App 只此一档（§4.3 washAlpha），文字用同一语义色。 */
+    fun wash(color: Color): Color = color.copy(alpha = washAlpha)
 }
+
+/** 浅色主题固定值（§4.1–4.3）。 */
+private object LightTokens {
+    val bg = Color(0xFFF4F6F9)
+    val surface1 = Color(0xFFFFFFFF)
+    val surface2 = Color(0xFFEEF1F5)
+    val surface3 = Color(0xFFE2E7EE)
+    val line = Color(0xFFDCE2EA)
+    val rowLine = Color(0xFFEDF0F4)
+    val outlineControl = Color(0xFF7A8494)
+    val island = Color(0xFFFFFFFF).copy(alpha = 0.95f)
+    val scrim = Color(0xFF0A1423).copy(alpha = 0.38f)
+    val text = Color(0xFF121A24)
+    val muted = Color(0xFF5A6574)
+    val dim = Color(0xFF7A8494)
+    val tx = Color(0xFFF5A524)
+    val txText = Color(0xFF955800)
+    val rxLocal = Color(0xFF177334)
+    val error = Color(0xFFCF222E)
+    val foreign = Color(0xFF0969DA)
+    val echo = Color(0xFF7A48D6)
+    val ambiguous = Color(0xFFB3347F)
+    val dropped = Color(0xFF656D76)
+    val warning = Color(0xFF955800)
+    val success = Color(0xFF177334)
+    val dangerFill = Color(0xFFCF222E)
+    val onDanger = Color(0xFFFFFFFF)
+    const val WASH_ALPHA = 0.07f
+}
+
+/** 深色主题固定值（§4.1–4.3）。 */
+private object DarkTokens {
+    val bg = Color(0xFF0D1117)
+    val surface1 = Color(0xFF151B23)
+    val surface2 = Color(0xFF1C2430)
+    val surface3 = Color(0xFF253041)
+    val line = Color(0xFF2B3544)
+    val rowLine = Color(0xFF1E2631)
+    val outlineControl = Color(0xFF6E7A8A)
+    val island = Color(0xFF1C2430).copy(alpha = 0.94f)
+    val scrim = Color(0xFF010306).copy(alpha = 0.60f)
+    val text = Color(0xFFE6EDF3)
+    val muted = Color(0xFF8B98A8)
+    val dim = Color(0xFF6E7A8A)
+    val tx = Color(0xFFF5A524)
+    val txText = Color(0xFFF5A524)
+    val rxLocal = Color(0xFF3FB950)
+    val error = Color(0xFFF85149)
+    val foreign = Color(0xFF58A6FF)
+    val echo = Color(0xFFA371F7)
+    val ambiguous = Color(0xFFDB61A2)
+    val dropped = Color(0xFF8B949E)
+    val warning = Color(0xFFF5A524)
+    val success = Color(0xFF3FB950)
+    val dangerFill = Color(0xFFDA3633)
+    val onDanger = Color(0xFFFFFFFF)
+    const val WASH_ALPHA = 0.10f
+}
+
+private fun argb(value: Long): Color = Color(value.toInt())
 
 fun modbusColors(dark: Boolean, accent: AccentColor): ModbusColors {
-    val accentColor = Color(accent.argb.toInt())
-    val onAccent = Color(accent.onAccentArgb.toInt())
+    val tones = accent.tones(dark)
     return if (dark) {
-        ModbusColors(
-            isDark = true,
-            bg = Color(0xFF0D1117),
-            surface1 = Color(0xFF151B23),
-            surface2 = Color(0xFF1C2430),
-            surface3 = Color(0xFF253041),
-            line = Color(0xFF2B3544),
-            rowLine = Color(0xFF1E2631),
-            text = Color(0xFFE6EDF3),
-            muted = Color(0xFF8B98A8),
-            dim = Color(0xFF5C6878),
-            tx = Color(0xFFF5A524),
-            txText = Color(0xFFF5A524),
-            rxLocal = Color(0xFF3FB950),
-            error = Color(0xFFF85149),
-            foreign = Color(0xFF58A6FF),
-            echo = Color(0xFFA371F7),
-            ambiguous = Color(0xFFDB61A2),
-            dropped = Color(0xFF6E7681),
-            accent = accentColor,
-            onAccent = onAccent,
-            island = Color(0xFF1C2430).copy(alpha = 0.94f),
-        )
+        DarkTokens.run {
+            ModbusColors(
+                isDark = true,
+                bg = bg, surface1 = surface1, surface2 = surface2, surface3 = surface3,
+                line = line, rowLine = rowLine, outlineControl = outlineControl, island = island, scrim = scrim,
+                text = text, muted = muted, dim = dim,
+                tx = tx, txText = txText, rxLocal = rxLocal, error = error, foreign = foreign, echo = echo,
+                ambiguous = ambiguous, dropped = dropped, warning = warning, success = success,
+                dangerFill = dangerFill, onDanger = onDanger, washAlpha = WASH_ALPHA,
+                accent = argb(tones.fill), onAccent = argb(tones.on),
+                accentText = argb(tones.text), accentBorder = argb(tones.border),
+            )
+        }
     } else {
-        ModbusColors(
-            isDark = false,
-            bg = Color(0xFFF4F6F9),
-            surface1 = Color(0xFFFFFFFF),
-            surface2 = Color(0xFFEEF1F5),
-            surface3 = Color(0xFFE2E7EE),
-            line = Color(0xFFDCE2EA),
-            rowLine = Color(0xFFEDF0F4),
-            text = Color(0xFF121A24),
-            muted = Color(0xFF5A6574),
-            dim = Color(0xFF8D97A5),
-            tx = Color(0xFFF5A524),
-            txText = Color(0xFFB76E00),
-            rxLocal = Color(0xFF1A7F37),
-            error = Color(0xFFCF222E),
-            foreign = Color(0xFF0969DA),
-            echo = Color(0xFF8250DF),
-            ambiguous = Color(0xFFBF3989),
-            dropped = Color(0xFF6E7781),
-            accent = accentColor,
-            onAccent = onAccent,
-            island = Color.White.copy(alpha = 0.95f),
-        )
+        LightTokens.run {
+            ModbusColors(
+                isDark = false,
+                bg = bg, surface1 = surface1, surface2 = surface2, surface3 = surface3,
+                line = line, rowLine = rowLine, outlineControl = outlineControl, island = island, scrim = scrim,
+                text = text, muted = muted, dim = dim,
+                tx = tx, txText = txText, rxLocal = rxLocal, error = error, foreign = foreign, echo = echo,
+                ambiguous = ambiguous, dropped = dropped, warning = warning, success = success,
+                dangerFill = dangerFill, onDanger = onDanger, washAlpha = WASH_ALPHA,
+                accent = argb(tones.fill), onAccent = argb(tones.on),
+                accentText = argb(tones.text), accentBorder = argb(tones.border),
+            )
+        }
     }
 }
 
-val LocalModbusColors = staticCompositionLocalOf { modbusColors(dark = true, AccentColor.AMBER) }
+val LocalModbusColors = staticCompositionLocalOf { modbusColors(dark = true, AccentColor.DEFAULT) }
