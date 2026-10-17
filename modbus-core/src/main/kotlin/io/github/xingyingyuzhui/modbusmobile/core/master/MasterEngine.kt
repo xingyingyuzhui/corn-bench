@@ -101,6 +101,7 @@ class DefaultMasterEngine(
                 }
                 SendResult.AcceptedByTransport, SendResult.WriteReturned, SendResult.ConfirmedOnWire -> sent = true
             }
+            echo.restartDeadline(clock.nowNs())
             if (transport.connectionEpoch != epoch || transport.connectionState.value != ConnectionState.CONNECTED) {
                 return if (request.isWrite && sent) ModbusResult.UnknownOutcome else ModbusResult.Disconnected
             }

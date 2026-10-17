@@ -29,6 +29,38 @@ class EchoTrackerTest {
     }
 
     @Test
+    fun singleWriteFramesDoNotVoteInAuto() {
+        // 没有回显的总线上，从站对 FC06 的应答和请求一模一样：会被当成回显吞掉，但不能因此判成“有回显”。
+        val echo = tracker(EchoMode.AUTO)
+        val fc06 = byteArrayOf(1, 6, 0, 0, 0, 42, 0, 0)
+        repeat(3) {
+            echo.arm(fc06, nowNs = 0)
+            echo.consume()
+        }
+        assertNull(echo.detected, "FC05/06 不参与判定")
+        repeat(3) {
+            echo.arm(byteArrayOf(1, 5, 0, 0, 0xFF.toByte(), 0, 0, 0), nowNs = 0)
+            echo.expire(1_000)
+        }
+        assertNull(echo.detected)
+        // 读请求照常参与
+        echo.arm(byteArrayOf(1, 3, 0, 0, 0, 1, 0, 0), nowNs = 0)
+        echo.consume()
+        echo.arm(byteArrayOf(1, 3, 0, 0, 0, 1, 0, 0), nowNs = 0)
+        echo.consume()
+        assertEquals(true, echo.detected)
+    }
+
+    @Test
+    fun restartDeadlineCountsFromAfterTheWrite() {
+        val echo = tracker(EchoMode.ON)
+        echo.arm(byteArrayOf(1, 3, 0), nowNs = 0) // 截止 = 0 + 3 + 50
+        echo.restartDeadline(nowNs = 1_000)        // 写调用 1000 才返回：截止 = 1053
+        echo.expire(500)
+        assertIs<EchoMatch.Full>(echo.match(windowOf(1, 3, 0)), "写返回后才开始等回显")
+    }
+
+    @Test
     fun expireDisarmsWithoutMatchingLaterBytes() {
         val echo = tracker(EchoMode.ON)
         echo.arm(byteArrayOf(0x01, 0x06, 0x00), nowNs = 1_000)

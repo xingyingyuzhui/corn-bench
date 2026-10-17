@@ -98,6 +98,42 @@ class DemoSessionTest {
     }
 
     @Test
+    fun slaveSessionRunsSimulationRulesAndStopsThemOnDisconnect() = runTest {
+        val session = session()
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.SLAVE)
+        val simulation = session.simulation.value ?: error("从站会话应该有模拟器")
+        simulation.setRules(
+            listOf(
+                io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationRule(
+                    id = "hr5",
+                    target = io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationTarget(1, RegisterArea.HOLDING_REGISTER, 5),
+                    waveform = io.github.xingyingyuzhui.modbusmobile.core.slave.Waveform.Ramp(start = 1.0, step = 1.0, min = 0.0, max = 100.0),
+                    refreshMs = 1_000,
+                ),
+            ),
+        )
+        advanceTimeBy(3_100)
+        runCurrent()
+        val bank = session.slaveBank.value ?: error("从站寄存器库为空")
+        val hr5 = bank.words(1, RegisterArea.HOLDING_REGISTER).first { it.address == 5 }.value
+        assertTrue("模拟规则在写 HR5：$hr5", hr5 >= 3)
+        assertEquals(
+            io.github.xingyingyuzhui.modbusmobile.core.slave.ChangeSource.SIMULATION,
+            bank.lastChange(1, RegisterArea.HOLDING_REGISTER, 5)?.source,
+        )
+        session.disconnect()
+        assertEquals(null, session.simulation.value)
+    }
+
+    @Test
+    fun masterSessionHasNoSimulation() = runTest {
+        val session = session()
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.MASTER)
+        assertEquals(null, session.simulation.value)
+        session.disconnect()
+    }
+
+    @Test
     fun previewFrameIsTheBytesTheMasterSends() = runTest {
         val session = session()
         val request = ModbusRequest.WriteSingleRegister(1, 5, 123)

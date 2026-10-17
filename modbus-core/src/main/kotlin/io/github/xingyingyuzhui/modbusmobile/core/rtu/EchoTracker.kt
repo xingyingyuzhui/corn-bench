@@ -23,6 +23,9 @@ class EchoTracker(
     private val slackNs: Long,
 ) {
     private var tx: ByteArray? = null
+
+    /** 当前这帧能不能用来判断“适配器有没有回显”。见 [arm]。 */
+    private var votes = true
     private var deadlineNs = 0L
     private var seen = 0
     private var missed = 0
@@ -34,10 +37,21 @@ class EchoTracker(
     }
         private set
 
+    /**
+     * FC05 / FC06 的请求和正常应答字节完全相同：收到一模一样的字节，既可能是回显，也可能是对方的应答。
+     * 这种帧照样武装（宁可报“结果未知”也不把回显当成写入成功），但**不参与 AUTO 判定**，免得没有回显的总线被判成“有回显”。
+     */
     fun arm(frame: ByteArray, nowNs: Long) {
         if (detected == false) return
         tx = frame.copyOf()
+        votes = !frame.isSingleWrite()
         deadlineNs = nowNs + wireNs(frame.size) + slackNs
+    }
+
+    /** 写调用返回后再起算截止时间：USB 写本身可能耗时，回显不能还没到就过期。 */
+    fun restartDeadline(nowNs: Long) {
+        val frame = tx ?: return
+        deadlineNs = maxOf(deadlineNs, nowNs + wireNs(frame.size) + slackNs)
     }
 
     fun match(buf: RxWindow): EchoMatch {
@@ -55,6 +69,7 @@ class EchoTracker(
 
     fun consume() {
         tx = null
+        if (!votes) return
         if (++seen >= 2 && mode == EchoMode.AUTO) detected = true
     }
 
@@ -78,6 +93,11 @@ class EchoTracker(
     }
 
     private fun miss() {
+        if (!votes) return
         if (++missed >= 2 && mode == EchoMode.AUTO && detected == null) detected = false
     }
 }
+
+/** 正常（非异常）的 FC05 / FC06 帧：请求和应答同形。 */
+private fun ByteArray.isSingleWrite(): Boolean =
+    size >= 2 && (this[1].toInt() and 0xFF).let { it == 0x05 || it == 0x06 }

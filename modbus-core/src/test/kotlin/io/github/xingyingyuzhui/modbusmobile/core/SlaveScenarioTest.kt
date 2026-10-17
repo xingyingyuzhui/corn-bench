@@ -127,6 +127,11 @@ class SlaveScenarioTest {
         harness.rx(RtuCodec.encodeRequest(ModbusRequest.WriteMultipleRegisters(0, 100, listOf(6))))
         runCurrent()
         assertEquals(6, harness.word(100))
+        assertEquals(
+            io.github.xingyingyuzhui.modbusmobile.core.slave.ChangeSource.BROADCAST,
+            harness.bank.lastChange(1, RegisterArea.HOLDING_REGISTER, 100)?.source,
+            "广播写入标为 BROADCAST",
+        )
         assertTrue(harness.bank.words(2, RegisterArea.HOLDING_REGISTER).isEmpty())
         assertTrue(harness.transport.sent.isEmpty())
     }
