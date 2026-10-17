@@ -66,11 +66,12 @@ data class PointDefinition(
     /** 线圈 / 保持寄存器可以写；离散输入 / 输入寄存器只读。 */
     val isWritable: Boolean get() = area == RegisterArea.COIL || area == RegisterArea.HOLDING_REGISTER
 
-    fun validate(): List<PointIssue> {
+    /** [allowBroadcast]：只有“按钮”可以把 Unit 设为 0（广播，写入时红色确认）；读取类组件必须 1..247。 */
+    fun validate(allowBroadcast: Boolean = false): List<PointIssue> {
         val issues = LinkedHashSet<PointIssue>()
         if (id.isBlank()) issues += PointIssue.BLANK_ID
         if (name.isBlank()) issues += PointIssue.BLANK_NAME
-        if (unitId !in 1..247) issues += PointIssue.UNIT_RANGE
+        if (unitId !in (if (allowBroadcast) 0..247 else 1..247)) issues += PointIssue.UNIT_RANGE
         if (address !in 0..65535) issues += PointIssue.ADDRESS_RANGE
         val typeOk = if (isBitArea) type == DataType.BOOL else type != DataType.BOOL
         if (!typeOk) issues += PointIssue.TYPE_AREA_MISMATCH

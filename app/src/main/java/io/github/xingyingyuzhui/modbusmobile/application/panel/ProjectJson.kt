@@ -66,6 +66,8 @@ object ProjectJson {
             put("spanRows", w.spanRows)
             if (w.onLabel.isNotEmpty()) put("onLabel", w.onLabel)
             if (w.offLabel.isNotEmpty()) put("offLabel", w.offLabel)
+            if (w.buttonLabel.isNotEmpty()) put("buttonLabel", w.buttonLabel)
+            w.writeValue?.let { put("writeValue", it) }
             if (w.states.isNotEmpty()) {
                 put(
                     "states",
@@ -193,9 +195,9 @@ object ProjectJson {
         }
         val pointObj = obj.optJSONObject("point") ?: return preserved("缺少点位")
         val point = decodePoint(pointObj) ?: return preserved("的点位配置无法读取")
-        val issues = point.validate()
+        val issues = point.validate(allowBroadcast = kind == WidgetKinds.BUTTON)
         if (issues.isNotEmpty()) return preserved("的点位配置不合法（${issues.joinToString()}）")
-        return Widget(
+        val widget = Widget(
             id = id,
             kind = kind,
             title = obj.optString("title", ""),
@@ -205,7 +207,12 @@ object ProjectJson {
             onLabel = obj.optString("onLabel", ""),
             offLabel = obj.optString("offLabel", ""),
             states = decodeStates(obj, warnings),
+            buttonLabel = obj.optString("buttonLabel", ""),
+            writeValue = if (obj.has("writeValue") && !obj.isNull("writeValue")) obj.optDouble("writeValue", Double.NaN).takeIf { !it.isNaN() } else null,
         )
+        // 开关 / 按钮的额外规则（开关必须读得到状态、按钮必须有合法的预设值）；不满足就原样保留，不让它在面板上出现一个写不对的控件
+        WidgetWrites.problem(widget)?.let { return preserved("的配置不合法（$it）") }
+        return widget
     }
 
     private fun decodeAxis(o: JSONObject?): AxisRange? {

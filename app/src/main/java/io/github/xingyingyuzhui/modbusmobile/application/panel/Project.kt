@@ -8,7 +8,14 @@ object WidgetKinds {
     const val PROGRESS = "progress"
     const val CURVE = "curve"
     const val GAUGE = "gauge"
-    val known = setOf(NUMBER, LAMP, STATUS_TEXT, PROGRESS, CURVE, GAUGE)
+
+    /** 可写组件（P8b）：开关 = 切换一个线圈 / 寄存器位；按钮 = 一键写入预设值。写设备永远经确认弹窗。 */
+    const val SWITCH = "switch"
+    const val BUTTON = "button"
+    val known = setOf(NUMBER, LAMP, STATUS_TEXT, PROGRESS, CURVE, GAUGE, SWITCH, BUTTON)
+
+    /** 会写设备的类型：编辑模式 / 向导预览里不可操作，从站模式下禁用。 */
+    val writable = setOf(SWITCH, BUTTON)
 }
 
 enum class StateTone { GREEN, AMBER, RED, BLUE, GRAY }
@@ -33,17 +40,27 @@ data class Widget(
     val offLabel: String = "",
     /** 状态文本：取值映射；没有匹配的值显示“未定义（值）”。 */
     val states: List<StateMapping> = emptyList(),
+    /** 按钮：卡片上的按钮文字（空 = “写入”）。 */
+    val buttonLabel: String = "",
+    /** 按钮：要写入的预设值（线圈 1 / 0；寄存器为数值，按点位类型编码，不做缩放换算）。 */
+    val writeValue: Double? = null,
     /** 曲线组件的配置（[kind] == [WidgetKinds.CURVE] 时非空；此时 [point] 为空，点位在各系列里）。 */
     val curve: CurveConfig? = null,
     val raw: String? = null,
 ) {
     val isUsable: Boolean
-        get() = raw == null && kind in WidgetKinds.known &&
-            if (kind == WidgetKinds.CURVE) curve != null && curve.series.isNotEmpty() else point != null
+        get() = raw == null && kind in WidgetKinds.known && when (kind) {
+            WidgetKinds.CURVE -> curve != null && curve.series.isNotEmpty()
+            else -> point != null && WidgetWrites.problem(this) == null
+        }
 
-    /** 这个组件要轮询的全部点位。 */
+    /** 这个组件要轮询的全部点位。按钮不读（它的点位只用来写），所以不进轮询。 */
     val points: List<PointDefinition>
-        get() = if (kind == WidgetKinds.CURVE) curve?.series?.map { it.point }.orEmpty() else listOfNotNull(point)
+        get() = when (kind) {
+            WidgetKinds.CURVE -> curve?.series?.map { it.point }.orEmpty()
+            WidgetKinds.BUTTON -> emptyList()
+            else -> listOfNotNull(point)
+        }
 
     /** 界面上显示的组件名：自定义标题 > 曲线的“系列名 / 系列名” > 点位名。 */
     val displayTitle: String

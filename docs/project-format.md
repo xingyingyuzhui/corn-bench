@@ -70,13 +70,24 @@
 | `title` | 组件名称；空 = 用点位名称 |
 | `spanColumns` / `spanRows` | 1..2；跨列按“k×列宽 + (k−1)×间距”；P4 里跨行只表现为这一行更高 |
 | `onLabel` / `offLabel` | 指示灯 / 为 1 / 0 时的文字，缺省“开”/“关” |
+| `buttonLabel` | 按钮卡上的文字，可缺省（缺省 = “写入”），最长 12 字 |
+| `writeValue` | 按钮的预设值（数字）：线圈只能是 0 / 1；保持寄存器按点位 `type`（U16 S16 U32 S32 F32）和 `order` 编码，整数类型要整数且在类型范围内；不做 scale / offset 换算 |
 | `states` | 状态文本：`[{"value": 2, "label": "制冷", "tone": "BLUE"}]`；`tone` ∈ `GREEN AMBER RED BLUE GRAY`，缺省 BLUE；没有 `value` 或 `label` 的条目忽略并给警告；取值没有映射时显示“未定义（值）” |
 
 进度条和仪表（`gauge`，半圆表盘，只读）用点位的 `rangeMin` / `rangeMax`（缺省 0..100，必须 min < max）；仪表还用点位的 `thresholds`（预警 / 告警区间，画在表盘外圈）和 `unitLabel`。
 
 ### 组件类型
 
-`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）、`curve`（曲线，P7）、`gauge`（仪表，P8a）。其它类型按“读不懂”处理。
+`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）、`curve`（曲线，P7）、`gauge`（仪表，P8a）、`switch`（开关，P8b1）、`button`（按钮，P8b1）。其它类型按“读不懂”处理。
+
+### 可写组件（`switch` / `button`，P8b1）
+
+这两类会写设备，**面板上点它们只会请求写入，真正发请求前总要经过确认弹窗**（见 `docs/注意事项.md` 52–55）。
+
+- `switch`：点位只能是线圈（`area = COIL, type = BOOL`），或保持寄存器的某一位（`area = HOLDING_REGISTER, type = BIT, bit = 0..15`）；`unitId` 必须 1..247（要读状态）；可带 `onLabel` / `offLabel`。会被轮询（读状态）。
+- `button`：点位是线圈或保持寄存器（`type` ∈ `U16 S16 U32 S32 F32`），**`unitId` 可以是 0..247，0 = 广播**（只有按钮可以）；必须有 `writeValue`，可带 `buttonLabel`。**不进轮询**（它的点位只用来写）。
+- 不满足上面规则的开关 / 按钮，整个组件按“读不懂”原样保留（和未知类型一样：不渲染、保存时原样写回、给警告）。
+- **版本兼容**：这是纯增量改动，`version` 仍是 1。P8b1 之前的版本读到 `switch` / `button` 会当“不认识的类型”原样保留并提示，再保存也不丢；新版本读旧文件没有任何变化。以后如果改了已有字段的含义才需要抬版本号。
 
 ### 曲线组件（`kind = "curve"`，P7）
 
@@ -109,7 +120,7 @@
 
 - 读：寄存器字 →（按 `order` 整理成大端）→ 按类型解释 → ×scale+offset。64 位整数全程用 `Long` / `BigInteger`，不经 `Double`，不丢精度；F32 的 NaN / ∞ 显示“—”。
 - 写：工程值 →（−offset）/scale → 整数类型四舍五入 → **范围检查**（超界拒绝，不回绕，如把 −5 写进 U16）→ 按 `order` 还原。64 位整数经 `Double` 反算只在 ±2^53 内才精确，超出拒绝。
-- 位写入 = 先读整字、改一位、再写回（非原子，写入时需提示）。
+- 位写入 = 先读整字、改一位、再写回（非原子，写入时需提示）。开关的寄存器位写入就是这样做的：弹确认前读一次整字，点“发送写入”后再读一次核对，整字变了就不发（见 D46）。
 - BCD 里出现 A–F 半字节视为无效值。
 
 ## 轮询（`PollScheduler`，P3）
