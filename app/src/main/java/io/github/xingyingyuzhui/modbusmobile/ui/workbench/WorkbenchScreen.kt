@@ -39,7 +39,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.xingyingyuzhui.modbusmobile.R
@@ -51,6 +50,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.modiconLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalAppViewModelStoreOwner
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalMasterPoller
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChoiceTile
@@ -104,12 +104,9 @@ fun WorkbenchScreen() {
     val session = LocalSession.current
     // 用 Activity 级的 store：切页、系统返回键都不会把工作台的表单和结果清空。
     val owner = LocalAppViewModelStoreOwner.current ?: checkNotNull(LocalViewModelStoreOwner.current)
-    val model = viewModel(viewModelStoreOwner = owner) { WorkbenchViewModel(session) }
-    // 页面不可见（切到别的 tab、应用退到后台）时轮询暂停，回来继续。
-    LifecycleResumeEffect(model) {
-        model.setVisible(true)
-        onPauseOrDispose { model.setVisible(false) }
-    }
+    val poller = LocalMasterPoller.current
+    // 轮询在应用级 MasterPoller 里跑，切页 / 退到后台都不停（T-20261018-qa-02），这里只订阅状态。
+    val model = viewModel(viewModelStoreOwner = owner) { WorkbenchViewModel(session, poller = poller) }
     val sessionState by model.sessionState.collectAsStateWithLifecycle()
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val running = sessionState as? SessionState.Running

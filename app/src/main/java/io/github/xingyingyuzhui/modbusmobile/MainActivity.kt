@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
                 LocalSettingsRepository provides container.settingsRepository,
                 LocalProjectRepository provides container.projectRepository,
                 LocalPanelRuntime provides container.panelRuntime,
+                io.github.xingyingyuzhui.modbusmobile.ui.LocalMasterPoller provides container.masterPoller,
             ) {
                 ModbusTheme(settings) {
                     ModbusApp()
