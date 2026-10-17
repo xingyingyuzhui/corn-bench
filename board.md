@@ -31,4 +31,4 @@
 - 正常 applicationId 的最新 APK 已重新安装到本地模拟器，临时 QA 包已卸载；横屏截图确认按钮较原来上移 72px（24dp），系统手势条不再覆盖按钮，当前进程 crash buffer 为空。独立审阅定向复核此修复通过。
 - 正常安装包补测非法数字保存：字段错误明确显示、编辑页保留、无崩溃；测试结束后停止测试应用，模拟器未自动关闭。按用户授权清理旧测试包和可回收缓存/编译缓存，保留其他应用数据；空间仍紧张，未执行 AVD wipe。
 - 编译缓存清理命令多数包成功，末尾遇到模拟器残留的 com.jetbrains.kmpapp 包记录而退出 1；不记作完整系统清理成功。系统安装空间阈值已复查恢复默认。
-- 最新代码 `1003fb7` 的 PR 完整 CI 39049452334 已成功：https://github.com/xingyingyuzhui/modbus_android/actions/runs/39049452334 。含完整测试、Roborazzi、lint、APK 与 INTERNET 权限检查；同提交 push CI 的最终结果继续核对。
+- 最新代码 `1003fb7` 的 PR 完整 CI 39049452334 已成功：https://github.com/xingyingyuzhui/modbus_android/actions/runs/39049452334 。含完整测试、Roborazzi、lint、APK 与 INTERNET 权限检查；同提交 push CI 39049448534 也已成功；两项完整 CI 全绿。最后仅有文档记录提交，带 `[skip ci]`，不复跑代码验证。
