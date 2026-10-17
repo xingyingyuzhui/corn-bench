@@ -13,14 +13,14 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * T-20261018-and-06（CL-01）：ModbusColors / ModbusSpacing / 圆角 / ModbusType 与 ux 的 tokens_v1.json 逐项比对。
+ * T-20261018-and-06（CL-01）：ModbusColors / ModbusSpacing / 圆角 / ModbusType 与 ux 的 tokens_v2.json 逐项比对。
  * 纯 JVM 测试（不走 Robolectric），不受 ARM64 Conscrypt 环境问题（B-3）影响。
- * json 是 /workspace/handoff/ux/outbox/T-20261018-and-03/T-20261018-and-03_tokens_v1.json 的原样拷贝。
+ * json 是 /workspace/handoff/ux/outbox/T-20261018-and-03/T-20261018-and-03_tokens_v2.json 的原样拷贝。
  */
 class DesignTokensTest {
     @Suppress("UNCHECKED_CAST")
     private val tokens: Map<String, Any?> by lazy {
-        val text = javaClass.classLoader!!.getResourceAsStream("design/T-20261018-and-03_tokens_v1.json")!!
+        val text = javaClass.classLoader!!.getResourceAsStream("design/T-20261018-and-03_tokens_v2.json")!!
             .bufferedReader(Charsets.UTF_8).use { it.readText() }
         MiniJson(text).parse() as Map<String, Any?>
     }
@@ -130,28 +130,30 @@ class DesignTokensTest {
         val sp = obj("spacing")
         fun dp(key: String) = ((sp[key] as Map<*, *>)["dp"] as Number).toFloat()
         val s = ModbusSpacing.Comfortable
-        assertEquals(dp("2xs"), s.xxs.value, 0f)
         assertEquals(dp("xs"), s.xs.value, 0f)
         assertEquals(dp("s"), s.s.value, 0f)
-        assertEquals(dp("m"), s.gapS.value, 0f)
-        assertEquals(dp("l"), s.gapM.value, 0f)
-        assertEquals(dp("xl"), s.card.value, 0f)
+        assertEquals(dp("card"), s.card.value, 0f)
         assertEquals(dp("page"), s.page.value, 0f)
-        assertEquals(dp("2xl"), s.section.value, 0f)
-        assertEquals(dp("3xl"), s.xxl.value, 0f)
+        assertEquals(dp("group"), s.group.value, 0f)
+        assertEquals(dp("section"), s.section.value, 0f)
+        assertEquals(dp("empty"), s.empty.value, 0f)
+        assertEquals(dp("dockGap"), s.dockGap.value, 0f)
+        // 组件级 4dp 网格、布局级 8dp 网格（§2.1）
+        for (v in listOf(s.xs, s.s, s.card)) assertEquals(0f, v.value % 4f, 0f)
+        for (v in listOf(s.page, s.group, s.section, s.empty, s.dockGap)) assertEquals(0f, v.value % 8f, 0f)
     }
 
     @Test
-    fun compactDensityIsALookupTable12_6_8() {
+    fun compactDensityIsALookupTable16_8_4() {
         val sp = obj("spacing")
         fun dp(key: String) = ((sp[key] as Map<*, *>)["dp"] as Number).toFloat()
         val c = ModbusSpacing.of(DensityMode.COMPACT)
-        assertEquals(12f, c.page.value, 0f)
-        assertEquals(6f, c.gapS.value, 0f)
-        assertEquals(8f, c.gapM.value, 0f)
+        assertEquals(16f, c.page.value, 0f)
+        assertEquals(8f, c.group.value, 0f)
+        assertEquals(4f, c.s.value, 0f)
         assertEquals(dp("compact.page"), c.page.value, 0f)
-        assertEquals(dp("compact.gapS"), c.gapS.value, 0f)
-        assertEquals(dp("compact.gapM"), c.gapM.value, 0f)
+        assertEquals(dp("compact.group"), c.group.value, 0f)
+        assertEquals(dp("compact.s"), c.s.value, 0f)
         // 卡片内边距等不随密度变
         assertEquals(12f, c.card.value, 0f)
         assertEquals(ModbusSpacing.Comfortable, ModbusSpacing.of(DensityMode.COMFORTABLE))
@@ -162,7 +164,7 @@ class DesignTokensTest {
         val r = obj("radius")
         fun dp(key: String) = ((r[key] as Map<*, *>)["dp"] as Number).toFloat()
         assertEquals(dp("badge"), BadgeRadius.value, 0f)
-        assertEquals(dp("iconBlock"), IconBlockRadius.value, 0f)
+        assertEquals(dp("small"), SmallRadius.value, 0f)
         assertEquals(dp("field"), FieldRadius.value, 0f)
         assertEquals(dp("row"), RowRadius.value, 0f)
         assertEquals(dp("button"), ButtonRadius.value, 0f)
@@ -189,6 +191,18 @@ class DesignTokensTest {
         assertEquals(dp("icon.l"), ModbusSize.iconL.value, 0f)
         assertEquals(dp("icon.nav"), ModbusSize.iconNav.value, 0f)
         assertEquals(dp("progress"), ModbusSize.progress.value, 0f)
+        assertEquals(dp("headerIconBox"), ModbusSize.headerIconBox.value, 0f)
+        assertEquals(dp("tableHeader"), ModbusSize.tableHeader.value, 0f)
+        assertEquals(dp("tableRow"), ModbusSize.tableRow.value, 0f)
+        assertEquals(dp("chip"), ModbusSize.chip.value, 0f)
+        assertEquals(dp("chipXs"), ModbusSize.chipXs.value, 0f)
+        assertEquals(dp("segItem"), ModbusSize.segItem.value, 0f)
+        assertEquals(dp("switch"), ModbusSize.switchWidth.value, 0f)
+        assertEquals(dp("iconBlock"), ModbusSize.iconBlock.value, 0f)
+        assertEquals(dp("fieldTile"), ModbusSize.fieldTile.value, 0f)
+        assertEquals(dp("badgeHeight"), ModbusSize.badgeHeight.value, 0f)
+        assertEquals(dp("statusDot"), ModbusSize.statusDot.value, 0f)
+        assertEquals(dp("changeDot"), ModbusSize.changeDot.value, 0f)
         val motion = obj("motion")
         fun ms(key: String) = ((motion[key] as Map<*, *>)["ms"] as Number).toLong()
         assertEquals(ms("instant"), ModbusMotion.INSTANT.toLong())
@@ -210,14 +224,19 @@ class DesignTokensTest {
         val styles: Map<String, TextStyle> = mapOf(
             "headline" to ModbusType.headline, "titleL" to ModbusType.titleL, "titleM" to ModbusType.titleM,
             "titleS" to ModbusType.titleS, "body" to ModbusType.body, "bodyS" to ModbusType.bodyS,
-            "label" to ModbusType.label, "caption" to ModbusType.caption, "button" to ModbusType.button,
-            "buttonCompact" to ModbusType.buttonCompact, "mono.display" to ModbusType.monoDisplay,
-            "mono.valueL" to ModbusType.monoValueL, "mono.valueM" to ModbusType.monoValueM,
+            "label" to ModbusType.label, "caption" to ModbusType.caption, "statusText" to ModbusType.statusText,
+            "button" to ModbusType.button, "buttonCompact" to ModbusType.buttonCompact,
+            "mono.display" to ModbusType.monoDisplay, "mono.valueL" to ModbusType.monoValueL,
+            "mono.gauge" to ModbusType.monoGauge, "mono.valueM" to ModbusType.monoValueM,
+            "mono.title" to ModbusType.monoTitle,
             "mono.body" to ModbusType.monoBody, "mono.small" to ModbusType.monoSmall,
             "mono.caption" to ModbusType.monoCaption,
         )
         val t = obj("type")
         assertEquals(t.keys, styles.keys)
+        assertEquals(19, styles.size)
+        // §3.4：旧写法 Mono = monoBody
+        assertEquals(ModbusType.monoBody, Mono)
         for ((key, style) in styles) {
             val spec = t[key] as Map<*, *>
             assertEquals("$key size", (spec["sizeSp"] as Number).toFloat(), style.fontSize.value, 0f)
