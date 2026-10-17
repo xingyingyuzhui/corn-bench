@@ -3,7 +3,7 @@ package io.github.xingyingyuzhui.modbusmobile.ui.workbench
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
-import io.github.xingyingyuzhui.modbusmobile.core.rtu.RtuCodec
+import io.github.xingyingyuzhui.modbusmobile.application.encodeRequestFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.UiText
 
 enum class WriteFormat { DEC, HEX }
@@ -11,8 +11,8 @@ enum class WriteFormat { DEC, HEX }
 /**
  * 一次写入的完整计划：要发的请求、整帧字节和载荷区间。
  *
- * 整帧用 core 的 [RtuCodec] 编码，与主站引擎实际发出的字节一致，所以确认弹窗里看到的就是将要发的内容。
- * 这是 ui 层的过渡做法：ui-plan 把它定为 `SessionManager.previewFrame()`（application 层），本轮不改 application/core。
+ * 整帧由 application 层的 [encodeRequestFrame] 编码（`SessionManager.previewFrame` 用的也是它），
+ * 与主站引擎实际发出的字节一致，所以确认弹窗里看到的就是将要发的内容。界面层不直接碰 core 的 RTU 编码。
  */
 class WritePlan(
     val request: ModbusRequest,
@@ -22,7 +22,7 @@ class WritePlan(
     val words: List<Int>,
     val bits: List<Boolean>,
 ) {
-    val frame: ByteArray = RtuCodec.encodeRequest(request)
+    val frame: ByteArray = encodeRequestFrame(request)
     val functionCode: Int = request.function.code
     val isSingle: Boolean = words.size + bits.size == 1 &&
         (request is ModbusRequest.WriteSingleCoil || request is ModbusRequest.WriteSingleRegister)

@@ -1,5 +1,9 @@
 package io.github.xingyingyuzhui.modbusmobile.ui.traffic
 
+import io.github.xingyingyuzhui.modbusmobile.application.FieldKind
+import io.github.xingyingyuzhui.modbusmobile.application.FrameDirection
+import io.github.xingyingyuzhui.modbusmobile.application.FrameField
+import io.github.xingyingyuzhui.modbusmobile.application.FrameInfo
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource

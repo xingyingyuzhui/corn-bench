@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -54,6 +55,7 @@ class DefaultSessionManager(
     private val _usbDevices = MutableStateFlow<List<UsbDeviceSummary>>(emptyList())
     private val _echoDetected = MutableStateFlow<Boolean?>(null)
     private val _serial = MutableStateFlow<SerialSettings?>(null)
+    private val _counters = MutableStateFlow(SessionCounters.Empty)
 
     private var epochCounter = 0L
     private var masterEngine: MasterEngine? = null
@@ -68,6 +70,7 @@ class DefaultSessionManager(
     override val usbDevices: StateFlow<List<UsbDeviceSummary>> = _usbDevices.asStateFlow()
     override val echoDetected: StateFlow<Boolean?> = _echoDetected.asStateFlow()
     override val serial: StateFlow<SerialSettings?> = _serial.asStateFlow()
+    override val counters: StateFlow<SessionCounters> = _counters.asStateFlow()
 
     override fun refreshDevices() {
         usbStack?.refreshDevices()
@@ -130,7 +133,12 @@ class DefaultSessionManager(
             ?: return ModbusResult.InvalidResponse("当前没有主站会话")
         if (running.role != Role.MASTER) return ModbusResult.InvalidResponse("当前不是主站")
         val master = masterEngine ?: return ModbusResult.InvalidResponse("当前不是主站")
-        return master.execute(request)
+        val result = master.execute(request)
+        // 只记本次会话发出去的事务；执行途中断开重连的结果不算进新会话。
+        if ((_state.value as? SessionState.Running)?.epoch == running.epoch) {
+            _counters.update { it.countMasterResult(result) }
+        }
+        return result
     }
 
     private suspend fun connectDemo(serial: SerialSettings, role: Role) {
@@ -230,6 +238,7 @@ class DefaultSessionManager(
         _slaveBank.value = null
         _echoDetected.value = null
         _serial.value = null
+        _counters.value = SessionCounters.Empty
     }
 
     private fun newMaster(
@@ -290,6 +299,7 @@ class DefaultSessionManager(
     }
 
     private fun publish(event: TrafficEvent) {
+        _counters.update { it.count(event) }
         _traffic.tryEmit(event)
     }
 
