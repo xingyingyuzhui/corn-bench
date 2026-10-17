@@ -19,6 +19,9 @@ import io.github.xingyingyuzhui.modbusmobile.core.transport.ByteTransport
 import io.github.xingyingyuzhui.modbusmobile.core.transport.MonotonicClock
 import io.github.xingyingyuzhui.modbusmobile.core.transport.memory.InMemoryBus
 import kotlin.time.Duration.Companion.milliseconds
+import io.github.xingyingyuzhui.modbusmobile.application.slave.MemorySlaveSetupStore
+import io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveSetup
+import io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveSetupStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +47,8 @@ class DefaultSessionManager(
     private val clock: MonotonicClock,
     usb: UsbStack? = null,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** 从站配置（Unit、地址段、值、模拟规则）；从站会话开始时读，本地改动后由界面调 [saveSlaveSetup] 保存。 */
+    private val slaveSetupStore: SlaveSetupStore = MemorySlaveSetupStore(),
 ) : SessionManager {
     private val usbStack = usb
     private val gate = Mutex()
@@ -58,6 +63,11 @@ class DefaultSessionManager(
     private val _serial = MutableStateFlow<SerialSettings?>(null)
     private val _counters = MutableStateFlow(SessionCounters.Empty)
     private val _simulation = MutableStateFlow<SimulationEngine?>(null)
+    private val _slaveUnits = MutableStateFlow<List<Int>>(emptyList())
+
+    /** 从站会话正在用的传输，用来在改 Unit 时就地重建从站引擎。 */
+    private var slaveTransport: ByteTransport? = null
+    private var slaveSerial: SerialSettings? = null
 
     private var epochCounter = 0L
     private var masterEngine: MasterEngine? = null
@@ -74,6 +84,7 @@ class DefaultSessionManager(
     override val serial: StateFlow<SerialSettings?> = _serial.asStateFlow()
     override val counters: StateFlow<SessionCounters> = _counters.asStateFlow()
     override val simulation: StateFlow<SimulationEngine?> = _simulation.asStateFlow()
+    override val slaveUnits: StateFlow<List<Int>> = _slaveUnits.asStateFlow()
 
     override fun refreshDevices() {
         usbStack?.refreshDevices()
@@ -160,14 +171,11 @@ class DefaultSessionManager(
             masterEngine = newMaster(bus.left, serial, publishTraffic = true, reportEcho = true)
             closeTransport = { bus.left.close(); bus.right.close() }
         } else {
-            val localSlave = phoneSlave(bus.left, bank, serial)
-            localSlave.start(scope)
-            slaveEngine = localSlave
+            val slaveBank = InMemoryRegisterBank(clock)
+            startPhoneSlave(bus.left, slaveBank, serial)
             val peerMaster = newMaster(bus.right, serial, publishTraffic = false, reportEcho = false)
             masterEngine = null
             demoJob = scope.launch { runDemoMaster(peerMaster) }
-            startSimulation(bank)
-            _slaveBank.value = bank
             closeTransport = {
                 peerMaster.close()
                 bus.left.close()
@@ -190,15 +198,10 @@ class DefaultSessionManager(
             (transport as? CloseableTransport)?.close()
             stack.stop()
         }
-        val bank = InMemoryRegisterBank(clock).also { preset(it, Role.SLAVE) }
         if (role == Role.MASTER) {
             masterEngine = newMaster(transport, serial, publishTraffic = true, reportEcho = true)
         } else {
-            val slave = phoneSlave(transport, bank, serial)
-            slave.start(scope)
-            slaveEngine = slave
-            startSimulation(bank)
-            _slaveBank.value = bank
+            startPhoneSlave(transport, InMemoryRegisterBank(clock), serial)
         }
         publishRunning(role, target, serial)
     }
@@ -229,14 +232,55 @@ class DefaultSessionManager(
         }
     }
 
-    /** 从站会话带一个空的模拟器；规则由界面设置。 */
-    private fun startSimulation(bank: VirtualRegisterBank) {
-        _simulation.value = SimulationEngine(bank, clock).also { it.start(scope) }
+    /** 手机当从站：按保存的配置装寄存器、起引擎和模拟器。 */
+    private fun startPhoneSlave(transport: ByteTransport, bank: InMemoryRegisterBank, serial: SerialSettings) {
+        val setup = slaveSetupStore.load()
+        setup.loadInto(bank)
+        val engine = phoneSlave(transport, bank, serial, setup.unitIds.toSet())
+        engine.start(scope)
+        slaveEngine = engine
+        slaveTransport = transport
+        slaveSerial = serial
+        _simulation.value = SimulationEngine(bank, clock).also {
+            it.setRules(setup.rules)
+            it.start(scope)
+        }
+        _slaveUnits.value = setup.unitIds
+        _slaveBank.value = bank
+    }
+
+    override suspend fun setSlaveUnits(units: List<Int>): Boolean {
+        if (units.isEmpty() || units.any { it !in 1..247 } || units.toSet().size != units.size) return false
+        gate.withLock {
+            val running = _state.value as? SessionState.Running ?: return false
+            if (running.role != Role.SLAVE) return false
+            val transport = slaveTransport ?: return false
+            val serial = slaveSerial ?: return false
+            val bank = _slaveBank.value as? InMemoryRegisterBank ?: return false
+            // 结构性改动在两帧之间切换（spec §4.2）：停掉旧引擎，用新的 Unit 集合在同一个传输上重建。
+            slaveEngine?.close()
+            val engine = phoneSlave(transport, bank, serial, units.toSet())
+            engine.start(scope)
+            slaveEngine = engine
+            _slaveUnits.value = units
+        }
+        saveSlaveSetup()
+        return true
+    }
+
+    override fun saveSlaveSetup(): Boolean {
+        val bank = _slaveBank.value ?: return false
+        val units = _slaveUnits.value.takeIf { it.isNotEmpty() } ?: return false
+        val rules = _simulation.value?.states?.value?.map { it.rule }.orEmpty()
+        return slaveSetupStore.save(SlaveSetup.snapshot(bank, units, rules))
     }
 
     private suspend fun teardown() {
         _simulation.value?.close()
         _simulation.value = null
+        _slaveUnits.value = emptyList()
+        slaveTransport = null
+        slaveSerial = null
         demoJob?.cancel()
         demoJob?.join()
         demoJob = null
@@ -284,8 +328,7 @@ class DefaultSessionManager(
         )
     }
 
-    private fun phoneSlave(transport: ByteTransport, bank: InMemoryRegisterBank, serial: SerialSettings): DefaultSlaveEngine {
-        val units = setOf(SLAVE_UNIT)
+    private fun phoneSlave(transport: ByteTransport, bank: InMemoryRegisterBank, serial: SerialSettings, units: Set<Int>): DefaultSlaveEngine {
         val bits = serial.bitsPerChar()
         return DefaultSlaveEngine(
             transport = transport,

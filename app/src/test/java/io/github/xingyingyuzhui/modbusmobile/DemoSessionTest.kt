@@ -147,10 +147,84 @@ class DemoSessionTest {
         session.disconnect()
     }
 
-    private fun TestScope.session(): DefaultSessionManager = DefaultSessionManager(
+    @Test
+    fun slaveSessionLoadsSavedUnitsAndRegisters() = runTest {
+        val store = io.github.xingyingyuzhui.modbusmobile.application.slave.MemorySlaveSetupStore(
+            io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveSetup(
+                listOf(
+                    io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveUnitSetup(
+                        1,
+                        listOf(io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveRegion(RegisterArea.HOLDING_REGISTER, 0, List(10) { 7 })),
+                    ),
+                    io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveUnitSetup(
+                        3,
+                        listOf(io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveRegion(RegisterArea.INPUT_REGISTER, 50, listOf(1, 2))),
+                    ),
+                ),
+            ),
+        )
+        val session = session(store)
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.SLAVE)
+        assertEquals(listOf(1, 3), session.slaveUnits.value)
+        val bank = session.slaveBank.value ?: error("从站寄存器库为空")
+        assertEquals(listOf(1, 2), bank.words(3, RegisterArea.INPUT_REGISTER).map { it.value })
+        assertEquals(7, bank.words(1, RegisterArea.HOLDING_REGISTER).first().value)
+        session.disconnect()
+        assertEquals(emptyList<Int>(), session.slaveUnits.value)
+    }
+
+    @Test
+    fun changingUnitsRebuildsTheEngineKeepsAnsweringAndSaves() = runTest {
+        val store = io.github.xingyingyuzhui.modbusmobile.application.slave.MemorySlaveSetupStore()
+        val session = session(store)
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.SLAVE)
+        advanceTimeBy(2_100)
+        runCurrent()
+        val before = session.counters.value.responses
+        assertTrue(before >= 2)
+        assertTrue(session.setSlaveUnits(listOf(1, 2)))
+        assertEquals(listOf(1, 2), session.slaveUnits.value)
+        assertEquals("改 Unit 后保存了配置", listOf(1, 2), store.current.unitIds)
+        // 换引擎之后演示主站对 Unit 1 的读取仍然有回应
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertTrue("重建引擎后继续回应：$before → ${session.counters.value.responses}", session.counters.value.responses >= before + 2)
+        assertTrue("不合法的 Unit 拒绝", !session.setSlaveUnits(listOf(0)))
+        assertTrue("重复的 Unit 拒绝", !session.setSlaveUnits(listOf(1, 1)))
+        assertTrue("不能删光", !session.setSlaveUnits(emptyList()))
+        session.disconnect()
+        assertTrue("断开后不能改", !session.setSlaveUnits(listOf(1)))
+    }
+
+    @Test
+    fun saveSlaveSetupSnapshotsValuesAndRules() = runTest {
+        val store = io.github.xingyingyuzhui.modbusmobile.application.slave.MemorySlaveSetupStore()
+        val session = session(store)
+        session.connect(ConnectionTarget.Demo, SerialSettings(responseTimeoutMs = 300, turnaroundMs = 10), Role.SLAVE)
+        val bank = session.slaveBank.value ?: error("从站寄存器库为空")
+        bank.putWord(1, RegisterArea.HOLDING_REGISTER, 3, 333)
+        val rule = io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationRule(
+            "c",
+            io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationTarget(1, RegisterArea.HOLDING_REGISTER, 9),
+            io.github.xingyingyuzhui.modbusmobile.core.slave.Waveform.Constant(9.0),
+        )
+        session.simulation.value!!.setRules(listOf(rule))
+        assertTrue(session.saveSlaveSetup())
+        val saved = store.current
+        assertEquals(333, saved.units.single().regions.first { it.area == RegisterArea.HOLDING_REGISTER }.values[3])
+        assertEquals(listOf(rule), saved.rules)
+        session.disconnect()
+        assertTrue("没有从站会话时不保存", !session.saveSlaveSetup())
+    }
+
+    private fun TestScope.session(
+        store: io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveSetupStore =
+            io.github.xingyingyuzhui.modbusmobile.application.slave.MemorySlaveSetupStore(),
+    ): DefaultSessionManager = DefaultSessionManager(
         scope = backgroundScope,
         clock = object : MonotonicClock {
             override fun nowNs(): Long = testScheduler.currentTime * 1_000_000L
         },
+        slaveSetupStore = store,
     )
 }
