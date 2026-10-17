@@ -3,16 +3,21 @@ package io.github.xingyingyuzhui.modbusmobile.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
@@ -88,7 +93,8 @@ class SlaveSimulationFlowTest {
     private fun node(suffix: String) = compose.onNodeWithTag("simulation_rule_$suffix", useUnmergedTree = true)
 
     private fun openNew() {
-        node("add").performScrollTo().performClick()
+        revealListControl("add")
+        node("add").performClick()
         compose.waitForIdle()
         node("editor").assertIsDisplayed()
     }
@@ -105,6 +111,28 @@ class SlaveSimulationFlowTest {
     private fun click(suffix: String) {
         node(suffix).performClick()
         compose.waitForIdle()
+    }
+
+    /** Scroll the actual page past the floating dock before issuing a pointer click. */
+    private fun revealListControl(suffix: String) {
+        val target = node(suffix)
+        target.performScrollTo()
+        compose.waitForIdle()
+        target.assertIsDisplayed()
+        val dock = compose.onAllNodesWithTag(DockTag).fetchSemanticsNodes().singleOrNull()?.boundsInRoot ?: return
+        val bounds = target.fetchSemanticsNode().boundsInRoot
+        val overlap = bounds.bottom - dock.top
+        if (overlap > 0f) {
+            // performScrollTo knows the scroll viewport, but the dock overlays its bottom.
+            // The page's dockClearance padding permits this extra user scroll.
+            compose.onNode(
+                hasScrollAction() and hasAnyDescendant(hasTestTag("simulation_rule_$suffix")),
+                useUnmergedTree = true,
+            ).performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(0f, overlap + 8f) }
+            compose.waitForIdle()
+        }
+        target.assertIsDisplayed()
+        assertTrue("$suffix must be fully above the dock before clicking", target.fetchSemanticsNode().boundsInRoot.bottom <= dock.top)
     }
 
     private fun sample(id: String = "saved") = SimulationRule(
@@ -124,13 +152,16 @@ class SlaveSimulationFlowTest {
         assertEquals(1, saved.rule.target.address)
         assertEquals(RuleStatus.RUNNING, saved.status)
         assertEquals(1, session.saves)
-        node(saved.rule.id).performScrollTo().assertIsDisplayed()
+        revealListControl(saved.rule.id)
+        revealListControl("toggle_${saved.rule.id}")
         click("toggle_${saved.rule.id}")
         assertEquals(RuleStatus.PAUSED, engine.states.value.single().status)
+        revealListControl("toggle_${saved.rule.id}")
         click("toggle_${saved.rule.id}")
         assertEquals(RuleStatus.RUNNING, engine.states.value.single().status)
         // Runtime pause/resume must not replace the saved startup configuration.
         assertEquals(1, session.saves)
+        revealListControl(saved.rule.id)
         click(saved.rule.id)
         click("delete_${saved.rule.id}")
         node("delete_confirm").assertIsDisplayed()
@@ -145,7 +176,8 @@ class SlaveSimulationFlowTest {
     fun cancelAndBackProtectModifiedDraftUntilDiscardIsConfirmed() {
         val original = sample()
         show(rules = listOf(original))
-        node(original.id).performScrollTo().performClick()
+        revealListControl(original.id)
+        click(original.id)
         type("a", "77")
         click("cancel")
         node("discard").assertIsDisplayed()
@@ -174,10 +206,12 @@ class SlaveSimulationFlowTest {
     @Test
     fun pauseAllAndResumeAllAffectEveryListedRule() {
         show(rules = listOf(sample("one"), sample("two")))
-        node("pause_all").performScrollTo().performClick()
+        revealListControl("pause_all")
+        node("pause_all").performClick()
         compose.waitForIdle()
         assertTrue(engine.states.value.all { it.status == RuleStatus.PAUSED })
-        node("resume_all").performScrollTo().performClick()
+        revealListControl("resume_all")
+        node("resume_all").performClick()
         compose.waitForIdle()
         assertTrue(engine.states.value.all { it.status == RuleStatus.RUNNING })
         assertEquals(0, session.saves)
