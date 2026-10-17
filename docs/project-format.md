@@ -71,6 +71,8 @@
 | `spanColumns` / `spanRows` | 1..2；跨列按“k×列宽 + (k−1)×间距”；P4 里跨行只表现为这一行更高 |
 | `onLabel` / `offLabel` | 指示灯 / 为 1 / 0 时的文字，缺省“开”/“关” |
 | `buttonLabel` | 按钮卡上的文字，可缺省（缺省 = “写入”），最长 12 字 |
+| `tableRows` | 寄存器表（`register_table`）的行数，1..16 |
+| `tableWritable` | 寄存器表是否允许面板修改，缺省 false；只有 `area` 为保持寄存器 / 线圈时才能为 true |
 | `writeValue` | 按钮的预设值（数字）：线圈只能是 0 / 1；保持寄存器按点位 `type`（U16 S16 U32 S32 F32）和 `order` 编码，整数类型要整数且在类型范围内；不做 scale / offset 换算 |
 | `states` | 状态文本：`[{"value": 2, "label": "制冷", "tone": "BLUE"}]`；`tone` ∈ `GREEN AMBER RED BLUE GRAY`，缺省 BLUE；没有 `value` 或 `label` 的条目忽略并给警告；取值没有映射时显示“未定义（值）” |
 
@@ -78,7 +80,7 @@
 
 ### 组件类型
 
-`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）、`curve`（曲线，P7）、`gauge`（仪表，P8a）、`switch`（开关，P8b1）、`button`（按钮，P8b1）。其它类型按“读不懂”处理。
+`number`（数值）、`lamp`（状态灯）、`status_text`（状态文字）、`progress`（进度条）、`curve`（曲线，P7）、`gauge`（仪表，P8a）、`switch`（开关，P8b1）、`button`（按钮，P8b1）、`register_table`（寄存器表，P8b2）。其它类型按“读不懂”处理。
 
 ### 可写组件（`switch` / `button`，P8b1）
 
@@ -88,6 +90,15 @@
 - `button`：点位是线圈或保持寄存器（`type` ∈ `U16 S16 U32 S32 F32`），**`unitId` 可以是 0..247，0 = 广播**（只有按钮可以）；必须有 `writeValue`，可带 `buttonLabel`。**不进轮询**（它的点位只用来写）。
 - 不满足上面规则的开关 / 按钮，整个组件按“读不懂”原样保留（和未知类型一样：不渲染、保存时原样写回、给警告）。
 - **版本兼容**：这是纯增量改动，`version` 仍是 1。P8b1 之前的版本读到 `switch` / `button` 会当“不认识的类型”原样保留并提示，再保存也不丢；新版本读旧文件没有任何变化。以后如果改了已有字段的含义才需要抬版本号。
+
+### 寄存器表（`kind = "register_table"`，P8b2）
+
+- 点位 `point` 是**第 1 行**，`tableRows`（1..16）是行数；第 i 行是派生点位（运行时 id `<点位 id>#i`，**不写进文件**），地址 = 起始地址 + i × 每行占用寄存器数，其余字段（Unit / 区域 / 类型 / 字序 / 缩放 / 偏移 / 轮询周期）同第 1 行。
+- `area` 为寄存器区时 `type` ∈ `U16 S16 U32 S32 F32`；为线圈 / 离散输入时 `type = BOOL`；`unitId` 1..247。不带 `thresholds` / `rangeMin` / `rangeMax`（带了也不使用）。
+- `tableWritable`（缺省 false）：只有保持寄存器 / 线圈可以为 true；输入寄存器 / 离散输入为 true 视为不合规。为 true 时每行出现 ✎，写入一律经确认弹窗（见 `docs/注意事项.md` 58–59）。
+- `spanColumns` 固定 2，`spanRows` 固定 1（卡片高度随行数增加）。
+- 不合规的表（行数不在 1..16、类型不允许、可写但区域只读、跨度溢出）按“读不懂”原样保留，不渲染。
+- **版本兼容**：纯增量，`version` 仍是 1；P8b1 及更早版本读到 `register_table` 会当“不认识的类型”原样保留并提示，再保存也不丢。
 
 ### 曲线组件（`kind = "curve"`，P7）
 

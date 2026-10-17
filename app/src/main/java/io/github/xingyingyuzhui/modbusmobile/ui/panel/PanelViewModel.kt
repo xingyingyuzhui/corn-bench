@@ -392,9 +392,10 @@ class PanelViewModel(
                 target.setActive(points.isNotEmpty())
             } else {
                 // 按钮的点位只用来写，向导预览不读它（更不会写）
-                val point: PointDefinition? = if (form.kind == WidgetKinds.BUTTON) null else form.build("preview", PREVIEW_POINT_ID).widget?.point
-                target.setPoint(point)
-                target.setActive(point != null)
+                // 按钮的 points 为空（只用来写），预览不读它；寄存器表预览读“preview#行号”这些行点位
+                val points = form.build("preview", PREVIEW_POINT_ID).widget?.points.orEmpty()
+                target.setPoints(points)
+                target.setActive(points.isNotEmpty())
             }
         }
     }

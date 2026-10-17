@@ -79,6 +79,10 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SecondaryButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SegmentedTextControl
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SelectChip
+import io.github.xingyingyuzhui.modbusmobile.application.panel.Widget
+import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetWrites
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SettingTrailing
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SettingRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SubPageHeader
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.pageStart
@@ -103,7 +107,7 @@ data class WizardActions(
 
 private val Kinds = listOf(
     WidgetKinds.NUMBER, WidgetKinds.CURVE, WidgetKinds.LAMP, WidgetKinds.SWITCH, WidgetKinds.STATUS_TEXT, WidgetKinds.PROGRESS,
-    WidgetKinds.GAUGE, WidgetKinds.BUTTON,
+    WidgetKinds.GAUGE, WidgetKinds.BUTTON, WidgetKinds.REGISTER_TABLE,
 )
 private val AllTypes = listOf(
     DataType.BOOL, DataType.BIT, DataType.U16, DataType.S16, DataType.U32, DataType.S32, DataType.F32,
@@ -182,8 +186,8 @@ fun PanelWizard(
                 } else {
                     CurveLookStep(wizard, curveResult, previewHistory, live, actions.onCurve)
                 }
-                wizard.step == 2 -> ConfigStep(wizard, result, previewSnapshot, live, actions.onForm)
-                else -> LookStep(wizard, result, previewSnapshot, live, actions.onForm)
+                wizard.step == 2 -> ConfigStep(wizard, result, previewSnapshot, live, actions.onForm, seriesSnapshots)
+                else -> LookStep(wizard, result, previewSnapshot, live, actions.onForm, seriesSnapshots)
             }
         }
         if (wizard.pointPage) {
@@ -269,6 +273,7 @@ private fun titleRes(wizard: WizardState): Int = if (wizard.step == 1) {
         WidgetKinds.GAUGE -> R.string.panel_wiz_title_gauge
         WidgetKinds.SWITCH -> R.string.panel_wiz_title_switch
         WidgetKinds.BUTTON -> R.string.panel_wiz_title_button
+        WidgetKinds.REGISTER_TABLE -> R.string.panel_wiz_title_table
         else -> R.string.panel_wiz_title_number
     }
 }
@@ -284,10 +289,6 @@ private fun KindPicker(selected: String?, onKind: (String) -> Unit) {
             if (pair.size == 1) Box(Modifier.weight(1f))
         }
     }
-    Text(
-        stringResource(R.string.panel_wiz_more_later), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-        modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp).testTag("wiz-more-later"),
-    )
 }
 
 @Composable
@@ -302,6 +303,7 @@ private fun KindCard(kind: String, selected: Boolean, onClick: () -> Unit, modif
         WidgetKinds.GAUGE -> R.string.panel_wiz_kind_gauge to R.string.panel_wiz_kind_gauge_desc
         WidgetKinds.SWITCH -> R.string.panel_wiz_kind_switch to R.string.panel_wiz_kind_switch_desc
         WidgetKinds.BUTTON -> R.string.panel_wiz_kind_button to R.string.panel_wiz_kind_button_desc
+        WidgetKinds.REGISTER_TABLE -> R.string.panel_wiz_kind_table to R.string.panel_wiz_kind_table_desc
         else -> R.string.panel_wiz_kind_number to R.string.panel_wiz_kind_number_desc
     }
     Column(
@@ -349,6 +351,9 @@ private fun KindIllustration(kind: String) {
             Modifier.height(32.dp).clip(RoundedCornerShape(10.dp)).background(colors.accent).padding(horizontal = 18.dp),
             contentAlignment = Alignment.Center,
         ) { Text("启动", color = colors.onAccent, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold) }
+        WidgetKinds.REGISTER_TABLE -> Text(
+            "0 · 236\n1 · 82\n2 · 500", color = colors.muted, fontSize = 12.sp, lineHeight = 16.sp, fontFamily = JetBrainsMono,
+        )
         else -> Row(verticalAlignment = Alignment.Bottom) {
             Text("23.4", color = colors.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, fontFamily = JetBrainsMono)
             Text(" ℃", color = colors.muted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 4.dp))
@@ -384,10 +389,11 @@ private fun ConfigStep(
     snapshot: PointSnapshot?,
     live: Boolean,
     onForm: (WidgetForm) -> Unit,
+    snapshots: Map<String, PointSnapshot> = emptyMap(),
 ) {
     val colors = LocalModbusColors.current
     val form = wizard.form
-    PreviewCard(wizard, result, snapshot, live)
+    PreviewCard(wizard, result, snapshot, live, snapshots = snapshots)
     SectionTitle(stringResource(R.string.panel_wiz_sec_source))
     ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
         SourceSection(wizard, result, onForm)
@@ -397,6 +403,16 @@ private fun ConfigStep(
             SectionTitle(stringResource(R.string.panel_wiz_sec_convert))
             ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
                 ConvertSection(wizard, result, snapshot, onForm)
+            }
+        }
+        WidgetKinds.REGISTER_TABLE -> {
+            SectionTitle(stringResource(R.string.panel_wiz_sec_convert))
+            ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ConvertSection(wizard, result, snapshot, onForm, compact = true)
+                    NameField(wizard, result, onForm)
+                    TableFields(wizard, result, onForm)
+                }
             }
         }
         else -> {
@@ -427,6 +443,7 @@ private fun ConfigStep(
     }
     if (form.kind == WidgetKinds.STATUS_TEXT) StatesSection(wizard, result, onForm)
     if (form.isWriter) WriteNote(form)
+    if (form.isTable && form.tableWritable) TableWriteNote()
     if (form.usesPoll) {
     SectionTitle(stringResource(R.string.panel_wiz_sec_poll))
     ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
@@ -458,6 +475,54 @@ private fun ButtonFields(wizard: WizardState, result: FormResult, onForm: (Widge
             stringResource(R.string.panel_wiz_write_value), form.writeValue, Modifier.fillMaxWidth().testTag("wiz-write-value"),
             error = fieldError(wizard, result, FormField.WRITE_VALUE),
         ) { onForm(form.copy(writeValue = it.filter { c -> c.isDigit() || c == '-' || c == '.' }.take(12))) }
+    }
+}
+
+/** 寄存器表的配置：行数（地址范围实时显示）+ “允许在面板上修改”（默认关；输入类区域只读，不能开）。 */
+@Composable
+private fun TableFields(wizard: WizardState, result: FormResult, onForm: (WidgetForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    val form = wizard.form
+    NumberInput(
+        stringResource(R.string.panel_wiz_table_rows), form.tableRows, Modifier.fillMaxWidth().testTag("wiz-table-rows"),
+        error = fieldError(wizard, result, FormField.ROWS),
+    ) { onForm(form.copy(tableRows = it.filter(Char::isDigit).take(2))) }
+    val rows = form.tableRows.toIntOrNull()
+    val start = form.address.toIntOrNull()
+    val per = if (form.type == DataType.BOOL) 1 else form.type.registers ?: 1
+    if (rows != null && rows in 1..WidgetWrites.MAX_TABLE_ROWS && start != null) {
+        val prefix = when (form.area) {
+            RegisterArea.COIL -> "C"
+            RegisterArea.DISCRETE_INPUT -> "DI"
+            RegisterArea.INPUT_REGISTER -> "IR"
+            RegisterArea.HOLDING_REGISTER -> "HR"
+        }
+        Text(
+            stringResource(
+                R.string.panel_wiz_table_rows_hint, "$prefix$start", "$prefix${start + rows * per - 1}", rows * per,
+                stringResource(if (form.type == DataType.BOOL) R.string.panel_wiz_occupies_coil else R.string.panel_wiz_occupies_reg),
+            ),
+            color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.testTag("wiz-table-hint"),
+        )
+    }
+    SettingRow(
+        stringResource(R.string.panel_wiz_table_writable), Modifier.testTag("wiz-table-writable"),
+        subtitle = stringResource(if (form.canAllowWrite) R.string.panel_wiz_table_writable_sub else R.string.panel_wiz_table_readonly_sub),
+        trailing = if (form.canAllowWrite) SettingTrailing.SWITCH else SettingTrailing.LOCKED,
+        checked = form.tableWritable && form.canAllowWrite,
+        onChecked = { onForm(form.copy(tableWritable = it)) },
+    )
+}
+
+/** 打开“允许修改”后的说明：每行单独确认、预览 / 编辑不写、从站不能写。 */
+@Composable
+private fun TableWriteNote() {
+    val colors = LocalModbusColors.current
+    ModbusCard(Modifier.fillMaxWidth().testTag("wiz-write-note"), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+            Text("⚠", color = colors.txText, fontSize = 12.sp)
+            Text(stringResource(R.string.panel_wiz_table_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp)
+        }
     }
 }
 
@@ -513,6 +578,7 @@ internal fun fieldError(wizard: WizardState, result: FormResult, field: FormFiel
                 FormField.ASCII -> R.string.panel_wiz_err_ascii
                 FormField.DECIMALS -> R.string.panel_wiz_err_decimals
                 FormField.POLL -> R.string.panel_wiz_err_poll
+                FormField.ROWS -> R.string.panel_wiz_err_rows
                 else -> R.string.panel_wiz_err_number
             }
             FormError.ZERO_SCALE -> R.string.panel_wiz_err_zero_scale
@@ -527,13 +593,16 @@ internal fun fieldError(wizard: WizardState, result: FormResult, field: FormFiel
 
 /** 实时预览卡：用和面板一样的卡片画（强调色描边）；表单还不完整时画只有名称和“—”的占位。 */
 @Composable
-internal fun PreviewCard(wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, live: Boolean, modifier: Modifier = Modifier) {
+internal fun PreviewCard(
+    wizard: WizardState, result: FormResult, snapshot: PointSnapshot?, live: Boolean, modifier: Modifier = Modifier,
+    snapshots: Map<String, PointSnapshot> = emptyMap(),
+) {
     val colors = LocalModbusColors.current
-    val widget = result.widget
+    val widget = result.widget?.let { previewWidget(wizard, it) }
     Column(modifier.fillMaxWidth().testTag("wiz-preview"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().heightIn(min = 96.dp)) {
             if (widget != null) {
-                WidgetCard(widget, if (live) snapshot else null, Modifier.fillMaxWidth(), borderColor = colors.accent)
+                WidgetCard(widget, if (live) snapshot else null, Modifier.fillMaxWidth(), borderColor = colors.accent, snapshots = if (live) snapshots else emptyMap())
             } else {
                 CardFrame(Modifier.fillMaxWidth(), "wiz-preview-placeholder", borderColor = colors.accent) {
                     Text(
@@ -553,6 +622,10 @@ internal fun PreviewCard(wizard: WizardState, result: FormResult, snapshot: Poin
         }
     }
 }
+
+/** 寄存器表的预览读的是“preview#行号”这些点位（见 `PanelViewModel.schedulePreview`），所以预览卡用同样的点位 id 重建。 */
+private fun previewWidget(wizard: WizardState, widget: Widget): Widget =
+    if (widget.kind == WidgetKinds.REGISTER_TABLE) wizard.form.build(widget.id, PREVIEW_POINT_ID).widget ?: widget else widget
 
 // ---- 数据源 ----
 
@@ -949,12 +1022,13 @@ private fun LookStep(
     snapshot: PointSnapshot?,
     live: Boolean,
     onForm: (WidgetForm) -> Unit,
+    snapshots: Map<String, PointSnapshot> = emptyMap(),
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
     val form = wizard.form
-    val widget = result.widget
-    val sizeLabel = "${form.spanColumns} × ${form.spanRows}"
+    val widget = result.widget?.let { previewWidget(wizard, it) }
+    val sizeLabel = if (form.isTable) "整行宽 · ${form.tableRows.toIntOrNull() ?: 0} 行" else "${form.spanColumns} × ${form.spanRows}"
     if (widget != null) {
         PanelGrid(
             columns = 2,
@@ -964,7 +1038,7 @@ private fun LookStep(
             gap = spacing.gapS,
         ) { index ->
             if (index == 0) {
-                WidgetCard(widget, if (live) snapshot else null, Modifier, borderColor = colors.accent)
+                WidgetCard(widget, if (live) snapshot else null, Modifier, borderColor = colors.accent, snapshots = if (live) snapshots else emptyMap())
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp, modifier = Modifier.testTag("wiz-actual-size"))
@@ -974,6 +1048,14 @@ private fun LookStep(
         if (form.spanColumns > 1) {
             Text(stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 2.dp).testTag("wiz-actual-size"))
         }
+    }
+    if (form.isTable) {
+        // 寄存器表固定占满一行宽度、高度随行数变化：没有尺寸可选，不画假选项
+        Text(
+            stringResource(R.string.panel_wiz_table_look_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
+            modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-table-look-note"),
+        )
+        return
     }
     ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

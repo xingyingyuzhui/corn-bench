@@ -12,9 +12,12 @@ object WidgetKinds {
     /** 可写组件（P8b）：开关 = 切换一个线圈 / 寄存器位；按钮 = 一键写入预设值。写设备永远经确认弹窗。 */
     const val SWITCH = "switch"
     const val BUTTON = "button"
-    val known = setOf(NUMBER, LAMP, STATUS_TEXT, PROGRESS, CURVE, GAUGE, SWITCH, BUTTON)
 
-    /** 会写设备的类型：编辑模式 / 向导预览里不可操作，从站模式下禁用。 */
+    /** 寄存器表（P8b2）：一段连续地址按行显示；勾选“允许面板修改”后每行可以写（逐行确认）。 */
+    const val REGISTER_TABLE = "register_table"
+    val known = setOf(NUMBER, LAMP, STATUS_TEXT, PROGRESS, CURVE, GAUGE, SWITCH, BUTTON, REGISTER_TABLE)
+
+    /** 一定会写设备的类型：编辑模式 / 向导预览里不可操作，从站模式下禁用（寄存器表只有勾了“允许修改”才会写）。 */
     val writable = setOf(SWITCH, BUTTON)
 }
 
@@ -44,6 +47,10 @@ data class Widget(
     val buttonLabel: String = "",
     /** 按钮：要写入的预设值（线圈 1 / 0；寄存器为数值，按点位类型编码，不做缩放换算）。 */
     val writeValue: Double? = null,
+    /** 寄存器表：行数（1..16，其它类型为 0）。第 i 行的地址 = 起始地址 + i × 每行占用个数。 */
+    val tableRows: Int = 0,
+    /** 寄存器表：允许在面板上改值（每行一个 ✎，仍然逐次确认）。默认关。 */
+    val tableWritable: Boolean = false,
     /** 曲线组件的配置（[kind] == [WidgetKinds.CURVE] 时非空；此时 [point] 为空，点位在各系列里）。 */
     val curve: CurveConfig? = null,
     val raw: String? = null,
@@ -59,15 +66,29 @@ data class Widget(
         get() = when (kind) {
             WidgetKinds.CURVE -> curve?.series?.map { it.point }.orEmpty()
             WidgetKinds.BUTTON -> emptyList()
+            WidgetKinds.REGISTER_TABLE -> tablePoints
             else -> listOfNotNull(point)
         }
 
+    /** 寄存器表的每一行都是一个独立点位（id = “起始点位 id#行号”），所以复用同一套轮询 / 质量 / 换算。 */
+    val tablePoints: List<PointDefinition>
+        get() = if (kind != WidgetKinds.REGISTER_TABLE || point == null) emptyList() else List(tableRows) { rowPoint(it) }
+
+    fun rowPoint(index: Int): PointDefinition {
+        val base = requireNotNull(point)
+        return base.copy(
+            id = "${base.id}#$index",
+            name = "${base.name} ${index + 1}",
+            address = base.address + index * base.quantity,
+            rangeMin = null, rangeMax = null, thresholds = emptyList(),
+        )
+    }
     /** 界面上显示的组件名：自定义标题 > 曲线的“系列名 / 系列名” > 点位名。 */
     val displayTitle: String
         get() = title.ifBlank { if (kind == WidgetKinds.CURVE) curve?.series?.joinToString(" / ") { it.point.name }.orEmpty() else point?.name.orEmpty() }
 
     /** 最少占几列（曲线至少 2 列才画得下图例和坐标）。 */
-    val minColumns: Int get() = if (kind == WidgetKinds.CURVE) 2 else 1
+    val minColumns: Int get() = if (kind == WidgetKinds.CURVE || kind == WidgetKinds.REGISTER_TABLE) 2 else 1
 }
 
 data class Panel(

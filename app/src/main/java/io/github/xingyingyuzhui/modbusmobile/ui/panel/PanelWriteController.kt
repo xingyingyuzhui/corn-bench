@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.application.panel.DataType
+import io.github.xingyingyuzhui.modbusmobile.application.panel.EncodeError
+import io.github.xingyingyuzhui.modbusmobile.application.panel.EncodeException
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PointDefinition
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PointSnapshot
 import io.github.xingyingyuzhui.modbusmobile.application.panel.Quality
@@ -30,7 +32,15 @@ import kotlinx.coroutines.launch
 data class BitEdit(val bit: Int, val baseWord: Int, val target: Boolean)
 
 /** 等用户确认的面板写入：[write] 就是工作台同一个 [PendingWrite]（整帧、当前值、广播标记都来自它）。 */
-data class PanelPending(val widget: Widget, val write: PendingWrite, val bit: BitEdit? = null)
+data class PanelPending(val widget: Widget, val write: PendingWrite, val bit: BitEdit? = null, val row: RowWrite? = null)
+
+/** 寄存器表的一次行写入：第几行（0 起）和“写进去之后这一行会显示成什么”（回读 [PendingWrite] 的字得到，已按换算和小数位）。 */
+data class RowWrite(val index: Int, val shownValue: String)
+
+/** 寄存器表等待输入新值的那一行（✎ 点过、输入框开着）。输入框只是收集数字，下一步才生成写入计划交确认弹窗。 */
+data class RowEntry(val widget: Widget, val index: Int)
+
+enum class RowEntryError { EMPTY, NOT_A_NUMBER, OUT_OF_RANGE, BAD_CONVERSION }
 
 enum class WriteNoticeKind { OK, SENT, EXCEPTION, TIMEOUT, UNKNOWN, DISCONNECTED, INVALID, READ_FAILED, CHANGED, NOT_MASTER, BAD_STATE }
 
@@ -67,8 +77,15 @@ class PanelWriteController(
     var notice by mutableStateOf<PanelWriteNotice?>(null)
         private set
 
+    /** 寄存器表正在输入新值的行（输入框开着）；不为空时其它写入请求被忽略。 */
+    var entry by mutableStateOf<RowEntry?>(null)
+        private set
+
     val isMaster: Boolean
         get() = (session.state.value as? SessionState.Running)?.role == Role.MASTER
+
+    /** 行点位的最新读数（输入框里显示“当前值”用）。 */
+    fun snapshotFor(pointId: String): PointSnapshot? = snapshotOf(pointId)
 
     fun clearNotice() {
         notice = null
@@ -133,6 +150,75 @@ class PanelWriteController(
         notice = null
     }
 
+    // ---- 寄存器表（每行一个写入，逐行确认）----
+
+    /**
+     * 寄存器表某一行的 ✎ 被点：线圈行直接生成“切到相反状态”的计划交确认弹窗（弹窗里还能改 OFF | ON）；
+     * 寄存器行先开输入框（[entry]），输入后 [submitRow] 才生成计划。表没勾“允许修改”、只读区域、行号越界一律忽略。
+     */
+    fun requestRow(widget: Widget, index: Int) {
+        val point = widget.point ?: return
+        if (widget.kind != WidgetKinds.REGISTER_TABLE || !widget.tableWritable || !point.isWritable || index !in 0 until widget.tableRows) return
+        if (WidgetWrites.problem(widget) != null || point.validate().isNotEmpty()) return
+        if (!accept(widget)) return
+        val row = widget.rowPoint(index)
+        notice = null
+        if (row.area == RegisterArea.COIL) {
+            val snap = snapshotOf(row.id)
+            val known = snap?.takeIf { it.quality == Quality.OK && it.raw != null }
+            val current = known?.engineering?.let { if (it != 0.0) 1 else 0 }
+            val target = current != 1
+            val plan = planWrite(RegisterArea.COIL, row.unitId.toString(), row.address.toString(), emptyList(), listOf(target), WriteFormat.DEC, false)
+            val ok = (plan as? PlanResult.Ok)?.plan ?: return reject(widget, WriteNoticeKind.BAD_STATE)
+            val age = known?.updatedWallMs?.let { (wallClock() - it).coerceAtLeast(0) }
+            pending = PanelPending(widget, PendingWrite(ok, listOf(current), age, currentFromRead = true), row = RowWrite(index, if (target) "ON" else "OFF"))
+        } else {
+            entry = RowEntry(widget, index)
+        }
+    }
+
+    /** 输入框里点了“下一步”：把输入的工程值反算成寄存器字，生成写入计划交确认弹窗；输入不合法返回原因（输入框留着）。 */
+    fun submitRow(text: String): RowEntryError? {
+        val e = entry ?: return null
+        if (editing() || !isMaster) {
+            entry = null
+            return null
+        }
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return RowEntryError.EMPTY
+        val value = trimmed.toDoubleOrNull()?.takeIf { it.isFinite() } ?: return RowEntryError.NOT_A_NUMBER
+        val row = e.widget.rowPoint(e.index)
+        val words = WidgetWrites.rowWords(row, value).getOrElse {
+            return if ((it as? EncodeException)?.error == EncodeError.BAD_CONVERSION) RowEntryError.BAD_CONVERSION else RowEntryError.OUT_OF_RANGE
+        }
+        val plan = planWrite(
+            RegisterArea.HOLDING_REGISTER, row.unitId.toString(), row.address.toString(), words.map { it.toString() }, emptyList(),
+            WriteFormat.DEC, forceMultiple = false,
+        )
+        val ok = (plan as? PlanResult.Ok)?.plan
+        if (ok == null) {
+            entry = null
+            reject(e.widget, WriteNoticeKind.BAD_STATE)
+            return null
+        }
+        val snap = snapshotOf(row.id)?.takeIf { it.quality == Quality.OK && it.raw != null }
+        val currentWords = WidgetWrites.wordsOf(row, snap?.raw)
+        val current: List<Int?> = if (currentWords != null && currentWords.size == words.size) currentWords else List(words.size) { null }
+        val age = snap?.updatedWallMs?.let { (wallClock() - it).coerceAtLeast(0) }
+        val shown = row.formatWords(words.toIntArray()) ?: ""
+        entry = null
+        pending = PanelPending(
+            e.widget, PendingWrite(ok, current, age, currentFromRead = currentWords != null), row = RowWrite(e.index, shown),
+        )
+        notice = null
+        return null
+    }
+
+    /** 关掉输入框（取消 / 点遮罩）：什么都不发。 */
+    fun cancelEntry() {
+        entry = null
+    }
+
     // ---- 确认 / 取消 ----
 
     /** 确认弹窗里改单个线圈的新值（“OFF | ON”分段）。 */
@@ -151,6 +237,7 @@ class PanelWriteController(
     /** 取消 / 点弹窗外：什么都不发。 */
     fun dismiss() {
         pending = null
+        entry = null
     }
 
     /** 用户点了“发送写入”。位写入先再读一次核对整字；变了就不发，用新字重新弹确认。 */
@@ -197,7 +284,7 @@ class PanelWriteController(
             reject(widget, WriteNoticeKind.NOT_MASTER)
             return false
         }
-        return pending == null && busyWidgetId == null
+        return pending == null && busyWidgetId == null && entry == null
     }
 
     private fun reject(widget: Widget, kind: WriteNoticeKind) {

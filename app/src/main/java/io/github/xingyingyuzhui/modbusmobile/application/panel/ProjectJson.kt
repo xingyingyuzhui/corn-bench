@@ -68,6 +68,10 @@ object ProjectJson {
             if (w.offLabel.isNotEmpty()) put("offLabel", w.offLabel)
             if (w.buttonLabel.isNotEmpty()) put("buttonLabel", w.buttonLabel)
             w.writeValue?.let { put("writeValue", it) }
+            if (w.kind == WidgetKinds.REGISTER_TABLE) {
+                put("tableRows", w.tableRows)
+                put("tableWritable", w.tableWritable)
+            }
             if (w.states.isNotEmpty()) {
                 put(
                     "states",
@@ -202,13 +206,15 @@ object ProjectJson {
             kind = kind,
             title = obj.optString("title", ""),
             point = point,
-            spanColumns = obj.optInt("spanColumns", 1).coerceIn(1, 2),
+            spanColumns = obj.optInt("spanColumns", if (kind == WidgetKinds.REGISTER_TABLE) 2 else 1).coerceIn(if (kind == WidgetKinds.REGISTER_TABLE) 2 else 1, 2),
             spanRows = obj.optInt("spanRows", 1).coerceIn(1, 2),
             onLabel = obj.optString("onLabel", ""),
             offLabel = obj.optString("offLabel", ""),
             states = decodeStates(obj, warnings),
             buttonLabel = obj.optString("buttonLabel", ""),
             writeValue = if (obj.has("writeValue") && !obj.isNull("writeValue")) obj.optDouble("writeValue", Double.NaN).takeIf { !it.isNaN() } else null,
+            tableRows = if (kind == WidgetKinds.REGISTER_TABLE) obj.optInt("tableRows", 0) else 0,
+            tableWritable = kind == WidgetKinds.REGISTER_TABLE && obj.optBoolean("tableWritable", false),
         )
         // 开关 / 按钮的额外规则（开关必须读得到状态、按钮必须有合法的预设值）；不满足就原样保留，不让它在面板上出现一个写不对的控件
         WidgetWrites.problem(widget)?.let { return preserved("的配置不合法（$it）") }

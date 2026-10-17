@@ -1,6 +1,15 @@
 package io.github.xingyingyuzhui.modbusmobile.ui.panel
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -162,108 +171,115 @@ fun PanelContent(
     val editEntry: (() -> Unit)? = if (ready != null && !ready.readOnly && panels.isNotEmpty()) onEdit else null
 
     writer?.let { w -> w.pending?.let { PanelWriteSheet(it, w) } }
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Column(Modifier.padding(start = pageStart(), end = spacing.page)) {
-            if (landscape) {
-                LandscapeHeader(panels, current, stats, paused, masterRunning && anyPolled, onSelectPanel, onTogglePause, editEntry, expandEntry)
-            } else {
-                PageHeader(stringResource(R.string.title_panel)) {
-                    if (editEntry != null) EditEntryButton(editEntry)
-                    if (expandEntry != null) ExpandEntryButton(expandEntry)
-                }
-                val polling = masterRunning && anyPolled && stats != null && !paused
-                val title = when {
-                    masterRunning && anyPolled && paused -> stringResource(R.string.panel_strip_paused)
-                    polling -> stringResource(R.string.panel_strip_polling)
-                    else -> null
-                }
-                val detail = when {
-                    masterRunning && anyPolled && paused -> stringResource(R.string.panel_strip_paused_detail)
-                    polling && stats != null -> stringResource(
-                        R.string.panel_strip_detail,
-                        stats.configuredMs,
-                        stats.actualMs?.let { stringResource(R.string.panel_strip_actual, it) } ?: stringResource(R.string.panel_strip_actual_none),
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            Column(Modifier.padding(start = pageStart(), end = spacing.page)) {
+                if (landscape) {
+                    LandscapeHeader(panels, current, stats, paused, masterRunning && anyPolled, onSelectPanel, onTogglePause, editEntry, expandEntry)
+                } else {
+                    PageHeader(stringResource(R.string.title_panel)) {
+                        if (editEntry != null) EditEntryButton(editEntry)
+                        if (expandEntry != null) ExpandEntryButton(expandEntry)
+                    }
+                    val polling = masterRunning && anyPolled && stats != null && !paused
+                    val title = when {
+                        masterRunning && anyPolled && paused -> stringResource(R.string.panel_strip_paused)
+                        polling -> stringResource(R.string.panel_strip_polling)
+                        else -> null
+                    }
+                    val detail = when {
+                        masterRunning && anyPolled && paused -> stringResource(R.string.panel_strip_paused_detail)
+                        polling && stats != null -> stringResource(
+                            R.string.panel_strip_detail,
+                            stats.configuredMs,
+                            stats.actualMs?.let { stringResource(R.string.panel_strip_actual, it) } ?: stringResource(R.string.panel_strip_actual_none),
+                        )
+                        else -> null
+                    }
+                    SessionStrip(
+                        Modifier.padding(bottom = spacing.gapS).testTag("panel-strip"),
+                        title = title,
+                        detail = detail,
+                        trailing = if (masterRunning && anyPolled) {
+                            { PauseButton(paused, onTogglePause) }
+                        } else {
+                            null
+                        },
                     )
-                    else -> null
-                }
-                SessionStrip(
-                    Modifier.padding(bottom = spacing.gapS).testTag("panel-strip"),
-                    title = title,
-                    detail = detail,
-                    trailing = if (masterRunning && anyPolled) {
-                        { PauseButton(paused, onTogglePause) }
-                    } else {
-                        null
-                    },
-                )
-                if (panels.size > 1) {
-                    PanelChips(panels, current, false, onSelectPanel, Modifier.padding(bottom = spacing.gapS))
+                    if (panels.size > 1) {
+                        PanelChips(panels, current, false, onSelectPanel, Modifier.padding(bottom = spacing.gapS))
+                    }
                 }
             }
-        }
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(start = pageStart(), end = spacing.page, bottom = dock.bottom + spacing.gapS),
-            verticalArrangement = Arrangement.spacedBy(spacing.gapS),
-        ) {
-            when (state) {
-                PanelUiState.Loading -> Unit
-                is PanelUiState.Corrupt -> NoticeCard(
-                    title = stringResource(R.string.panel_corrupt_title),
-                    body = stringResource(
-                        if (state.copySaved) R.string.panel_corrupt_body_saved else R.string.panel_corrupt_body,
-                        state.reason,
-                    ),
-                    tag = "panel-corrupt",
-                )
-                is PanelUiState.Ready -> {
-                    state.warnings.forEach { NoticeCard(title = null, body = it, tag = "panel-warning") }
-                    writer?.let { w -> w.notice?.let { WriteNotice(it, w::clearNotice) } }
-                    if (!anyWidgets) {
-                        NoticeCard(
-                            title = stringResource(R.string.panel_empty_title),
-                            body = stringResource(R.string.panel_empty_body),
-                            tag = "panel-empty",
-                            action = if (onAdd != null && !state.readOnly) {
-                                { PrimaryButton(stringResource(R.string.panel_add_widget), onAdd, Modifier.padding(top = 10.dp).testTag("panel-empty-add"), compact = true) }
-                            } else {
-                                null
-                            },
-                        )
-                    } else {
-                        if (stats == null && !paused && anyPolled) {
-                            Text(
-                                stringResource(R.string.panel_poll_idle),
-                                color = colors.muted,
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp,
-                                modifier = Modifier.padding(start = 2.dp).testTag("panel-poll-hint"),
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = pageStart(), end = spacing.page, bottom = dock.bottom + spacing.gapS),
+                verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+            ) {
+                when (state) {
+                    PanelUiState.Loading -> Unit
+                    is PanelUiState.Corrupt -> NoticeCard(
+                        title = stringResource(R.string.panel_corrupt_title),
+                        body = stringResource(
+                            if (state.copySaved) R.string.panel_corrupt_body_saved else R.string.panel_corrupt_body,
+                            state.reason,
+                        ),
+                        tag = "panel-corrupt",
+                    )
+                    is PanelUiState.Ready -> {
+                        state.warnings.forEach { NoticeCard(title = null, body = it, tag = "panel-warning") }
+                        writer?.let { w -> w.notice?.let { WriteNotice(it, w::clearNotice) } }
+                        if (!anyWidgets) {
+                            NoticeCard(
+                                title = stringResource(R.string.panel_empty_title),
+                                body = stringResource(R.string.panel_empty_body),
+                                tag = "panel-empty",
+                                action = if (onAdd != null && !state.readOnly) {
+                                    { PrimaryButton(stringResource(R.string.panel_add_widget), onAdd, Modifier.padding(top = 10.dp).testTag("panel-empty-add"), compact = true) }
+                                } else {
+                                    null
+                                },
                             )
-                        }
-                        PanelGrid(
-                            columns = columns,
-                            spans = widgets.map { it.spanColumns },
-                            spanRows = widgets.map { it.spanRows },
-                            modifier = Modifier.fillMaxWidth().testTag("panel-grid"),
-                            gap = spacing.gapS,
-                        ) { index ->
-                            val widget: Widget = widgets[index]
-                            if (widget.curve != null) {
-                                io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveWidgetCard(
-                                    widget, history,
-                                    onFullscreen = onOpenCurve?.let { open -> { open(widget.id) } },
+                        } else {
+                            if (stats == null && !paused && anyPolled) {
+                                Text(
+                                    stringResource(R.string.panel_poll_idle),
+                                    color = colors.muted,
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp,
+                                    modifier = Modifier.padding(start = 2.dp).testTag("panel-poll-hint"),
                                 )
-                            } else {
-                                WidgetCard(widget, snapshots[widget.point!!.id], write = writer?.let { w -> cardWrite(w, widget, masterRunning, slaveRunning) })
+                            }
+                            PanelGrid(
+                                columns = columns,
+                                spans = widgets.map { it.spanColumns },
+                                spanRows = widgets.map { it.spanRows },
+                                modifier = Modifier.fillMaxWidth().testTag("panel-grid"),
+                                gap = spacing.gapS,
+                            ) { index ->
+                                val widget: Widget = widgets[index]
+                                if (widget.curve != null) {
+                                    io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveWidgetCard(
+                                        widget, history,
+                                        onFullscreen = onOpenCurve?.let { open -> { open(widget.id) } },
+                                    )
+                                } else {
+                                    WidgetCard(
+                                        widget, snapshots[widget.point!!.id],
+                                        write = writer?.let { w -> cardWrite(w, widget, masterRunning, slaveRunning) },
+                                        snapshots = snapshots,
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        writer?.entry?.let { RowEntrySheet(it, writer) }
     }
 }
 
@@ -362,6 +378,7 @@ private fun cardWrite(writer: PanelWriteController, widget: Widget, master: Bool
     busy = writer.busyWidgetId == widget.id || writer.pending != null,
     onSwitch = { target -> writer.requestSwitch(widget, target) },
     onButton = { writer.requestButton(widget) },
+    onRow = { index -> writer.requestRow(widget, index) },
 )
 
 @Composable
@@ -403,7 +420,12 @@ private fun PanelWriteSheet(pending: PanelPending, writer: PanelWriteController)
     val name = widget.point?.let { widget.displayName(it) } ?: widget.displayTitle
     val bit = pending.bit
     val plan = pending.write.plan
+    val row = pending.row
     val context = when {
+        row != null -> {
+            val rowPoint = widget.rowPoint(row.index)
+            stringResource(R.string.panel_write_ctx_row, name, row.index + 1, addressLabel(rowPoint), row.shownValue + rowPoint.unitLabel.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty())
+        }
         bit != null -> stringResource(
             R.string.panel_write_ctx_bit, name, bit.bit, if (bit.target) 1 else 0, bit.baseWord, plan.words.firstOrNull() ?: 0,
         )
@@ -420,7 +442,7 @@ private fun PanelWriteSheet(pending: PanelPending, writer: PanelWriteController)
         onDismiss = writer::dismiss,
         context = context,
         warningOverride = bit?.let { stringResource(R.string.panel_write_bit_warning, it.bit) },
-        wordText = if (bit != null) ({ w -> "0x%04X".format(w) }) else Int::toString,
+        wordText = if (bit != null || row != null) ({ w -> "0x%04X".format(w) }) else Int::toString,
     )
 }
 
@@ -436,5 +458,93 @@ private fun NoticeCard(title: String?, body: String, tag: String, action: (@Comp
         }
         Text(body, color = colors.muted, fontSize = 13.sp, lineHeight = 19.sp)
         action?.invoke()
+    }
+}
+
+/**
+ * 寄存器表某一行的“新值”输入：页内浮层（遮罩 + 贴底面板，不是系统对话框，所以输入框和普通页面一样好用）。
+ * 这里只收集数字；点“下一步”才由控制器生成写入计划、弹出和工作台同一个确认弹窗，**确认前什么都不发**。
+ * 取消 / 点遮罩 / 返回键都只是关掉输入框。
+ */
+@Composable
+private fun RowEntrySheet(entry: RowEntry, writer: PanelWriteController) {
+    val colors = LocalModbusColors.current
+    val widget = entry.widget
+    val point = widget.point ?: return
+    val row = widget.rowPoint(entry.index)
+    val snap = writer.snapshotFor(row.id)
+    val currentText = snap?.takeIf { it.raw != null }?.text
+    var text by androidx.compose.runtime.remember(entry) { androidx.compose.runtime.mutableStateOf(currentText.orEmpty()) }
+    var error by androidx.compose.runtime.remember(entry) { androidx.compose.runtime.mutableStateOf<RowEntryError?>(null) }
+    androidx.activity.compose.BackHandler(onBack = writer::cancelEntry)
+    // 离开面板页（点了 dock 的别的 tab / 系统返回）就收起输入框，回来不会还挂着一个没人管的浮层
+    androidx.compose.runtime.DisposableEffect(entry) { onDispose { writer.cancelEntry() } }
+    val dock = LocalDockInsets.current
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+    Box(Modifier.fillMaxSize().testTag("row-entry")) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f))
+                .clickable(interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = writer::cancelEntry)
+                .testTag("row-entry-scrim"),
+        )
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                // 面板页底部的悬浮 dock 盖在页面内容上面：面板要坐在 dock 上方，否则“取消 / 下一步”会被 dock 挡住、点到别的 tab
+                .padding(bottom = dock.bottom)
+                .fillMaxWidth()
+                .clip(shape)
+                .background(colors.surface1)
+                .border(1.dp, colors.line, shape)
+                .clickable(interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { }
+                .imePadding()
+                .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(Modifier.align(Alignment.CenterHorizontally).size(width = 36.dp, height = 4.dp).clip(androidx.compose.foundation.shape.CircleShape).background(colors.line))
+            Text(
+                stringResource(R.string.panel_row_entry_title, widget.displayName(point), entry.index + 1),
+                color = colors.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.testTag("row-entry-title"),
+            )
+            Text(
+                stringResource(R.string.panel_row_entry_sub, row.unitId, addressLabel(row), row.type.name) + " · " +
+                    (currentText?.let { stringResource(R.string.panel_row_entry_current, it + row.unitLabel.takeIf { u -> u.isNotBlank() }?.let { u -> " $u" }.orEmpty()) }
+                        ?: stringResource(R.string.panel_row_entry_current_none)),
+                color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.testTag("row-entry-sub"),
+            )
+            val errorText = error?.let {
+                when (it) {
+                    RowEntryError.EMPTY -> stringResource(R.string.panel_row_err_empty)
+                    RowEntryError.NOT_A_NUMBER -> stringResource(R.string.panel_row_err_number)
+                    RowEntryError.OUT_OF_RANGE -> stringResource(R.string.panel_row_err_range, row.type.name)
+                    RowEntryError.BAD_CONVERSION -> stringResource(R.string.panel_row_err_conversion)
+                }
+            }
+            io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput(
+                stringResource(R.string.panel_row_entry_value), text, Modifier.fillMaxWidth().testTag("row-entry-value"),
+                error = errorText, keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+            ) { text = it.filter { c -> c.isDigit() || c == '-' || c == '.' || c == 'e' || c == 'E' || c == '+' }.take(16); error = null }
+            val conv = row.conversion
+            Text(
+                stringResource(
+                    R.string.panel_row_entry_hint,
+                    io.github.xingyingyuzhui.modbusmobile.application.panel.ValueCodec.format(conv.scale, null).orEmpty(),
+                    io.github.xingyingyuzhui.modbusmobile.application.panel.ValueCodec.format(conv.offset, null).orEmpty(),
+                    row.type.name,
+                ),
+                color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.testTag("row-entry-hint"),
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                io.github.xingyingyuzhui.modbusmobile.ui.components.SecondaryButton(
+                    stringResource(R.string.action_cancel), writer::cancelEntry, Modifier.weight(1f).testTag("row-entry-cancel"),
+                )
+                PrimaryButton(
+                    stringResource(R.string.panel_row_entry_next), { error = writer.submitRow(text) },
+                    Modifier.weight(1.6f).testTag("row-entry-next"),
+                )
+            }
+        }
     }
 }
