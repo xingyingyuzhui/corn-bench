@@ -141,9 +141,9 @@ class PanelWizardTest {
 
     // ---- 1/3 选类型 ----
 
-    @Test fun pickerShowsTheEightRealKindsAsTwoColumnCards() {
+    @Test fun pickerShowsTheNineRealKindsAsTwoColumnCards() {
         show(wizardState(1))
-        for (kind in listOf("number", "curve", "lamp", "switch", "status_text", "progress", "gauge", "button")) {
+        for (kind in listOf("number", "curve", "lamp", "switch", "status_text", "progress", "gauge", "button", "register_table")) {
             val card = bounds("wiz-kind-$kind")
             assertTrue("$kind 卡高 ${card.height.value}", card.height.value >= 117.5f)
         }
@@ -162,8 +162,10 @@ class PanelWizardTest {
         val st = bounds("wiz-kind-status_text")
         assertEquals("状态文本和进度条同一行（第三行）", st.top.value, p.top.value, 0.6f)
         compose.onNodeWithText("量程 + 分段颜色", useUnmergedTree = true).assertIsDisplayed()
-        assertEquals("提示文字里提到未做的类型，但不能是卡片", 0, count("wiz-kind-register_table"))
-        compose.onNodeWithTag("wiz-more-later", useUnmergedTree = true).assertIsDisplayed()
+        val table = bounds("wiz-kind-register_table")
+        assertEquals("寄存器表在第五行，单独一张半宽卡", a.width.value, table.width.value, 0.6f)
+        assertTrue(table.top > btn.bottom)
+        assertEquals("没有“后续版本”的占位说明", 0, count("wiz-more-later"))
         compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertTextContains("1 / 3")
         compose.onNodeWithText("添加组件", useUnmergedTree = true).assertIsDisplayed()
         assertEquals("选类型页没有底栏", 0, count("wiz-next"))

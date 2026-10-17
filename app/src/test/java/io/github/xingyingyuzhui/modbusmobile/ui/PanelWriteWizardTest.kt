@@ -116,13 +116,13 @@ class PanelWriteWizardTest {
 
     // ---- 1/3 选类型 ----
 
-    @Test fun pickerHasSwitchAndButtonCardsButNoPlaceholderForTheTable() {
+    @Test fun pickerHasSwitchButtonAndTableCards() {
         show(wizardState(1))
-        for (kind in listOf("switch", "button")) {
+        for (kind in listOf("switch", "button", "register_table")) {
             val t = touch("wiz-kind-$kind")
             assertTrue("$kind 卡高 ${t.height / dp}", t.height >= 117.5f * dp)
         }
-        assertEquals("寄存器表还没做：不画灰卡", 0, count("wiz-kind-register_table"))
+        assertEquals("没有“后续版本”的占位说明", 0, count("wiz-more-later"))
         compose.onNodeWithText("切换线圈 / 寄存器位 · 会写设备", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("一键写入预设值 · 会写设备", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("wiz-kind-switch", useUnmergedTree = true).performScrollTo().performClick()

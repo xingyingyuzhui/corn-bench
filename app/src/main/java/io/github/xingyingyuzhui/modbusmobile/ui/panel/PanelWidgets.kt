@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.shape.CircleShape
@@ -53,6 +56,8 @@ import io.github.xingyingyuzhui.modbusmobile.application.panel.ThresholdLevel
 import io.github.xingyingyuzhui.modbusmobile.application.panel.ValueCodec
 import io.github.xingyingyuzhui.modbusmobile.application.panel.Widget
 import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetKinds
+import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetWrites
+import io.github.xingyingyuzhui.modbusmobile.application.modiconLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusSwitchVisual
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
@@ -75,6 +80,8 @@ data class CardWrite(
     val busy: Boolean,
     val onSwitch: (Boolean) -> Unit,
     val onButton: () -> Unit,
+    /** 寄存器表某一行的 ✎（行号从 0 起）。 */
+    val onRow: (Int) -> Unit = {},
 )
 
 /**
@@ -92,6 +99,8 @@ fun WidgetCard(
     borderColor: Color? = null,
     /** 开关 / 按钮的写入入口；null = 不可操作（编辑模式 / 向导预览）。 */
     write: CardWrite? = null,
+    /** 寄存器表要用：各行点位的读数（key = 行点位 id）。 */
+    snapshots: Map<String, PointSnapshot> = emptyMap(),
 ) {
     val point = widget.point ?: return
     // 编辑模式（稿面 b2-2）：名称前加 ⠿，不显示 badge 和 meta（值还是实时的）。
@@ -105,6 +114,7 @@ fun WidgetCard(
             WidgetKinds.GAUGE -> GaugeBody(widget, point, name, snapshot, look)
             WidgetKinds.SWITCH -> SwitchBody(widget, point, name, snapshot, look, write)
             WidgetKinds.BUTTON -> ButtonBody(widget, point, name, editing, write)
+            WidgetKinds.REGISTER_TABLE -> TableBody(widget, name, editing, snapshots, write)
             else -> NumberBody(widget, point, name, snapshot, look)
         }
     }
@@ -366,6 +376,147 @@ private fun ButtonBody(widget: Widget, point: PointDefinition, name: String, edi
         color = if (broadcast && (write == null || write.enabled) && !editing) colors.error else colors.dim,
         modifier = Modifier.padding(top = 2.dp).testTag("panel-button-note-${widget.id}"),
     )
+}
+
+/**
+ * 寄存器表卡（我自己的设计，稿面只有选类型页的一张缩略图）：名称 + 汇总 badge、表头（地址 | 值 · 类型 | HEX | ✎）、
+ * 每行 = 地址（mono 13 + 参考号 10 dim）、值（mono 15）、HEX（mono 11 dim，线路字序）、可写时右侧 48dp 的 ✎。
+ * 行高：只读 40、可写 48（✎ 触控 ≥48）。✎ 只是请求，点了先看写入帧、确认才写（见 [PanelWriteController]）。
+ * 编辑模式只画摘要；向导预览（[write] 为 null）画出 ✎ 但不响应。
+ */
+@Composable
+private fun TableBody(widget: Widget, name: String, editing: Boolean, snapshots: Map<String, PointSnapshot>, write: CardWrite?) {
+    val colors = LocalModbusColors.current
+    val rows = widget.tablePoints
+    if (rows.isEmpty()) return
+    val first = rows.first()
+    val last = rows.last()
+    // 范围写到最后一个寄存器（32 位行占 2 个）：HR100–HR107，而不是最后一行的起始地址
+    val endLabel = addressLabel(last.copy(address = last.address + last.quantity - 1))
+    val range = addressLabel(first) + if (endLabel != addressLabel(first)) "–$endLabel" else ""
+    if (editing) {
+        NameRow(name, null)
+        Text(
+            stringResource(
+                R.string.panel_table_edit_summary, rows.size, addressLabel(first), endLabel,
+                stringResource(if (widget.tableWritable) R.string.panel_table_mode_rw else R.string.panel_table_mode_ro),
+            ),
+            color = colors.dim, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp).testTag("panel-table-summary-${widget.id}"),
+        )
+        return
+    }
+    val snaps = rows.map { snapshots[it.id] }
+    val worst = snaps.withIndex().maxByOrNull { (_, s) -> qualityRank(s?.quality) }
+    val look = rememberLook(widget, rows[worst?.index ?: 0], worst?.value)
+    val badge = if (snaps.all { it?.raw == null && (it?.quality ?: Quality.NO_DATA) == Quality.NO_DATA }) null else look.badge
+    NameRow(name, badge)
+    val writable = widget.tableWritable
+    val isBits = first.isBitArea
+    val usable = write != null && write.enabled && !write.busy
+    val unit = first.unitLabel.takeIf { it.isNotBlank() }
+    val head = first.type.name + (unit?.let { " · $it" } ?: "")
+    Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
+        val style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp, color = colors.dim)
+        Text(stringResource(R.string.panel_table_head_addr), style = style, modifier = Modifier.width(TABLE_ADDR_W))
+        Text(stringResource(R.string.panel_table_head_value, head), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (!isBits) Text(stringResource(R.string.panel_table_head_hex), style = style, modifier = Modifier.width(TABLE_HEX_W))
+        if (writable) Box(Modifier.width(TABLE_EDIT_W))
+    }
+    val rowHeight = if (writable) 48.dp else 40.dp
+    rows.forEachIndexed { i, row ->
+        val snap = snaps[i]
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
+        Row(Modifier.fillMaxWidth().height(rowHeight).testTag("panel-row-${widget.id}-$i"), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.width(TABLE_ADDR_W)) {
+                Text(addressLabel(row), style = Mono.copy(fontSize = 13.sp, lineHeight = 16.sp), color = colors.text, maxLines = 1)
+                Text(modiconLabel(row.area, row.address), style = Mono.copy(fontSize = 10.sp, lineHeight = 12.sp), color = colors.dim, maxLines = 1)
+            }
+            val quality = snap?.quality ?: Quality.NO_DATA
+            val has = snap?.raw != null
+            val color = when (quality) {
+                Quality.OK -> when (snap?.level) {
+                    ThresholdLevel.ALERT -> colors.error
+                    ThresholdLevel.WARN -> colors.txText
+                    else -> colors.text
+                }
+                Quality.STALE -> colors.muted
+                else -> colors.dim
+            }
+            val text = when {
+                !has -> "—"
+                isBits -> if (snap?.engineering == 1.0) "ON" else "OFF"
+                else -> snap?.text ?: "—"
+            }
+            val strike = (quality == Quality.TIMEOUT || quality == Quality.ERROR) && has
+            // 删除线只画在文字上（外面的 Box 占满列宽，文字自己包内容）
+            Box(Modifier.weight(1f)) {
+                Text(
+                    text, style = Mono.copy(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold), color = color,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("panel-row-value-${widget.id}-$i").then(if (strike) Modifier.redStrike(colors.error) else Modifier),
+                )
+            }
+            if (!isBits) {
+                val words = WidgetWrites.wordsOf(row, snap?.raw)
+                Text(
+                    words?.joinToString(" ") { "%04X".format(it) } ?: "—",
+                    style = Mono.copy(fontSize = 11.sp, lineHeight = 14.sp), color = colors.dim, maxLines = 1,
+                    modifier = Modifier.width(TABLE_HEX_W).testTag("panel-row-hex-${widget.id}-$i"),
+                )
+            }
+            if (writable) {
+                val desc = stringResource(R.string.panel_table_edit_desc, addressLabel(row))
+                Box(
+                    Modifier
+                        .width(TABLE_EDIT_W).fillMaxHeight()
+                        .alpha(if (usable || write == null) 1f else 0.45f)
+                        .then(
+                            if (write != null) {
+                                Modifier.semantics { contentDescription = desc }
+                                    .clickable(enabled = usable, role = Role.Button) { write.onRow(i) }
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .testTag("panel-row-edit-${widget.id}-$i"),
+                    contentAlignment = Alignment.Center,
+                ) { Text("✎", color = colors.accentText, fontSize = 17.sp) }
+            }
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
+    val updated = snaps.mapNotNull { it?.updatedWallMs }.maxOrNull()
+    val anyData = snaps.any { it?.raw != null }
+    val meta = when {
+        look.metaProblem -> look.meta
+        !anyData -> stringResource(R.string.panel_meta_waiting, range)
+        updated != null -> stringResource(R.string.panel_table_meta_time, first.unitId, addressLabel(first), endLabel, clock(updated))
+        else -> stringResource(R.string.panel_table_meta, first.unitId, addressLabel(first), endLabel)
+    }
+    val note = when {
+        write == null || !writable -> null
+        write.busy -> stringResource(R.string.panel_write_busy)
+        !write.enabled -> write.reason
+        else -> null
+    }
+    Text(
+        note ?: meta, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp),
+        color = if (note == null && look.metaProblem) colors.error else colors.dim,
+        modifier = Modifier.padding(top = 4.dp).testTag(if (note != null) "panel-table-note-${widget.id}" else "panel-table-meta-${widget.id}"),
+    )
+}
+
+private val TABLE_ADDR_W = 72.dp
+private val TABLE_HEX_W = 84.dp
+private val TABLE_EDIT_W = 48.dp
+
+/** 越大越“糟”：错误 > 超时 > 过期 > 正常 > 没数据，卡片 badge / 说明跟最糟的那一行走。 */
+private fun qualityRank(q: Quality?): Int = when (q) {
+    Quality.ERROR -> 4
+    Quality.TIMEOUT -> 3
+    Quality.STALE -> 2
+    Quality.OK -> 1
+    else -> 0
 }
 
 /** 14dp 灯，亮 = 绿 + 光晕（稿面 box-shadow 0 0 10px）；灭 / 无数据 = surface3；有值但读取失败（过期）= 绿色减淡，无光晕。 */
