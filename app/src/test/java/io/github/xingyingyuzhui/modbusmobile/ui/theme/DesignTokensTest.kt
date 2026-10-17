@@ -87,10 +87,10 @@ class DesignTokensTest {
         assertEquals((wash["light"] as Number).toFloat(), light.washAlpha, 0.0001f)
         // 所有语义色同一档
         for (c in listOf(dark.tx, dark.rxLocal, dark.error, dark.dropped, dark.accent)) {
-            assertEquals(0.10f, dark.wash(c).alpha, 0.0001f)
+            assertEquals(0.10f, dark.wash(c).alpha, 0.004f) // Color 的 alpha 按 8 位存（1/255 ≈ 0.004）
         }
         for (c in listOf(light.tx, light.rxLocal, light.error, light.dropped, light.accent)) {
-            assertEquals(0.07f, light.wash(c).alpha, 0.0001f)
+            assertEquals(0.07f, light.wash(c).alpha, 0.004f)
         }
     }
 
