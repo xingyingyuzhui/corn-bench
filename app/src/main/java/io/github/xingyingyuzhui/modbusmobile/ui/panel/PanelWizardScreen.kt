@@ -156,7 +156,7 @@ fun PanelWizard(
         SubPageHeader(
             title = stringResource(if (wizard.pointPage) R.string.panel_wiz_series_point_title else titleRes(wizard)),
             onBack = goBack,
-            modifier = Modifier.padding(start = pageStart() - 8.dp, end = spacing.page),
+            modifier = Modifier.padding(start = pageStart(), end = spacing.page),
             trailing = {
                 Text(
                     stringResource(R.string.panel_wiz_step, wizard.step),
@@ -395,19 +395,19 @@ private fun ConfigStep(
     val form = wizard.form
     PreviewCard(wizard, result, snapshot, live, snapshots = snapshots)
     SectionTitle(stringResource(R.string.panel_wiz_sec_source))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+    ModbusCard(Modifier.fillMaxWidth()) {
         SourceSection(wizard, result, onForm)
     }
     when (form.kind) {
         WidgetKinds.NUMBER, WidgetKinds.PROGRESS, WidgetKinds.GAUGE -> {
             SectionTitle(stringResource(R.string.panel_wiz_sec_convert))
-            ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+            ModbusCard(Modifier.fillMaxWidth()) {
                 ConvertSection(wizard, result, snapshot, onForm)
             }
         }
         WidgetKinds.REGISTER_TABLE -> {
             SectionTitle(stringResource(R.string.panel_wiz_sec_convert))
-            ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+            ModbusCard(Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ConvertSection(wizard, result, snapshot, onForm, compact = true)
                     NameField(wizard, result, onForm)
@@ -417,7 +417,7 @@ private fun ConfigStep(
         }
         else -> {
             SectionTitle(stringResource(R.string.panel_wiz_sec_display))
-            ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+            ModbusCard(Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     NameField(wizard, result, onForm)
                     if (form.kind == WidgetKinds.LAMP || form.kind == WidgetKinds.SWITCH) {
@@ -446,7 +446,7 @@ private fun ConfigStep(
     if (form.isTable && form.tableWritable) TableWriteNote()
     if (form.usesPoll) {
     SectionTitle(stringResource(R.string.panel_wiz_sec_poll))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+    ModbusCard(Modifier.fillMaxWidth()) {
         NumberInput(
             stringResource(R.string.panel_wiz_poll), form.pollMs, Modifier.fillMaxWidth().testTag("wiz-poll"),
             sub = stringResource(R.string.panel_wiz_poll_unit),
@@ -518,7 +518,7 @@ private fun TableFields(wizard: WizardState, result: FormResult, onForm: (Widget
 @Composable
 private fun TableWriteNote() {
     val colors = LocalModbusColors.current
-    ModbusCard(Modifier.fillMaxWidth().testTag("wiz-write-note"), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+    ModbusCard(Modifier.fillMaxWidth().testTag("wiz-write-note")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
             Text("⚠", color = colors.txText, fontSize = 12.sp)
             Text(stringResource(R.string.panel_wiz_table_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp)
@@ -530,7 +530,7 @@ private fun TableWriteNote() {
 @Composable
 private fun WriteNote(form: WidgetForm) {
     val colors = LocalModbusColors.current
-    ModbusCard(Modifier.fillMaxWidth().testTag("wiz-write-note"), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+    ModbusCard(Modifier.fillMaxWidth().testTag("wiz-write-note")) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                 Text("⚠", color = colors.txText, fontSize = 12.sp)
@@ -557,7 +557,7 @@ internal fun SectionTitle(text: String) {
     val colors = LocalModbusColors.current
     Text(
         text, color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp,
-        modifier = Modifier.padding(start = 2.dp, top = 6.dp),
+        modifier = Modifier.padding(top = 6.dp),
     )
 }
 
@@ -617,7 +617,7 @@ internal fun PreviewCard(
         if (!live && wizard.form.kind != WidgetKinds.BUTTON) {
             Text(
                 stringResource(R.string.panel_wiz_preview_none), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-                modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-preview-none"),
+                modifier = Modifier.testTag("wiz-preview-none"),
             )
         }
     }
@@ -923,7 +923,7 @@ private fun StatesSection(wizard: WizardState, result: FormResult, onForm: (Widg
     Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             stringResource(R.string.panel_wiz_sec_states, form.states.size), color = colors.muted, fontSize = 12.5.sp,
-            modifier = Modifier.weight(1f).padding(start = 2.dp).testTag("wiz-states-title"),
+            modifier = Modifier.weight(1f).testTag("wiz-states-title"),
         )
         Box(
             Modifier
@@ -951,7 +951,7 @@ private fun StatesSection(wizard: WizardState, result: FormResult, onForm: (Widg
     Text(
         if (error != null && (wizard.showErrors || form.states.isNotEmpty())) stringResource(R.string.panel_wiz_err_states) else stringResource(R.string.panel_wiz_state_hint),
         color = if (error != null && wizard.showErrors) colors.error else colors.muted,
-        fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-states-note"),
+        fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.testTag("wiz-states-note"),
     )
 }
 
@@ -1046,18 +1046,18 @@ private fun LookStep(
             }
         }
         if (form.spanColumns > 1) {
-            Text(stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 2.dp).testTag("wiz-actual-size"))
+            Text(stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp, modifier = Modifier.testTag("wiz-actual-size"))
         }
     }
     if (form.isTable) {
         // 寄存器表固定占满一行宽度、高度随行数变化：没有尺寸可选，不画假选项
         Text(
             stringResource(R.string.panel_wiz_table_look_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-            modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-table-look-note"),
+            modifier = Modifier.testTag("wiz-table-look-note"),
         )
         return
     }
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
+    ModbusCard(Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.panel_wiz_size), color = colors.muted, fontSize = 12.sp)
             SegmentedTextControl(
@@ -1069,7 +1069,7 @@ private fun LookStep(
     }
     Text(
         stringResource(R.string.panel_wiz_size_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-        modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-size-note"),
+        modifier = Modifier.testTag("wiz-size-note"),
     )
 }
 

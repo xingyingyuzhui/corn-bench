@@ -45,6 +45,7 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.application.panel.CurveConfig
@@ -144,7 +145,7 @@ fun CurveFullscreenContent(
                 Text(
                     widget?.displayTitle ?: stringResource(R.string.title_curve),
                     color = colors.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false).padding(start = 2.dp).testTag("curve-fs-title"),
+                    modifier = Modifier.weight(1f, fill = false).testTag("curve-fs-title"),
                 )
                 if (widget != null) {
                     val (text, tone) = when {
@@ -177,7 +178,7 @@ fun CurveFullscreenContent(
         if (widget == null || config == null) {
             Text(
                 stringResource(R.string.curve_fs_missing), color = colors.muted, fontSize = 14.sp, lineHeight = 20.sp,
-                modifier = Modifier.padding(horizontal = 2.dp, vertical = 8.dp).testTag("curve-fs-missing"),
+                modifier = Modifier.padding(vertical = LocalSpacing.current.s).testTag("curve-fs-missing"),
             )
         } else {
             val shown = remember(config, windowSec) { config.copy(windowSec = windowSec) }

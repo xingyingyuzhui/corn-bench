@@ -76,6 +76,8 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.ChipRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.FieldRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.JetBrainsMono
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.StrokeHairline
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
@@ -83,20 +85,22 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 @Composable
 fun ModbusCard(
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(12.dp),
+    contentPadding: PaddingValues = PaddingValues(LocalSpacing.current.card),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = LocalModbusColors.current
+    val spacing = LocalSpacing.current
     val shape = RoundedCornerShape(CardRadius)
+    // §6.3 / §13.2：卡片内边距只有 space.card 12 一种（AL-04），内容左缘 = 卡片外缘 + 12 = K1（K0 + 12）。
+    // 原来为了模仿稿面 border-box 多补的 1dp 去掉：K1 以外缘量，1dp 描边画在内边距里。
+    // contentPadding 只留给通栏内容（例如卡内列表行自己带 12 水平内边距时传 0）。
     Column(
         modifier
             .fillMaxWidth()
             .background(colors.surface1, shape)
-            .border(1.dp, colors.line, shape)
-            // 稿面 `.card` 是 border-box：1px 边框在 12px 内边距之外占位，内容离外缘 13；Compose 的 border 不占位，补 1dp。
-            .padding(1.dp)
+            .border(StrokeHairline, colors.line, shape)
             .padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(spacing.s),
         content = content,
     )
 }

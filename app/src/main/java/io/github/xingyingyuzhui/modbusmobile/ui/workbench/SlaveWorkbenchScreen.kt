@@ -61,6 +61,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSpacing
 
 
 @Composable
@@ -160,7 +161,10 @@ fun SlaveStatsContent(counters: SessionCounters, columns: Int = 4, modifier: Mod
     }
 }
 
-/** 稿面 .st：底 s1、1px line、圆角 12、内边距 8/8/7；标签 10.5 muted，数值 mono 17 SemiBold。 */
+/** 稿面 .st：底 s1、1px line、圆角 12、内边距 8 四边相等（AL-04，原 8/8/8/7）；标签 10.5 muted，数值 mono 17 SemiBold。 */
+/** 统计格这类卡内小格子的内边距：8 四边相等（space.s 的标准密度值，统计格不随密度缩；§13.2 / AL-04）。 */
+private val StatTilePadding = ModbusSpacing.Comfortable.s
+
 @Composable
 private fun StatTile(label: String, value: Long, valueColor: androidx.compose.ui.graphics.Color, modifier: Modifier) {
     val colors = LocalModbusColors.current
@@ -169,7 +173,7 @@ private fun StatTile(label: String, value: Long, valueColor: androidx.compose.ui
         modifier
             .background(colors.surface1, shape)
             .border(1.dp, colors.line, shape)
-            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 7.dp),
+            .padding(StatTilePadding),
     ) {
         Text(label, color = colors.muted, fontSize = 10.5.sp, lineHeight = 14.sp, maxLines = 1)
         Text(
