@@ -76,6 +76,10 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.ChipRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.FieldRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.JetBrainsMono
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.SmallRadius
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.RowRadius
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSpacing
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSize
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.StrokeHairline
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
@@ -119,15 +123,15 @@ fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
     }
 }
 
-/** 分段控件的单项高度：稿面单行分段整体 42（项 36）、sm 档 37（项 31）。默认保持 48dp 触控高度，旧页面不变。 */
-val SegItemDesign = 36.dp
-val SegItemSmall = 31.dp
+/** 分段控件的单项高度（§6.7 v2）：项 36 / 小号 32（原 31）。外层仍补到 48dp 触控高度。 */
+val SegItemDesign = ModbusSize.segItem
+val SegItemSmall = ModbusSize.segItemSmall
 
-/** 稿面 `.seg`：外层圆角 12、内边距 3、项间距 3；选中块圆角 = 外层圆角 − 内边距 = 9（同心）。 */
-val SegContainerRadius = 12.dp
-val SegPadding = 3.dp
-val SegGap = 3.dp
-val SegItemRadius = SegContainerRadius - SegPadding
+/** §6.7 v2 `.seg`：外框圆角 radius.row 12、内边距 4、项间距 4（原 3）；选中块圆角 radius.small 8（= 12 − 4，同心）。 */
+val SegContainerRadius = RowRadius
+val SegPadding = ModbusSpacing.Comfortable.xs
+val SegGap = SegPadding
+val SegItemRadius = SmallRadius
 
 const val SegContainerTag = "seg-container"
 const val SegItemTag = "seg-item"
@@ -168,9 +172,9 @@ fun <T> SegmentedControl(
                         .heightIn(min = itemHeight)
                         .clip(shape)
                         .background(if (on) if (colors.isDark) colors.surface3 else colors.surface1 else androidx.compose.ui.graphics.Color.Transparent)
-                        .then(if (on) Modifier.border(1.dp, ring, shape) else Modifier)
+                        .then(if (on) Modifier.border(StrokeHairline, ring, shape) else Modifier)
                         .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(option) })
-                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                        .padding(horizontal = LocalSpacing.current.xs, vertical = LocalSpacing.current.xs),
                     contentAlignment = Alignment.Center,
                 ) {
                     label(option)
@@ -307,24 +311,18 @@ fun FieldTile(
     mono: Boolean = true,
 ) {
     val colors = LocalModbusColors.current
+    // §6.2 v2：label caption 11/16、值 monoValueM 17/24；内边距 12×8，最小高 56（8 + 16 + 24 + 8）。原 10×7 / 50。
     Column(
         modifier
-            .heightIn(min = 50.dp)
+            .heightIn(min = ModbusSize.fieldTile)
             .background(colors.surface2, RoundedCornerShape(FieldRadius))
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .padding(fieldPadding()),
     ) {
-        Text(label, color = colors.muted, fontSize = 11.sp, lineHeight = 13.sp)
+        Text(label, color = colors.muted, style = ModbusType.caption)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                value,
-                color = colors.text,
-                fontSize = if (mono) 17.sp else 15.sp,
-                lineHeight = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
-            )
+            Text(value, color = colors.text, style = if (mono) ModbusType.monoValueM else ModbusType.titleS)
             if (sub != null) {
-                Text(sub, color = colors.dim, fontSize = 11.sp, fontFamily = JetBrainsMono, modifier = Modifier.padding(start = 6.dp))
+                Text(sub, color = colors.dim, style = ModbusType.monoCaption, modifier = Modifier.padding(start = LocalSpacing.current.xs))
             }
         }
     }
@@ -346,7 +344,7 @@ fun NumberInput(
     modifier: Modifier = Modifier,
     error: String? = null,
     sub: String? = null,
-    minHeight: Dp = 50.dp,
+    minHeight: Dp = ModbusSize.fieldTile,
     keyboardType: KeyboardType = KeyboardType.Number,
     isError: Boolean = error != null,
     readOnly: Boolean = false,
@@ -378,7 +376,7 @@ fun TextInput(
     error: String? = null,
     isError: Boolean = error != null,
     readOnly: Boolean = false,
-    minHeight: Dp = 50.dp,
+    minHeight: Dp = ModbusSize.fieldTile,
     onValue: (String) -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -443,10 +441,10 @@ private fun InputField(
                 .background(colors.surface2, shape)
                 .then(ring)
                 .then(if (readOnly) Modifier else Modifier.pointerInput(Unit) { detectTapGestures { requester.requestFocus() } })
-                .padding(horizontal = 10.dp, vertical = 7.dp),
+                .padding(fieldPadding()),
         ) {
             Text(label, color = if (isError) colors.error else colors.muted, style = ModbusType.caption, maxLines = 1)
-            Row(Modifier.fillMaxWidth().padding(top = LocalSpacing.current.xxs), verticalAlignment = Alignment.Bottom) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 BasicTextField(
                     value = field,
                     onValueChange = { next ->
@@ -470,7 +468,7 @@ private fun InputField(
                         .onFocusChanged { focused = it.isFocused },
                 )
                 if (sub != null) {
-                    Text(sub, color = colors.dim, fontSize = 11.sp, fontFamily = JetBrainsMono, maxLines = 1)
+                    Text(sub, color = colors.dim, style = ModbusType.monoCaption, maxLines = 1)
                 }
             }
         }
@@ -498,7 +496,7 @@ fun ChoiceTile(
     value: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    minHeight: Dp = 50.dp,
+    minHeight: Dp = ModbusSize.fieldTile,
     mono: Boolean = false,
     valueColor: androidx.compose.ui.graphics.Color = LocalModbusColors.current.text,
 ) {
@@ -510,18 +508,10 @@ fun ChoiceTile(
             .background(colors.surface2)
             .semantics { role = androidx.compose.ui.semantics.Role.Button }
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .padding(fieldPadding()),
     ) {
-        Text(label, color = colors.muted, fontSize = 11.sp, maxLines = 1)
-        Text(
-            value,
-            color = valueColor,
-            fontSize = if (mono) 17.sp else 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = if (mono) JetBrainsMono else FontFamily.Default,
-            maxLines = 1,
-            modifier = Modifier.padding(top = 2.dp),
-        )
+        Text(label, color = colors.muted, style = ModbusType.caption, maxLines = 1)
+        Text(value, color = valueColor, style = if (mono) ModbusType.monoValueM else ModbusType.titleS, maxLines = 1)
     }
 }
 
@@ -529,10 +519,11 @@ const val SwitchVisualTag = "switch-visual"
 
 enum class SettingTrailing { SWITCH, CHEVRON, LOCKED, NONE }
 
-/** 开关视觉尺寸：42×24 轨道，20dp 滑块，内边距 2（§6.7 沿用尺寸）。 */
-private val SwitchTrackWidth = 42.dp
-private val SwitchTrackHeight = 24.dp
-private val SwitchThumb = 20.dp
+/** 开关视觉尺寸（§6.7 v2）：轨道 size.switch 44×24（原 42×24），滑块 20 = 稿面，四周留 (24 − 20) ÷ 2。 */
+private val SwitchTrackWidth = ModbusSize.switchWidth
+private val SwitchTrackHeight = ModbusSize.switchHeight
+private val SwitchThumb = ModbusSize.iconL
+private val SwitchThumbInset = (SwitchTrackHeight - SwitchThumb) / 2
 
 /**
  * 开关（§6.7，G-08）：开 = accent.fill 轨道 + 白滑块；关 = surface3 轨道 + 1.5dp outlineControl 描边 + outlineControl 滑块；
@@ -562,7 +553,7 @@ fun ModbusSwitchVisual(checked: Boolean, modifier: Modifier = Modifier, enabled:
         Box(
             Modifier
                 .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
-                .padding(LocalSpacing.current.xxs)
+                .padding(SwitchThumbInset)
                 .size(SwitchThumb)
                 .clip(CircleShape)
                 .background(thumb),
@@ -769,3 +760,8 @@ private fun ControlsPreview(dark: Boolean) {
         }
     }
 }
+
+/** 输入格 / FieldTile / ChoiceTile 的内边距（§6.2 v2）：水平 space.card 12、竖直 8（= (56 − 16 − 24) ÷ 2，不随密度变）。 */
+@Composable
+private fun fieldPadding(): PaddingValues =
+    PaddingValues(horizontal = LocalSpacing.current.card, vertical = ModbusSpacing.Comfortable.s)

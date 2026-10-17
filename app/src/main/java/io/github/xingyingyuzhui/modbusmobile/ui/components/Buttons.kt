@@ -45,7 +45,7 @@ import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ButtonRadius
-import io.github.xingyingyuzhui.modbusmobile.ui.theme.FieldRadius
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.SmallRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
@@ -103,11 +103,12 @@ private fun ButtonContent(
     val spacing = LocalSpacing.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (loading) {
+            // 进度圈 / 图标与文字：≤16dp 图标用 space.xs（tokens_v2 spacing.xs 用途）。
             ButtonProgress(color, progressSize)
-            Spacer(Modifier.width(spacing.gapS))
+            Spacer(Modifier.width(spacing.xs))
         } else if (icon != null) {
             icon()
-            Spacer(Modifier.width(spacing.s))
+            Spacer(Modifier.width(spacing.xs))
         }
         Text(
             if (loading) loadingText else text,
@@ -245,7 +246,8 @@ fun SmallButton(
     loadingText: String? = null,
 ) {
     val colors = LocalModbusColors.current
-    val shape = RoundedCornerShape(FieldRadius)
+    // §6.1 v2：SmallButton 圆角 radius.small 8（原借用 FieldRadius 10）。
+    val shape = RoundedCornerShape(SmallRadius)
     val interaction = remember { MutableInteractionSource() }
     val busyText = loadingText ?: stringResource(R.string.btn_loading_generic)
     val background = when {
@@ -278,7 +280,7 @@ fun SmallButton(
     ) {
         ButtonContent(
             text, loading, busyText, content,
-            ModbusType.label.copy(fontWeight = FontWeight.SemiBold),
+            ModbusType.labelStrong,
             progressSize = ModbusSize.progressSmall,
         )
     }
@@ -302,10 +304,10 @@ fun TextLink(
                 if (!enabled) disabled()
             }
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = LocalSpacing.current.gapS),
+            .padding(horizontal = LocalSpacing.current.s),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        Text(text, color = if (enabled) color else colors.dim, style = ModbusType.label.copy(fontWeight = FontWeight.SemiBold))
+        Text(text, color = if (enabled) color else colors.dim, style = ModbusType.labelStrong)
     }
 }
 
@@ -332,7 +334,7 @@ private fun ButtonStatesPreview(dark: Boolean) {
         val writing = stringResource(R.string.btn_loading_write)
         Column(
             Modifier.background(colors.bg).padding(spacing.page),
-            verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+            verticalArrangement = Arrangement.spacedBy(spacing.s),
         ) {
             PrimaryButton(write, {})
             PrimaryButton(write, {}, enabled = false)
@@ -343,13 +345,13 @@ private fun ButtonStatesPreview(dark: Boolean) {
             SecondaryButton(write, {}, enabled = false)
             SecondaryButton(write, {}, loading = true, loadingText = writing)
             SecondaryButton(write, {}, active = true)
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.s)) {
                 SmallButton(write, {})
                 SmallButton(write, {}, primary = true)
                 SmallButton(write, {}, enabled = false)
                 SmallButton(write, {}, loading = true, loadingText = writing)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.s)) {
                 TextLink(write, {}, color = colors.accentText)
                 TextLink(write, {}, enabled = false)
             }
