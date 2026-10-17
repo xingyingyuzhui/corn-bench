@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -141,14 +144,15 @@ private fun ruleSummary(rule: SimulationRule): String {
 
 /** Full content page, with the same native controls and in-page confirmations as the workbench. */
 @Composable
-fun SimulationRuleEditor(model: SlaveViewModel) {
+fun SimulationRuleEditor(model: SlaveViewModel, navigationBars: WindowInsets = WindowInsets.navigationBars) {
     val draft = model.ruleDraft ?: return
     val colors = LocalModbusColors.current
     val units by model.units.collectAsStateWithLifecycle()
     var confirmDelete by remember(draft.id) { mutableStateOf(false) }
     BackHandler(onBack = model::cancelRule)
+    val bottomClearance = maxOf(dockClearance(), navigationBars.asPaddingValues().calculateBottomPadding())
     Box(Modifier.fillMaxSize().background(colors.bg).testTag("simulation_rule_editor")) {
-        Column(Modifier.screenFrame().imePadding().padding(bottom = dockClearance())) {
+        Column(Modifier.screenFrame().imePadding().padding(bottom = bottomClearance)) {
             SubPageHeader(stringResource(R.string.simulation_title), model::cancelRule) {
                 if (draft.id != null) TextLink(stringResource(R.string.simulation_delete), { confirmDelete = true }, Modifier.testTag("simulation_rule_delete_${draft.id}"), colors.error)
             }

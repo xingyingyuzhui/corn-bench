@@ -13,7 +13,7 @@
     <string name="simulation_unmapped">未映射 · 请先添加目标地址段</string>
     <string name="simulation_rule_target">%1$s · U%2$d %3$s%4$s</string>
     <string name="simulation_constant_summary">值 %1$s · 每 %2$d ms 刷新</string>
-    <string name="simulation_ramp_summary">起始 %1$s · 每次 +%2$s · %3$d ms</string>
+    <string name="simulation_ramp_summary">起始 %1$s · 每次 %2$s · %3$d ms</string>
     <string name="simulation_sine_summary">中心 %1$s ±%2$s · 周期 %3$s s</string>
     <string name="simulation_square_summary">低 %1$s / 高 %2$s · 周期 %3$s s</string>
     <string name="simulation_random_summary">随机 %1$s–%2$s · %3$d ms</string>
