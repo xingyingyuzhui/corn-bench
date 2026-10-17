@@ -76,6 +76,8 @@ class MasterPoller(
     fun start(request: ModbusRequest, intervalMs: Long = _state.value.intervalMs) {
         if (closed) return
         job?.cancel()
+        // 同步一次当前 epoch：刚连上、watcher 还没收到新 epoch 时就点了开始，watcher 随后看到「变化」会把这次轮询停掉。
+        epoch = (session.state.value as? SessionState.Running)?.epoch
         _state.value = State(running = true, intervalMs = intervalMs, request = request)
         // LAZY：先记下 job 再启动。Main.immediate 下 launch 会同步跑到第一次挂起，finish() 要能认出自己。
         val next = scope.launch(start = CoroutineStart.LAZY) { loop() }
@@ -104,34 +106,32 @@ class MasterPoller(
 
     private suspend fun CoroutineScope.loop() {
         val me = coroutineContext[Job]
-        var invalidStreak = 0
-        while (isActive) {
-            val c = client
-            if (c != null && c.holdPolling()) {
-                delay(HoldStepMs)
-                continue
+        // finally 里 finish：正常结束、异常退出都把「运行中」清掉；被 stop() / 新的 start() 取消时 job 已经不是自己，finish 不动状态。
+        try {
+            var invalidStreak = 0
+            while (isActive) {
+                val c = client
+                if (c != null && c.holdPolling()) {
+                    delay(HoldStepMs)
+                    continue
+                }
+                val request = (if (c != null) c.nextRequest() else _state.value.request) ?: return
+                if (request != _state.value.request) _state.value = _state.value.copy(request = request)
+                val began = clock()
+                val result = session.execute(request)
+                if (!isActive) return
+                val outcome = Outcome(request, result, clock() - began)
+                client?.onPollResult(outcome)
+                invalidStreak = if (isInvalid(result)) invalidStreak + 1 else 0
+                if (result == ModbusResult.Disconnected || invalidStreak >= MaxInvalid) return
+                delay(_state.value.intervalMs)
             }
-            val request = if (c != null) c.nextRequest() else _state.value.request
-            if (request == null) {
-                finish(me)
-                return
-            }
-            if (request != _state.value.request) _state.value = _state.value.copy(request = request)
-            val began = clock()
-            val result = session.execute(request)
-            if (!isActive) return
-            val outcome = Outcome(request, result, clock() - began)
-            client?.onPollResult(outcome)
-            invalidStreak = if (isInvalid(result)) invalidStreak + 1 else 0
-            if (result == ModbusResult.Disconnected || invalidStreak >= MaxInvalid) {
-                finish(me)
-                return
-            }
-            delay(_state.value.intervalMs)
+        } finally {
+            finish(me)
         }
     }
 
-    /** 轮询自己结束（不是被 [stop] / 新的 [start] 取消）。只清自己那一个 Job。 */
+    /** 轮询自己结束（正常结束或异常；不是被 [stop] / 新的 [start] 取消）。只清自己那一个 Job。 */
     private fun finish(me: Job?) {
         if (job !== me) return
         job = null
