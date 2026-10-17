@@ -11,6 +11,7 @@ import io.github.xingyingyuzhui.modbusmobile.usb.AndroidUsbStack
 import io.github.xingyingyuzhui.modbusmobile.usb.UsbDeviceRepository
 import io.github.xingyingyuzhui.modbusmobile.usb.UsbPermissionRequester
 import io.github.xingyingyuzhui.modbusmobile.usb.UsbSessionBridge
+import io.github.xingyingyuzhui.modbusmobile.usb.withLocalSerialLab
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,7 +22,7 @@ class AppContainer(app: Application) {
     val bridge = UsbSessionBridge()
     val repository = UsbDeviceRepository(app).also { it.start() }
     private val permissions = UsbPermissionRequester(app, repository)
-    private val usb = AndroidUsbStack(app, repository, permissions, bridge)
+    private val usb = withLocalSerialLab(AndroidUsbStack(app, repository, permissions, bridge), scope, clock)
     val sessionManager: SessionManager = DefaultSessionManager(
         scope,
         clock,

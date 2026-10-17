@@ -16,3 +16,8 @@ output-metadata.json
 
 # Kotlin compiler session files
 .kotlin/
+
+# Local Python tools and serial lab runtime
+__pycache__/
+*.pyc
+.venv/

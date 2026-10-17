@@ -32,3 +32,12 @@
 - 正常安装包补测非法数字保存：字段错误明确显示、编辑页保留、无崩溃；测试结束后停止测试应用，模拟器未自动关闭。按用户授权清理旧测试包和可回收缓存/编译缓存，保留其他应用数据；空间仍紧张，未执行 AVD wipe。
 - 编译缓存清理命令多数包成功，末尾遇到模拟器残留的 com.jetbrains.kmpapp 包记录而退出 1；不记作完整系统清理成功。系统安装空间阈值已复查恢复默认。
 - 最新代码 `1003fb7` 的 PR 完整 CI 39049452334 已成功：https://github.com/xingyingyuzhui/modbus_android/actions/runs/39049452334 。含完整测试、Roborazzi、lint、APK 与 INTERNET 权限检查；同提交 push CI 39049448534 也已成功；两项完整 CI 全绿。最后仅有文档记录提交，带 `[skip ci]`，不复跑代码验证。
+
+## 2026-10-18 · 本地虚拟串口 RTU 联调
+
+- 用户要求在本地启动串口对串口服务，模拟 485 联调。新分支 `codex/virtual-rtu-lab` 基于已验证的模拟规则分支；不合并 main。
+- 核对本机 Android Emulator 与 QEMU 能力：旧 console monitor 返回 QEMU support no longer available；不把标准 QEMU 的 USB-serial 文档能力当作本机已接通。采用 debug-only ADB Unix-domain socket 串口适配，复用实际 SerialIoWorker 和协议引擎，独立 PyModbus+PTY 为对端。
+- Release 不包含调试桥，不增加网络权限；硬件与物理层测试保持未验证，详见 docs/virtual-rtu-lab.md。
+- 首次本地 Android 构建：core 58 + app 804 项测试、lint、debug/release 打包通过，APK 检查确认 release 不含桥接 socket 名称、两变体均无 INTERNET 权限。
+- 真实模拟器联调发现 debug LocalSocket 的 SO_TIMEOUT 超时抛普通 IOException（Try again），首次空闲 1 秒误断开，导致首次独立探测 28 项失败；不计作协议引擎失败或联调通过。已改为 Os.poll 有限等待读，并新增空闲/数据/EOF 专项测试，准备复验。
+- 独立审阅发现并修复主机中继部分写丢字节、分块跨帧乱序、陈旧PID状态误报、短成功读取误判四项；主机工具测试增至10项。
