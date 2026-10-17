@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
 
 /**
- * 颜色 token（设计规范_v1 §4，值与 T-20261018-and-03_tokens_v1.json 一致，DesignTokensTest 比对）。
+ * 颜色 token（设计规范_v2 §4，值与 T-20261018-and-03_tokens_v2.json 一致，DesignTokensTest 比对）。
  * 字段名就是语义名；各屏只从这里取色，不写字面 Color(0x…)。
  */
 data class ModbusColors(

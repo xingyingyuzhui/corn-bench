@@ -17,9 +17,11 @@ data class ModbusSpacing(
     val group: Dp,
     /** space.s：组内元素（卡内行、并排按钮、chip 之间、badge 与文字）；面板网格卡片间距。标准 8 / 紧凑 4。 */
     val s: Dp,
-    /** 旧引用 gapS（8 / 6），各屏改用 [s] 之前保持原值，CL-16 迁移完删除。 */
+    /** 旧引用 gapS（8 / 6），保持原值不变；新代码一律用 [s]，CL-16（and-16）迁移完删除。 */
+    @property:Deprecated("v1 间距名，改用 space.s（tokens_v2 spacing.s）；and-16 迁移完删除", ReplaceWith("s"))
     val gapS: Dp,
-    /** 旧引用 gapM（10 / 8），各屏改用 [group] 之前保持原值，CL-16 迁移完删除。 */
+    /** 旧引用 gapM（10 / 8），保持原值不变；新代码一律用 [group]，CL-16（and-16）迁移完删除。 */
+    @property:Deprecated("v1 间距名，改用 space.group（tokens_v2 spacing.group）；and-16 迁移完删除", ReplaceWith("group"))
     val gapM: Dp,
 ) {
     /** space.xs = 4：标签与值、输入格与错误文字、图标与文字（≤16dp 图标）。 */
