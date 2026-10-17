@@ -6,11 +6,11 @@
 
 | 分支 | 状态 | 内容 |
 |---|---|---|
-| `main` | 已合并到 PR #9 | 下表“已完成”的全部内容 |
+| `main` | 已合并到 PR #10 | 下表“已完成”的全部内容 |
 | `slave-units-setup`（PR #9） | **已合并**，CI 通过 | 从站多 Unit、从站配置保存、最近来源列、页内浮层 |
-| `slave-sim-rules` | **进行中，PR #10 待 CI 验证和合并**（基于 `slave-units-setup`） | 模拟规则的表单逻辑和 ViewModel；界面还没接 |
+| `slave-sim-rules` | **现有进度已通过 PR #10 合并**（基于 `slave-units-setup`） | 模拟规则的表单逻辑和 ViewModel；界面还没接 |
 
-用户已在聊天中授权合并所有未合并分支；PR #9 已合并，PR #10 正在整合。模拟规则界面仍属于后续工作。
+用户已在聊天中授权合并所有未合并分支；PR #9 和 PR #10 已合并。模拟规则界面仍属于后续工作。
 
 ## 已完成（在 main 上）
 
@@ -42,12 +42,12 @@
 - 从站工作台：Unit 切换 / 添加 / 删除（需确认）；“最近来源”列；改值、加地址段、增删 Unit 改为页内浮层。
 - CI 加 30 分钟超时；`.kotlin/` 加入忽略。
 
-## `slave-sim-rules`（进行中）
+## `slave-sim-rules`（现有进度已合并，功能仍待完成）
 - 已有：`ui/workbench/SimulationRuleForm.kt`（规则草稿 ↔ `SimulationRule`、逐字段校验、预览采样）；`SlaveViewModel` 里的规则列表状态、编辑草稿、保存 / 删除、暂停 / 恢复、全部暂停 / 恢复；错误提示文案。
-- 还没有：规则列表区块和编辑页的界面、对应测试。**这个分支只验证过能编译**。
+- 还没有：规则列表区块和编辑页的界面、对应测试。**本次整合的两项完整 CI 均已通过；新增规则逻辑的专项测试仍待补齐**。
 
 ## 验证情况
-- 单元测试、Robolectric 界面测试、lint、APK 打包：PR #9 的 CI 全部通过（`main` 合并时带 `[skip ci]`，以各分支 CI 为准）。
+- 单元测试、Robolectric 界面测试、lint、APK 打包：PR #9 和 PR #10 的 CI 全部通过（`main` 合并时带 `[skip ci]`，以各分支 CI 为准）。
 - cloud-workbench 云编译：`slave-units-setup@c06a316` 的 `assembleDebug` 成功。
 - 模拟器：**未验证**（cloud-workbench 连接不稳定；已新增 `mac-apk-delivery-install_build_apk`，还没用上）。
 - 真机、真实 USB-RS485、多站总线：**未验证**。
