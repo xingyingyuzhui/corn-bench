@@ -144,7 +144,6 @@ fun PanelContent(
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
-    val dock = LocalDockInsets.current
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val sessionState by LocalSession.current.state.collectAsStateWithLifecycle()
     val masterRunning = (sessionState as? SessionState.Running)?.role == Role.MASTER

@@ -32,6 +32,7 @@ class KeylineSourceTest {
     @Test
     fun noLegacySpacingNames() {
         val main = File("src/main/java")
+        assertTrue("找不到 main 源码目录：${main.absolutePath}", main.isDirectory)
         val legacy = Regex("""\bgap[SM]\b""")
         val hits = main.walkTopDown().filter { it.isFile && it.extension == "kt" }
             .flatMap { f -> f.readLines().mapIndexedNotNull { i, l -> if (legacy.containsMatchIn(l)) "${f.name}:${i + 1}" else null } }
