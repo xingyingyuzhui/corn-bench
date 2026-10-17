@@ -197,13 +197,13 @@ class DefaultSlaveEngine(
 
     private fun applyWrite(unitId: Int, request: ModbusRequest) {
         when (request) {
-            is ModbusRequest.WriteSingleCoil -> bank.writeBits(unitId, RegisterArea.COIL, request.address, listOf(request.value))
+            is ModbusRequest.WriteSingleCoil -> bank.writeBits(unitId, RegisterArea.COIL, request.address, listOf(request.value), ChangeSource.BROADCAST)
             is ModbusRequest.WriteSingleRegister -> {
-                bank.writeWords(unitId, RegisterArea.HOLDING_REGISTER, request.address, listOf(request.value))
+                bank.writeWords(unitId, RegisterArea.HOLDING_REGISTER, request.address, listOf(request.value), ChangeSource.BROADCAST)
             }
-            is ModbusRequest.WriteMultipleCoils -> bank.writeBits(unitId, RegisterArea.COIL, request.address, request.values)
+            is ModbusRequest.WriteMultipleCoils -> bank.writeBits(unitId, RegisterArea.COIL, request.address, request.values, ChangeSource.BROADCAST)
             is ModbusRequest.WriteMultipleRegisters -> {
-                bank.writeWords(unitId, RegisterArea.HOLDING_REGISTER, request.address, request.values)
+                bank.writeWords(unitId, RegisterArea.HOLDING_REGISTER, request.address, request.values, ChangeSource.BROADCAST)
             }
             else -> Unit
         }
@@ -272,6 +272,7 @@ class DefaultSlaveEngine(
         echo.arm(frame, clock.nowNs())
         publish(TrafficDirection.TX, frame, TrafficKind.TX_RESPONSE)
         transport.send(frame)
+        echo.restartDeadline(clock.nowNs())
     }
 
     private fun publish(direction: TrafficDirection, bytes: ByteArray, kind: TrafficKind) {

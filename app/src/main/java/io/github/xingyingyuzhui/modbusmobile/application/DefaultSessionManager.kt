@@ -12,6 +12,7 @@ import io.github.xingyingyuzhui.modbusmobile.core.rtu.ScannerConfig
 import io.github.xingyingyuzhui.modbusmobile.core.slave.DefaultSlaveEngine
 import io.github.xingyingyuzhui.modbusmobile.core.slave.InMemoryRegisterBank
 import io.github.xingyingyuzhui.modbusmobile.core.slave.SlaveConfig
+import io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationEngine
 import io.github.xingyingyuzhui.modbusmobile.core.slave.SlaveEngine
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
 import io.github.xingyingyuzhui.modbusmobile.core.transport.ByteTransport
@@ -56,6 +57,7 @@ class DefaultSessionManager(
     private val _echoDetected = MutableStateFlow<Boolean?>(null)
     private val _serial = MutableStateFlow<SerialSettings?>(null)
     private val _counters = MutableStateFlow(SessionCounters.Empty)
+    private val _simulation = MutableStateFlow<SimulationEngine?>(null)
 
     private var epochCounter = 0L
     private var masterEngine: MasterEngine? = null
@@ -71,6 +73,7 @@ class DefaultSessionManager(
     override val echoDetected: StateFlow<Boolean?> = _echoDetected.asStateFlow()
     override val serial: StateFlow<SerialSettings?> = _serial.asStateFlow()
     override val counters: StateFlow<SessionCounters> = _counters.asStateFlow()
+    override val simulation: StateFlow<SimulationEngine?> = _simulation.asStateFlow()
 
     override fun refreshDevices() {
         usbStack?.refreshDevices()
@@ -143,7 +146,7 @@ class DefaultSessionManager(
 
     private suspend fun connectDemo(serial: SerialSettings, role: Role) {
         val bus = InMemoryBus(clock)
-        val bank = InMemoryRegisterBank()
+        val bank = InMemoryRegisterBank(clock)
         preset(bank, role)
         if (role == Role.MASTER) {
             val peer = DefaultSlaveEngine(
@@ -163,6 +166,7 @@ class DefaultSessionManager(
             val peerMaster = newMaster(bus.right, serial, publishTraffic = false, reportEcho = false)
             masterEngine = null
             demoJob = scope.launch { runDemoMaster(peerMaster) }
+            startSimulation(bank)
             _slaveBank.value = bank
             closeTransport = {
                 peerMaster.close()
@@ -186,13 +190,14 @@ class DefaultSessionManager(
             (transport as? CloseableTransport)?.close()
             stack.stop()
         }
-        val bank = InMemoryRegisterBank().also { preset(it, Role.SLAVE) }
+        val bank = InMemoryRegisterBank(clock).also { preset(it, Role.SLAVE) }
         if (role == Role.MASTER) {
             masterEngine = newMaster(transport, serial, publishTraffic = true, reportEcho = true)
         } else {
             val slave = phoneSlave(transport, bank, serial)
             slave.start(scope)
             slaveEngine = slave
+            startSimulation(bank)
             _slaveBank.value = bank
         }
         publishRunning(role, target, serial)
@@ -224,7 +229,14 @@ class DefaultSessionManager(
         }
     }
 
+    /** 从站会话带一个空的模拟器；规则由界面设置。 */
+    private fun startSimulation(bank: VirtualRegisterBank) {
+        _simulation.value = SimulationEngine(bank, clock).also { it.start(scope) }
+    }
+
     private suspend fun teardown() {
+        _simulation.value?.close()
+        _simulation.value = null
         demoJob?.cancel()
         demoJob?.join()
         demoJob = null

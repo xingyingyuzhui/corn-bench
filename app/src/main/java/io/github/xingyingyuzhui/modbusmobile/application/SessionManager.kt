@@ -4,6 +4,7 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
+import io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationEngine
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,12 @@ interface SessionManager {
     suspend fun connect(target: ConnectionTarget, serial: SerialSettings, role: Role)
     suspend fun disconnect()
     suspend fun execute(request: ModbusRequest): ModbusResult
+
+    /**
+     * 从站会话的模拟器（spec §5.3）；主站、未连接时为 null。规则由界面经 [SimulationEngine.setRules] 设置，
+     * 断开时随会话一起停掉。
+     */
+    val simulation: StateFlow<SimulationEngine?> get() = NoSimulation
 
     /** 本次会话的收发计数，连接时从 0 开始，断开后归零。见 [SessionCounters]。 */
     val counters: StateFlow<SessionCounters> get() = NoCounters

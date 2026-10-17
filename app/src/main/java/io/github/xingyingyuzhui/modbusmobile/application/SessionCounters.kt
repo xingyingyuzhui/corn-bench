@@ -71,3 +71,7 @@ private fun TrafficEvent.isExceptionFrame(): Boolean =
 
 /** 给没有会话的实现（测试替身等）用的常量流。 */
 internal val NoCounters: StateFlow<SessionCounters> = MutableStateFlow(SessionCounters.Empty).asStateFlow()
+
+/** 给没有会话的实现（测试替身等）用：永远没有模拟器。 */
+internal val NoSimulation: StateFlow<io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationEngine?> =
+    MutableStateFlow<io.github.xingyingyuzhui.modbusmobile.core.slave.SimulationEngine?>(null).asStateFlow()
