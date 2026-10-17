@@ -13,3 +13,6 @@ captures/
 *.ap_
 *.aab
 output-metadata.json
+
+# Kotlin compiler session files
+.kotlin/

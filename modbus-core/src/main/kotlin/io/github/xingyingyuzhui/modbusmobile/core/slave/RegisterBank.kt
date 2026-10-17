@@ -26,6 +26,9 @@ enum class ChangeSource {
 
     /** 模拟规则写的值。 */
     SIMULATION,
+
+    /** 会话开始时按保存的配置 / 预置装进来的初始值（界面不当成“谁改过”）。 */
+    INITIAL,
 }
 
 /**

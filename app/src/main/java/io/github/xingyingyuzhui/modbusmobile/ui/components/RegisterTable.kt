@@ -62,7 +62,12 @@ data class RegisterRow(
     val hex: String? = null,
     val flashAt: Long? = null,
     val editable: Boolean = false,
+    /** 从站表“最近来源”列的徽标；表格传了 `badgeHeader` 时，这一列代替 HEX 列。 */
+    val badge: RowBadge? = null,
 )
+
+/** “最近来源”徽标：文字 + 语义色（外部写 / 广播琥珀、模拟蓝、本地编辑灰）。 */
+data class RowBadge(val text: String, val kind: SemanticKind?)
 
 /**
  * 稿面寄存器表：列 地址(70) | 值(1fr) | HEX(84) | ✎(26)；表头高 30，行高 40（横屏 36）。
@@ -79,6 +84,8 @@ fun RegisterTable(
     hexWidth: Dp = 84.dp,
     onHeaderValueClick: (() -> Unit)? = null,
     onRowClick: ((RegisterRow) -> Unit)? = null,
+    /** 非空 = 最后一列显示徽标（稿面 b1-5“最近来源”，宽 [hexWidth]、右对齐），不显示 HEX。 */
+    badgeHeader: String? = null,
 ) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
@@ -108,12 +115,18 @@ fun RegisterTable(
                         },
                     ),
             )
-            Text(stringResource(R.string.table_hex), color = colors.dim, fontSize = 11.sp, modifier = Modifier.width(hexWidth))
+            Text(
+                badgeHeader ?: stringResource(R.string.table_hex),
+                color = colors.dim,
+                fontSize = 11.sp,
+                textAlign = if (badgeHeader != null) androidx.compose.ui.text.style.TextAlign.End else null,
+                modifier = Modifier.width(hexWidth),
+            )
             if (showEdit) Box(Modifier.width(26.dp))
         }
         HorizontalDivider(color = colors.line)
         rows.forEachIndexed { index, row ->
-            RegisterRowView(row, showEdit, rowHeight, addressWidth, hexWidth, onRowClick)
+            RegisterRowView(row, showEdit, rowHeight, addressWidth, hexWidth, onRowClick, badgeColumn = badgeHeader != null)
             if (index != rows.lastIndex) HorizontalDivider(color = colors.rowLine)
         }
     }
@@ -127,6 +140,7 @@ private fun RegisterRowView(
     addressWidth: Dp,
     hexWidth: Dp,
     onRowClick: ((RegisterRow) -> Unit)?,
+    badgeColumn: Boolean = false,
 ) {
     val colors = LocalModbusColors.current
     val flash = remember(row.flashAt) { Animatable(flashFraction(row.flashAt)) }
@@ -174,13 +188,24 @@ private fun RegisterRowView(
             maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        Text(
-            row.hex.orEmpty(),
-            style = Mono.copy(fontSize = 12.sp),
-            color = colors.muted,
-            maxLines = 1,
-            modifier = Modifier.width(hexWidth),
-        )
+        if (badgeColumn) {
+            Box(Modifier.width(hexWidth), contentAlignment = Alignment.CenterEnd) {
+                val badge = row.badge
+                when {
+                    badge == null -> Text("—", color = colors.dim, fontSize = 11.sp)
+                    badge.kind == null -> ToneBadge(badge.text, colors.muted)
+                    else -> SemanticBadge(badge.kind, badge.text)
+                }
+            }
+        } else {
+            Text(
+                row.hex.orEmpty(),
+                style = Mono.copy(fontSize = 12.sp),
+                color = colors.muted,
+                maxLines = 1,
+                modifier = Modifier.width(hexWidth),
+            )
+        }
         if (showEdit) {
             Box(Modifier.width(26.dp), contentAlignment = Alignment.CenterEnd) {
                 if (row.editable) PencilIcon(colors.dim)

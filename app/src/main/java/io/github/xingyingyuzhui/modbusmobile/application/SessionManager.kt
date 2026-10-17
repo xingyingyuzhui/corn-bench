@@ -27,6 +27,18 @@ interface SessionManager {
      */
     val simulation: StateFlow<SimulationEngine?> get() = NoSimulation
 
+    /** 从站会话正在模拟的 Unit（按配置顺序）；主站、未连接时为空。 */
+    val slaveUnits: StateFlow<List<Int>> get() = NoUnits
+
+    /**
+     * 改从站模拟的 Unit 集合（1..247，不重复，至少一个）。从站运行中会在两帧之间重建从站引擎，然后保存配置。
+     * 不在从站会话里、或参数不合法时返回 false。
+     */
+    suspend fun setSlaveUnits(units: List<Int>): Boolean = false
+
+    /** 把当前从站的 Unit、地址段、值和模拟规则保存下来（下次连接从站时按它装载）。没有从站会话时返回 false。 */
+    fun saveSlaveSetup(): Boolean = false
+
     /** 本次会话的收发计数，连接时从 0 开始，断开后归零。见 [SessionCounters]。 */
     val counters: StateFlow<SessionCounters> get() = NoCounters
 

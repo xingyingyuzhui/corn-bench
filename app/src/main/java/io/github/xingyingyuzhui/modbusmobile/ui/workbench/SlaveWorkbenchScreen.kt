@@ -2,19 +2,21 @@ package io.github.xingyingyuzhui.modbusmobile.ui.workbench
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.testTag
@@ -31,11 +33,18 @@ import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.SessionCounters
+import io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveAreas
+import io.github.xingyingyuzhui.modbusmobile.application.slave.isBitArea
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.application.modiconLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
+import io.github.xingyingyuzhui.modbusmobile.ui.components.InPageSheet
+import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
+import io.github.xingyingyuzhui.modbusmobile.ui.components.RowBadge
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SelectChip
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SemanticKind
 import io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PageHeader
 import io.github.xingyingyuzhui.modbusmobile.ui.components.RegisterRow
@@ -53,26 +62,20 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 
-private val SlaveAreas = listOf(
-    RegisterArea.HOLDING_REGISTER,
-    RegisterArea.INPUT_REGISTER,
-    RegisterArea.COIL,
-    RegisterArea.DISCRETE_INPUT,
-)
-
-private fun RegisterArea.isBitArea() = this == RegisterArea.COIL || this == RegisterArea.DISCRETE_INPUT
 
 @Composable
 fun SlaveWorkbench(target: ConnectionTarget, landscape: Boolean) {
     val session = LocalSession.current
     val model = viewModel { SlaveViewModel(session) }
     val settings = LocalUiSettings.current
-    if (landscape) {
-        SlaveLandscape(model, settings, target)
-    } else {
-        SlavePortrait(model, settings, target)
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+        if (landscape) {
+            SlaveLandscape(model, settings, target)
+        } else {
+            SlavePortrait(model, settings, target)
+        }
+        SlaveSheets(model)
     }
-    SlaveDialogs(model)
 }
 
 @Composable
@@ -86,6 +89,8 @@ private fun SlavePortrait(model: SlaveViewModel, settings: UiSettings, target: C
         ) {
             if (target == ConnectionTarget.Demo) DemoNote()
             SlaveStats(columns = 4)
+            UnitRow(model)
+            SaveFailedNote(model)
             AreaSegment(model)
             AreaTable(model, settings, landscape = false)
             SecondaryButton(stringResource(R.string.slave_add_range), model::openAddRange, Modifier.fillMaxWidth(), compact = true)
@@ -106,6 +111,8 @@ private fun SlaveLandscape(model: SlaveViewModel, settings: UiSettings, target: 
             SessionStrip(showEcho = true)
             if (target == ConnectionTarget.Demo) DemoNote()
             SlaveStats(columns = 2)
+            UnitRow(model)
+            SaveFailedNote(model)
             AreaSegment(model)
             SecondaryButton(stringResource(R.string.slave_add_range), model::openAddRange, Modifier.fillMaxWidth(), compact = true)
         }
@@ -223,8 +230,9 @@ private fun AreaTable(model: SlaveViewModel, settings: UiSettings, landscape: Bo
     val rows = model.rowsOf(area)
     if (rows.isEmpty()) {
         val shape = RoundedCornerShape(CardRadius)
+        val unitEmpty = SlaveAreas.all { model.rowsOf(it).isEmpty() }
         Text(
-            stringResource(R.string.slave_empty),
+            if (unitEmpty) stringResource(R.string.slave_unit_empty, model.unit) else stringResource(R.string.slave_empty),
             color = colors.muted,
             fontSize = 13.sp,
             modifier = Modifier
@@ -247,14 +255,17 @@ private fun AreaTable(model: SlaveViewModel, settings: UiSettings, landscape: Bo
             hex = if (bit) null else hexWord(row.value, settings.hexPrefix),
             flashAt = row.changedAt,
             editable = true,
+            badge = sourceBadge(row),
         )
     }
     RegisterTable(
         rows = table,
-        showEdit = !landscape,
+        badgeHeader = stringResource(R.string.slave_source_header),
+        // 稿面 b1-5：地址 | 值 | 最近来源（110，右对齐），没有 HEX 和 ✎ 列；整行可点。
+        showEdit = false,
         rowHeight = if (landscape) 36.dp else 40.dp,
         addressWidth = if (landscape) 62.dp else 70.dp,
-        hexWidth = if (landscape) 70.dp else 84.dp,
+        hexWidth = if (landscape) 120.dp else 110.dp,
         onRowClick = { row ->
             if (bit) model.toggleBit(area, row.address) else model.startEdit(area, row.address)
         },
@@ -262,79 +273,150 @@ private fun AreaTable(model: SlaveViewModel, settings: UiSettings, landscape: Bo
 }
 
 @Composable
-private fun SlaveDialogs(model: SlaveViewModel) {
+private fun UnitRow(model: SlaveViewModel) {
+    val units by model.units.collectAsStateWithLifecycle()
+    if (units.isEmpty()) return
     val colors = LocalModbusColors.current
-    model.edit?.let { edit ->
-        AlertDialog(
-            onDismissRequest = model::cancelEdit,
-            containerColor = colors.surface1,
-            titleContentColor = colors.text,
-            textContentColor = colors.muted,
-            title = {
-                Text(
-                    stringResource(R.string.slave_edit_title, areaShortName(edit.area), edit.address),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                )
-            },
-            text = {
-                NumberInput(
-                    stringResource(R.string.slave_edit_value),
-                    edit.draft,
-                    error = edit.error?.resolve(),
-                    keyboardType = KeyboardType.Number,
-                    onValue = model::setDraft,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = model::commitEdit) { Text(stringResource(R.string.slave_apply), color = colors.accentText) }
-            },
-            dismissButton = {
-                TextButton(onClick = model::cancelEdit) { Text(stringResource(R.string.action_cancel), color = colors.muted) }
-            },
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            units.forEach { id ->
+                SelectChip(stringResource(R.string.slave_unit_label, id), selected = id == model.unit, minWidth = 48.dp) { model.selectUnit(id) }
+            }
+            SelectChip("＋", selected = false, description = stringResource(R.string.cd_add_unit), minWidth = 48.dp, onClick = model::openAddUnit)
+        }
+        if (units.size > 1) {
+            Text(
+                stringResource(R.string.slave_remove_unit, model.unit),
+                color = colors.error,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .clickable(onClick = model::askRemoveUnit)
+                    .padding(horizontal = 4.dp, vertical = 14.dp)
+                    .testTag("slave-remove-unit"),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SaveFailedNote(model: SlaveViewModel) {
+    if (!model.saveFailed) return
+    val colors = LocalModbusColors.current
+    Text(stringResource(R.string.slave_save_failed), color = colors.error, fontSize = 12.sp, lineHeight = 17.sp)
+}
+
+@Composable
+private fun sourceBadge(row: SlaveRow): RowBadge? {
+    val age = row.ageSeconds?.let { ageText(it, row.changedWallMs) }.orEmpty()
+    return when (row.source) {
+        null -> null
+        RowSource.EXTERNAL -> RowBadge(stringResource(R.string.slave_src_external, age), SemanticKind.TX)
+        RowSource.BROADCAST -> RowBadge(stringResource(R.string.slave_src_broadcast, age), SemanticKind.TX)
+        RowSource.LOCAL -> RowBadge(stringResource(R.string.slave_src_local), null)
+        RowSource.SIMULATION -> RowBadge(
+            row.wave?.let { stringResource(R.string.slave_src_sim, waveName(it)) } ?: stringResource(R.string.slave_src_sim_plain),
+            SemanticKind.FOREIGN,
         )
     }
+}
+
+/** 1 分钟内写“N s”（每秒刷新），超过 1 分钟写改值时刻 HH:mm:ss（不再走字）。 */
+@Composable
+private fun ageText(seconds: Long, wallMs: Long?): String = when {
+    seconds < 1 -> stringResource(R.string.slave_age_now)
+    seconds < 60 || wallMs == null -> stringResource(R.string.slave_age_s, seconds.toInt())
+    else -> java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(wallMs))
+}
+
+@Composable
+fun waveName(kind: WaveKind): String = stringResource(
+    when (kind) {
+        WaveKind.CONSTANT -> R.string.wave_constant
+        WaveKind.RAMP -> R.string.wave_ramp
+        WaveKind.SINE -> R.string.wave_sine
+        WaveKind.SQUARE -> R.string.wave_square
+        WaveKind.RANDOM -> R.string.wave_random
+        WaveKind.SEQUENCE -> R.string.wave_sequence
+    },
+)
+
+/** 改值 / 加地址段 / 加 Unit / 删 Unit：都是页内浮层（注意事项 #28），不是系统对话框。 */
+@Composable
+private fun SlaveSheets(model: SlaveViewModel) {
+    val colors = LocalModbusColors.current
+    model.edit?.let { edit ->
+        InPageSheet(stringResource(R.string.slave_edit_title, areaShortName(edit.area), edit.address), model::cancelEdit, tag = "slave-edit") {
+            NumberInput(
+                stringResource(R.string.slave_edit_value),
+                edit.draft,
+                Modifier.fillMaxWidth().testTag("slave-edit-value"),
+                error = edit.error?.resolve(),
+                keyboardType = KeyboardType.Number,
+                onValue = model::setDraft,
+            )
+            SheetButtons(stringResource(R.string.slave_apply), model::cancelEdit, model::commitEdit, "slave-edit")
+        }
+    }
     model.addRange?.let { request ->
-        AlertDialog(
-            onDismissRequest = model::cancelAddRange,
-            containerColor = colors.surface1,
-            titleContentColor = colors.text,
-            textContentColor = colors.muted,
-            title = { Text(stringResource(R.string.slave_add_title), fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ChipRow(
-                        SlaveAreas,
-                        { it == request.area },
-                        { areaShortName(it) },
-                        { next -> model.updateAddRange { copy(area = next) } },
-                        design = true,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NumberInput(
-                            stringResource(R.string.slave_add_start),
-                            request.start,
-                            Modifier.weight(1f),
-                            keyboardType = KeyboardType.Number,
-                            onValue = { model.updateAddRange { copy(start = it) } },
-                        )
-                        NumberInput(
-                            stringResource(R.string.slave_add_count),
-                            request.count,
-                            Modifier.weight(1f),
-                            keyboardType = KeyboardType.Number,
-                            onValue = { model.updateAddRange { copy(count = it) } },
-                        )
-                    }
-                    request.error?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp) }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = model::commitAddRange) { Text(stringResource(R.string.slave_add_confirm), color = colors.accentText) }
-            },
-            dismissButton = {
-                TextButton(onClick = model::cancelAddRange) { Text(stringResource(R.string.action_cancel), color = colors.muted) }
-            },
-        )
+        InPageSheet(stringResource(R.string.slave_add_title), model::cancelAddRange, tag = "slave-add-range") {
+            ChipRow(
+                SlaveAreas,
+                { it == request.area },
+                { areaShortName(it) },
+                { next -> model.updateAddRange { copy(area = next) } },
+                design = true,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberInput(
+                    stringResource(R.string.slave_add_start),
+                    request.start,
+                    Modifier.weight(1f).testTag("slave-add-start"),
+                    keyboardType = KeyboardType.Number,
+                    onValue = { model.updateAddRange { copy(start = it) } },
+                )
+                NumberInput(
+                    stringResource(R.string.slave_add_count),
+                    request.count,
+                    Modifier.weight(1f).testTag("slave-add-count"),
+                    keyboardType = KeyboardType.Number,
+                    onValue = { model.updateAddRange { copy(count = it) } },
+                )
+            }
+            request.error?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp) }
+            SheetButtons(stringResource(R.string.slave_add_confirm), model::cancelAddRange, model::commitAddRange, "slave-add-range")
+        }
+    }
+    model.addUnit?.let { request ->
+        InPageSheet(stringResource(R.string.slave_add_unit_title), model::cancelAddUnit, tag = "slave-add-unit") {
+            NumberInput(
+                stringResource(R.string.slave_add_unit_field),
+                request.draft,
+                Modifier.fillMaxWidth().testTag("slave-add-unit-value"),
+                error = request.error?.resolve(),
+                keyboardType = KeyboardType.Number,
+                onValue = model::setUnitDraft,
+            )
+            Text(stringResource(R.string.slave_add_unit_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp)
+            SheetButtons(stringResource(R.string.slave_add_unit_confirm), model::cancelAddUnit, model::commitAddUnit, "slave-add-unit")
+        }
+    }
+    model.removeUnit?.let { id ->
+        InPageSheet(stringResource(R.string.slave_remove_title, id), model::cancelRemoveUnit, tag = "slave-remove") {
+            Text(stringResource(R.string.slave_remove_body, id), color = colors.muted, fontSize = 13.sp, lineHeight = 19.sp)
+            SheetButtons(stringResource(R.string.slave_remove_confirm), model::cancelRemoveUnit, model::confirmRemoveUnit, "slave-remove", danger = true)
+        }
+    }
+}
+
+@Composable
+private fun SheetButtons(confirm: String, onCancel: () -> Unit, onConfirm: () -> Unit, tag: String, danger: Boolean = false) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SecondaryButton(stringResource(R.string.action_cancel), onCancel, Modifier.weight(1f).testTag("$tag-cancel"))
+        PrimaryButton(confirm, onConfirm, Modifier.weight(1.6f).testTag("$tag-confirm"), danger = danger)
     }
 }

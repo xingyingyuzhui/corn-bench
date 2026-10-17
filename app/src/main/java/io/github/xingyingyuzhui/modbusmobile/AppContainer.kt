@@ -22,7 +22,12 @@ class AppContainer(app: Application) {
     val repository = UsbDeviceRepository(app).also { it.start() }
     private val permissions = UsbPermissionRequester(app, repository)
     private val usb = AndroidUsbStack(app, repository, permissions, bridge)
-    val sessionManager: SessionManager = DefaultSessionManager(scope, clock, usb)
+    val sessionManager: SessionManager = DefaultSessionManager(
+        scope,
+        clock,
+        usb,
+        slaveSetupStore = io.github.xingyingyuzhui.modbusmobile.application.slave.FileSlaveSetupStore(java.io.File(app.filesDir, "projects")),
+    )
     val trafficRecorder = TrafficRecorder(sessionManager, scope)
     val settingsRepository: SettingsRepository = DataStoreSettingsRepository(app, scope)
     val pointStore = io.github.xingyingyuzhui.modbusmobile.application.panel.PointStore()
