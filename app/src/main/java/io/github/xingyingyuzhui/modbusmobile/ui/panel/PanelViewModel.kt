@@ -92,6 +92,8 @@ class PanelViewModel(
     private val repository: ProjectRepository?,
     private val runtime: PanelRuntime? = null,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** 开关 / 按钮写设备要用的会话；为空（截图 / 单测）= 没有写入能力。 */
+    session: io.github.xingyingyuzhui.modbusmobile.application.SessionManager? = null,
 ) : ViewModel() {
     private val _state = MutableStateFlow<PanelUiState>(PanelUiState.Loading)
     val state: StateFlow<PanelUiState> = _state.asStateFlow()
@@ -141,6 +143,7 @@ class PanelViewModel(
     val canEdit: Boolean get() = repository != null
 
     fun startEdit(currentPanelId: String?) {
+        writer?.dismiss() // 进编辑模式时，还没确认的写入作废
         val ready = _state.value as? PanelUiState.Ready ?: return
         if (ready.readOnly || repository == null) return
         val project = ready.project
@@ -229,6 +232,11 @@ class PanelViewModel(
 
     private val _wizard = MutableStateFlow<WizardState?>(null)
     val wizard: StateFlow<WizardState?> = _wizard.asStateFlow()
+
+    /** 开关 / 按钮的写入入口（确认弹窗、读后写、广播红色确认都在里面）；编辑模式和向导里一律拒绝。 */
+    val writer: PanelWriteController? = session?.let {
+        PanelWriteController(it, viewModelScope, editing = { _edit.value != null || _wizard.value != null }, snapshotOf = { id -> snapshots.value[id] })
+    }
 
     private var previewInstance: io.github.xingyingyuzhui.modbusmobile.application.panel.PointPreview? = null
 
@@ -383,7 +391,8 @@ class PanelViewModel(
                 target.setPoints(points)
                 target.setActive(points.isNotEmpty())
             } else {
-                val point: PointDefinition? = form.build("preview", PREVIEW_POINT_ID).widget?.point
+                // 按钮的点位只用来写，向导预览不读它（更不会写）
+                val point: PointDefinition? = if (form.kind == WidgetKinds.BUTTON) null else form.build("preview", PREVIEW_POINT_ID).widget?.point
                 target.setPoint(point)
                 target.setActive(point != null)
             }

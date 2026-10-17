@@ -68,6 +68,8 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.RefreshIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.RegisterRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.RegisterTable
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SecondaryButton
+import androidx.compose.ui.platform.testTag
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ConfirmSheetBody
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SegmentedTextControl
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SemanticBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SemanticKind
@@ -633,40 +635,75 @@ internal fun writeSummary(entry: RecentWrite, broadcastLabel: String, style: Add
 
 @Composable
 private fun WriteConfirm(pending: PendingWrite, model: WorkbenchViewModel, settings: UiSettings) {
+    WriteConfirmSheet(pending, settings, onCoil = model::setPendingCoil, onConfirm = model::confirmWrite, onDismiss = model::dismissPending)
+}
+
+/**
+ * 写入确认弹窗（工作台和面板共用，不绕过）：先看到将要发的整帧，点“发送写入”才发，取消不发；
+ * 广播（Unit 0）红色按钮 + 红色徽标。面板用 [context]（组件名 / 预设值说明）、[warningOverride]（位写入的“先读后写”提示）
+ * 和 [wordText]（位写入按 16 进制显示整字）补充上下文，其余完全一致。
+ */
+@Composable
+internal fun WriteConfirmSheet(
+    pending: PendingWrite,
+    settings: UiSettings,
+    onCoil: (Boolean) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    context: String? = null,
+    warningOverride: String? = null,
+    wordText: (Int) -> String = Int::toString,
+    /** 不开弹层，直接画弹层里的内容（截图 / 测试用；真实界面总是弹层）。 */
+    inline: Boolean = false,
+) {
     val plan = pending.plan
     val coil = plan.area == RegisterArea.COIL
     val multi = plan.words.size + plan.bits.size > 1
     val haptic = LocalHapticFeedback.current
-    ConfirmSheet(
-        title = stringResource(
-            when {
-                coil && multi -> R.string.confirm_title_coils
-                coil -> R.string.confirm_title_coil
-                multi -> R.string.confirm_title_registers
-                else -> R.string.confirm_title_register
-            },
-        ),
-        confirmLabel = stringResource(if (pending.broadcast) R.string.action_confirm_broadcast else R.string.action_confirm),
-        dismissLabel = stringResource(R.string.action_cancel),
-        onConfirm = {
-            if (settings.vibration) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            model.confirmWrite()
+    val title = stringResource(
+        when {
+            coil && multi -> R.string.confirm_title_coils
+            coil -> R.string.confirm_title_coil
+            multi -> R.string.confirm_title_registers
+            else -> R.string.confirm_title_register
         },
-        onDismiss = model::dismissPending,
-        // Unit 0 = 广播：红色“广播 · 所有从站”，不再显示某个 Unit。
-        badge = if (pending.broadcast) {
-            stringResource(R.string.confirm_badge_broadcast)
-        } else {
-            stringResource(R.string.confirm_badge, plan.unit, plan.address, modiconLabel(plan.area, plan.address))
-        },
-        badgeKind = if (pending.broadcast) SemanticKind.ERROR else SemanticKind.DROPPED,
-        confirmDanger = pending.broadcast,
-        frame = plan.frame,
-        frameHighlight = plan.payload,
-        frameCaption = stringResource(R.string.confirm_frame_caption, plan.frame.size, fcLabel(plan.functionCode)),
-        warning = stringResource(confirmWarningRes(pending.broadcast, coil, settings.coilExtraWarning)),
-    ) {
-        ConfirmValues(pending, model)
+    )
+    val confirmLabel = stringResource(if (pending.broadcast) R.string.action_confirm_broadcast else R.string.action_confirm)
+    val dismissLabel = stringResource(R.string.action_cancel)
+    // Unit 0 = 广播：红色“广播 · 所有从站”，不再显示某个 Unit。
+    val badge = if (pending.broadcast) {
+        stringResource(R.string.confirm_badge_broadcast)
+    } else {
+        stringResource(R.string.confirm_badge, plan.unit, plan.address, modiconLabel(plan.area, plan.address))
+    }
+    val badgeKind = if (pending.broadcast) SemanticKind.ERROR else SemanticKind.DROPPED
+    val caption = stringResource(R.string.confirm_frame_caption, plan.frame.size, fcLabel(plan.functionCode))
+    val warning = warningOverride ?: stringResource(confirmWarningRes(pending.broadcast, coil, settings.coilExtraWarning))
+    val confirm = {
+        if (settings.vibration) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        onConfirm()
+    }
+    val content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+        if (context != null) {
+            Text(
+                context, color = LocalModbusColors.current.muted, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("confirm-context"),
+            )
+        }
+        ConfirmValues(pending, onCoil, wordText)
+    }
+    if (inline) {
+        ConfirmSheetBody(
+            title, confirmLabel, dismissLabel, confirm, onDismiss,
+            badge = badge, badgeKind = badgeKind, confirmDanger = pending.broadcast,
+            frame = plan.frame, frameHighlight = plan.payload, frameCaption = caption, warning = warning, content = content,
+        )
+    } else {
+        ConfirmSheet(
+            title, confirmLabel, dismissLabel, confirm, onDismiss,
+            badge = badge, badgeKind = badgeKind, confirmDanger = pending.broadcast,
+            frame = plan.frame, frameHighlight = plan.payload, frameCaption = caption, warning = warning, content = content,
+        )
     }
 }
 
@@ -679,7 +716,7 @@ internal fun confirmWarningRes(broadcast: Boolean, coil: Boolean, coilExtra: Boo
 }
 
 @Composable
-private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
+private fun ConfirmValues(pending: PendingWrite, onCoil: (Boolean) -> Unit, wordText: (Int) -> String) {
     val colors = LocalModbusColors.current
     val plan = pending.plan
     val coil = plan.area == RegisterArea.COIL
@@ -691,7 +728,7 @@ private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
     fun show(value: Int?, isCoil: Boolean): String = when {
         value == null -> "—"
         isCoil -> if (value != 0) "ON" else "OFF"
-        else -> value.toString()
+        else -> wordText(value)
     }
     if (plan.words.size + plan.bits.size == 1) {
         val currentValue = pending.current.firstOrNull()
@@ -714,10 +751,10 @@ private fun ConfirmValues(pending: PendingWrite, model: WorkbenchViewModel) {
                 else -> ageText
             },
             rightLabel = if (coil) null else stringResource(R.string.confirm_new),
-            rightValue = if (coil) null else plan.words[0].toString(),
+            rightValue = if (coil) null else wordText(plan.words[0]),
             rightControl = if (coil) {
                 {
-                    SegmentedTextControl(listOf(false, true), plan.bits[0], model::setPendingCoil, Modifier.fillMaxWidth()) {
+                    SegmentedTextControl(listOf(false, true), plan.bits[0], onCoil, Modifier.fillMaxWidth()) {
                         if (it) "ON" else "OFF"
                     }
                 }

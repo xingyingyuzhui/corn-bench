@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -23,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
@@ -50,6 +54,8 @@ import io.github.xingyingyuzhui.modbusmobile.application.panel.ValueCodec
 import io.github.xingyingyuzhui.modbusmobile.application.panel.Widget
 import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetKinds
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusSwitchVisual
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
@@ -58,6 +64,18 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+
+/**
+ * 开关 / 按钮卡能不能点：[enabled] 为 false 时控件置灰并在 meta 行写 [reason]；[busy] = 正在读整字 / 写入。
+ * 传 null（编辑模式、向导预览）= 控件只显示、没有任何点击处理，不可能写设备。
+ */
+data class CardWrite(
+    val enabled: Boolean,
+    val reason: String?,
+    val busy: Boolean,
+    val onSwitch: (Boolean) -> Unit,
+    val onButton: () -> Unit,
+)
 
 /**
  * 面板组件卡（稿面 b2-1 `.w`）：圆角 16、1px 边、内边距 10/12（border-box，内容离外缘 13/11）、
@@ -72,6 +90,8 @@ fun WidgetCard(
     editing: Boolean = false,
     /** 向导里的预览卡用强调色描边（稿面 border-color:var(--amber)）。 */
     borderColor: Color? = null,
+    /** 开关 / 按钮的写入入口；null = 不可操作（编辑模式 / 向导预览）。 */
+    write: CardWrite? = null,
 ) {
     val point = widget.point ?: return
     // 编辑模式（稿面 b2-2）：名称前加 ⠿，不显示 badge 和 meta（值还是实时的）。
@@ -83,6 +103,8 @@ fun WidgetCard(
             WidgetKinds.STATUS_TEXT -> StatusBody(widget, point, name, snapshot, look)
             WidgetKinds.PROGRESS -> ProgressBody(widget, point, name, snapshot, look)
             WidgetKinds.GAUGE -> GaugeBody(widget, point, name, snapshot, look)
+            WidgetKinds.SWITCH -> SwitchBody(widget, point, name, snapshot, look, write)
+            WidgetKinds.BUTTON -> ButtonBody(widget, point, name, editing, write)
             else -> NumberBody(widget, point, name, snapshot, look)
         }
     }
@@ -244,6 +266,106 @@ private fun LampBody(widget: Widget, point: PointDefinition, name: String, snaps
         )
     }
     Meta(look, topPadding = 6)
+}
+
+/**
+ * 开关卡：名称 + badge、当前状态文字、右侧 42×24 开关（稿面 .tg，点击区 ≥48×48）。
+ * 点开关**不会**直接写：它只是请求“切到相反状态”，确认弹窗里才发（见 [PanelWriteController]）。
+ * 状态未知 / 过期、非主站、正在读写时置灰；编辑模式 / 向导预览（[write] 为 null）只画不响应。
+ */
+@Composable
+private fun SwitchBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look, write: CardWrite?) {
+    val colors = LocalModbusColors.current
+    NameRow(name, look.badge)
+    val known = snapshot?.raw != null && snapshot.quality == Quality.OK
+    val on = snapshot?.raw != null && (snapshot.engineering ?: 0.0) != 0.0
+    val label = when {
+        snapshot?.raw == null -> "—"
+        on -> widget.onLabel.ifBlank { stringResource(R.string.panel_flag_on) }
+        else -> widget.offLabel.ifBlank { stringResource(R.string.panel_flag_off) }
+    }
+    val usable = write != null && write.enabled && !write.busy && known
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold,
+            color = if (known) (if (on) colors.text else colors.muted) else look.valueColor,
+            modifier = Modifier.weight(1f).testTag("panel-value-${widget.id}"),
+        )
+        Box(
+            Modifier
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .alpha(if (usable || write == null) 1f else 0.45f)
+                .testTag("panel-switch-${widget.id}")
+                .then(
+                    if (write != null) {
+                        Modifier.toggleable(value = on, enabled = usable, role = Role.Switch, onValueChange = { write.onSwitch(it) })
+                    } else {
+                        Modifier
+                    },
+                ),
+            contentAlignment = Alignment.CenterEnd,
+        ) { ModbusSwitchVisual(on) }
+    }
+    val note = when {
+        write == null -> null
+        write.busy -> stringResource(R.string.panel_write_busy)
+        !write.enabled -> write.reason
+        !known -> stringResource(R.string.panel_write_unknown_state)
+        else -> null
+    }
+    if (note != null) {
+        Text(
+            note, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp), color = colors.dim,
+            modifier = Modifier.padding(top = 2.dp).testTag("panel-write-note"),
+        )
+    } else {
+        Meta(look)
+    }
+}
+
+/**
+ * 按钮卡：名称 + 整宽按钮（稿面 .btn.pri.xs，触控 ≥48dp）+ 一行说明“写什么、写到哪”（广播红色）。
+ * 按钮的点位不轮询；点按钮只是请求写预设值，确认弹窗里才发。
+ */
+@Composable
+private fun ButtonBody(widget: Widget, point: PointDefinition, name: String, editing: Boolean, write: CardWrite?) {
+    val colors = LocalModbusColors.current
+    NameRow(name, null)
+    val broadcast = point.unitId == 0
+    val label = widget.buttonLabel.ifBlank { stringResource(R.string.panel_button_default) }
+    val usable = write != null && write.enabled && !write.busy
+    Box(Modifier.fillMaxWidth().padding(top = 2.dp).testTag("panel-button-${widget.id}")) {
+        if (write != null) {
+            SmallButton(label, onClick = write.onButton, Modifier.fillMaxWidth(), primary = true, enabled = usable)
+        } else {
+            // 编辑模式 / 向导预览：只画样子（尺寸和真按钮一致），没有任何点击处理，也不挡住“点卡片打开向导”
+            Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(10.dp)).background(colors.surface3).testTag("panel-button-visual-${widget.id}"),
+                    contentAlignment = Alignment.Center,
+                ) { Text(label, color = colors.dim, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+    val value = widget.writeValue?.let { v ->
+        if (point.area == RegisterArea.COIL) (if (v != 0.0) "ON" else "OFF") else ValueCodec.format(v, null).orEmpty()
+    }.orEmpty()
+    val target = stringResource(
+        if (broadcast) R.string.panel_button_target_broadcast else R.string.panel_button_target,
+        addressLabel(point), value, point.unitId,
+    )
+    val note = when {
+        editing || write == null -> target
+        write.busy -> stringResource(R.string.panel_write_busy)
+        !write.enabled -> write.reason ?: target
+        else -> target
+    }
+    Text(
+        note, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp),
+        color = if (broadcast && (write == null || write.enabled) && !editing) colors.error else colors.dim,
+        modifier = Modifier.padding(top = 2.dp).testTag("panel-button-note-${widget.id}"),
+    )
 }
 
 /** 14dp 灯，亮 = 绿 + 光晕（稿面 box-shadow 0 0 10px）；灭 / 无数据 = surface3；有值但读取失败（过期）= 绿色减淡，无光晕。 */

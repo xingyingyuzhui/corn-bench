@@ -85,7 +85,8 @@ enum class CurveStatus { POLLING, PAUSED, IDLE }
 fun CurveFullscreenScreen(owner: ViewModelStoreOwner, widgetId: String?, onClose: () -> Unit) {
     val repository = LocalProjectRepository.current
     val runtime = LocalPanelRuntime.current
-    val model = viewModel<PanelViewModel>(viewModelStoreOwner = owner) { PanelViewModel(repository, runtime) }
+    val session = LocalSession.current
+    val model = viewModel<PanelViewModel>(viewModelStoreOwner = owner) { PanelViewModel(repository, runtime, session = session) }
     val state by model.state.collectAsStateWithLifecycle()
     val stats by model.stats.collectAsStateWithLifecycle()
     val pollPaused by model.paused.collectAsStateWithLifecycle()

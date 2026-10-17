@@ -7,7 +7,7 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
  * [WidgetForm.build] 一次性校验并产出 [Widget]；界面只负责显示 [FormError]。
  */
 
-enum class FormField { NAME, UNIT, ADDRESS, BIT, ASCII, SCALE, OFFSET, DECIMALS, RANGE_MIN, RANGE_MAX, POLL, THRESHOLD, STATE }
+enum class FormField { NAME, UNIT, ADDRESS, BIT, ASCII, SCALE, OFFSET, DECIMALS, RANGE_MIN, RANGE_MAX, POLL, THRESHOLD, STATE, WRITE_VALUE }
 
 enum class FormError {
     REQUIRED, NOT_A_NUMBER, NOT_INTEGER, OUT_OF_RANGE, ZERO_SCALE, RANGE_ORDER, DUPLICATE, SPAN_OVERFLOW, TOO_MANY,
@@ -55,7 +55,15 @@ data class WidgetForm(
     val states: List<StateRow> = emptyList(),
     val spanColumns: Int = 1,
     val spanRows: Int = 1,
+    /** 按钮：卡片上的文字（可空 = “写入”）和预设值（线圈 1 / 0，寄存器为数值）。 */
+    val buttonLabel: String = "",
+    val writeValue: String = "",
 ) {
+    /** 按钮可以选 Unit 0（广播）；其余组件要读状态，必须 1..247。 */
+    val allowsBroadcast: Boolean get() = kind == WidgetKinds.BUTTON
+    val isWriter: Boolean get() = kind in WidgetKinds.writable
+    /** 按钮不读设备，没有轮询周期。 */
+    val usesPoll: Boolean get() = kind != WidgetKinds.BUTTON
     val usesConversion: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE
     val usesRange: Boolean get() = kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE
     val usesThresholds: Boolean get() = kind == WidgetKinds.NUMBER || kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE
@@ -97,7 +105,7 @@ data class WidgetForm(
             return v
         }
 
-        val unit = int(unitId, FormField.UNIT, 1..247)
+        val unit = int(unitId, FormField.UNIT, if (allowsBroadcast) 0..247 else 1..247)
         val addr = int(address, FormField.ADDRESS, 0..65535)
         val bitIndex = if (type == DataType.BIT) int(bit, FormField.BIT, 0..15) else 0
         val ascii = if (type == DataType.ASCII) int(asciiRegisters, FormField.ASCII, 1..125) else 1
@@ -136,6 +144,19 @@ data class WidgetForm(
             if (badThresholds.isNotEmpty()) errors[FormField.THRESHOLD] = FormError.NOT_A_NUMBER
         }
 
+        var preset: Double? = null
+        if (kind == WidgetKinds.BUTTON) {
+            preset = number(writeValue, FormField.WRITE_VALUE)
+            if (preset != null) {
+                val probe = PointDefinition(id = "p", name = "p", unitId = 1, area = area, address = 0, type = type, order = order)
+                when {
+                    area == RegisterArea.COIL -> if (preset != 0.0 && preset != 1.0) errors[FormField.WRITE_VALUE] = FormError.OUT_OF_RANGE
+                    !type.isFloat && preset != Math.rint(preset) -> errors[FormField.WRITE_VALUE] = FormError.NOT_INTEGER
+                    WidgetWrites.buttonWords(probe, preset) == null -> errors[FormField.WRITE_VALUE] = FormError.OUT_OF_RANGE
+                }
+            }
+        }
+
         val mappings = ArrayList<StateMapping>()
         val badStates = LinkedHashSet<Int>()
         if (kind == WidgetKinds.STATUS_TEXT) {
@@ -159,7 +180,7 @@ data class WidgetForm(
             unitLabel = if (usesUnitLabel) unitLabel.trim().take(MAX_UNIT_LABEL) else "",
             rangeMin = min, rangeMax = max, thresholds = bands, pollMs = poll,
         )
-        for (issue in point.validate()) {
+        for (issue in point.validate(allowBroadcast = allowsBroadcast)) {
             when (issue) {
                 PointIssue.SPAN_OVERFLOW -> errors[FormField.ADDRESS] = FormError.SPAN_OVERFLOW
                 PointIssue.TOO_MANY_REGISTERS -> errors[FormField.ASCII] = FormError.TOO_MANY
@@ -170,16 +191,20 @@ data class WidgetForm(
         val widget = Widget(
             id = widgetId, kind = kind, title = "", point = point,
             spanColumns = spanColumns.coerceIn(1, 2), spanRows = spanRows.coerceIn(1, 2),
-            onLabel = if (kind == WidgetKinds.LAMP) onLabel.trim() else "",
-            offLabel = if (kind == WidgetKinds.LAMP) offLabel.trim() else "",
+            onLabel = if (kind == WidgetKinds.LAMP || kind == WidgetKinds.SWITCH) onLabel.trim() else "",
+            offLabel = if (kind == WidgetKinds.LAMP || kind == WidgetKinds.SWITCH) offLabel.trim() else "",
             states = mappings,
+            buttonLabel = if (kind == WidgetKinds.BUTTON) buttonLabel.trim().take(MAX_BUTTON_LABEL) else "",
+            writeValue = if (kind == WidgetKinds.BUTTON) preset else null,
         )
+        WidgetWrites.problem(widget)?.let { return FormResult(null, mapOf(FormField.ADDRESS to FormError.OUT_OF_RANGE)) }
         return FormResult(widget, emptyMap())
     }
 
     companion object {
         const val MAX_NAME = 32
         const val MAX_UNIT_LABEL = 8
+        const val MAX_BUTTON_LABEL = 12
         const val MAX_STATES = 32
 
         private val numeric = listOf(
@@ -191,6 +216,8 @@ data class WidgetForm(
 
         fun allowedTypes(kind: String, area: RegisterArea): List<DataType> = when {
             isBitArea(area) -> listOf(DataType.BOOL)
+            kind == WidgetKinds.SWITCH -> listOf(DataType.BIT)
+            kind == WidgetKinds.BUTTON -> WidgetWrites.buttonTypes
             kind == WidgetKinds.LAMP -> listOf(DataType.BIT, DataType.U16, DataType.S16)
             kind == WidgetKinds.STATUS_TEXT -> listOf(DataType.U16, DataType.S16, DataType.U32, DataType.S32, DataType.BCD16, DataType.BCD32)
             kind == WidgetKinds.PROGRESS || kind == WidgetKinds.GAUGE -> numeric
@@ -198,13 +225,15 @@ data class WidgetForm(
         }
 
         fun defaultType(kind: String, area: RegisterArea): DataType =
-            if (isBitArea(area)) DataType.BOOL else if (kind == WidgetKinds.LAMP) DataType.BIT else DataType.U16
+            if (isBitArea(area)) DataType.BOOL else if (kind == WidgetKinds.LAMP || kind == WidgetKinds.SWITCH) DataType.BIT else DataType.U16
 
         /** 选了类型后的初始表单：灯 / 状态文本带上合理的默认。 */
         fun forKind(kind: String): WidgetForm = when (kind) {
             WidgetKinds.LAMP -> WidgetForm(kind = kind, type = DataType.BIT, onLabel = "", offLabel = "")
             WidgetKinds.PROGRESS -> WidgetForm(kind = kind, rangeMin = "0", rangeMax = "100", unitLabel = "%")
             WidgetKinds.GAUGE -> WidgetForm(kind = kind, rangeMin = "0", rangeMax = "100")
+            WidgetKinds.SWITCH -> WidgetForm(kind = kind, area = RegisterArea.COIL, type = DataType.BOOL)
+            WidgetKinds.BUTTON -> WidgetForm(kind = kind, area = RegisterArea.COIL, type = DataType.BOOL, writeValue = "1")
             else -> WidgetForm(kind = kind)
         }
 
@@ -228,6 +257,7 @@ data class WidgetForm(
                 pollMs = p.pollMs.toString(), onLabel = widget.onLabel, offLabel = widget.offLabel,
                 states = widget.states.map { StateRow(it.value.toString(), it.label, it.tone) },
                 spanColumns = widget.spanColumns, spanRows = widget.spanRows,
+                buttonLabel = widget.buttonLabel, writeValue = widget.writeValue?.let { ValueCodec.format(it, null) }.orEmpty(),
             )
         }
     }

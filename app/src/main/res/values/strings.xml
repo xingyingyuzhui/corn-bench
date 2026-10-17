@@ -123,6 +123,29 @@
 
     <string name="panel_empty_title">还没有组件</string>
     <string name="panel_empty_body">面板用来显示你配置的寄存器点位，比如温度、状态灯、进度。这里不放假数据，避免和真实读数混淆。</string>
+    <string name="panel_button_default">写入</string>
+    <string name="panel_button_target">写 %1$s = %2$s · U%3$d</string>
+    <string name="panel_button_target_broadcast">写 %1$s = %2$s · 广播（所有从站）</string>
+    <string name="panel_write_busy">正在读取 / 写入…</string>
+    <string name="panel_write_slave">从站模式不能写设备</string>
+    <string name="panel_write_no_master">未连接主站，不能写设备</string>
+    <string name="panel_write_unknown_state">状态未知或已过期，不能切换</string>
+    <string name="panel_write_notice_close">关闭</string>
+    <string name="panel_write_ok">%1$s · 已写入（%2$s）；状态以下次读取为准</string>
+    <string name="panel_write_sent">%1$s · 已发送（%2$s）。广播没有响应，无法确认从站是否执行</string>
+    <string name="panel_write_exception">%1$s · 设备拒绝了写入，异常码 %2$d</string>
+    <string name="panel_write_timeout">%1$s · 写入超时，设备可能没收到</string>
+    <string name="panel_write_unknown">%1$s · 写入结果未知（可能已执行也可能没有），请读回确认</string>
+    <string name="panel_write_disconnected">%1$s · 连接已断开，没有写入</string>
+    <string name="panel_write_invalid">%1$s · 收到无效响应，写入结果不确定，请读回确认</string>
+    <string name="panel_write_read_failed">%1$s · 读取整字失败，没有写入</string>
+    <string name="panel_write_changed">%1$s · 寄存器在确认前被改动，没有写入；请按新的值重新确认</string>
+    <string name="panel_write_not_master">%1$s · 只有主站模式能写设备</string>
+    <string name="panel_write_bad_state">%1$s · 无法生成写入请求（配置不完整）</string>
+    <string name="panel_write_ctx_switch">开关 · %1$s</string>
+    <string name="panel_write_ctx_button">按钮“%2$s” · %1$s</string>
+    <string name="panel_write_ctx_bit">开关 · %1$s · 位 %2$d → %3$d（整字 0x%4$04X → 0x%5$04X）</string>
+    <string name="panel_write_bit_warning">位 %1$d 的写入是「先读整字 → 只改这一位 → FC06 写回」，不是原子操作：确认时会再读一次，整字变了就不发，用新的值重新确认。</string>
     <string name="panel_poll_idle">未轮询：需要主站连接，且页面在前台</string>
     <string name="panel_strip_polling">主站 · 轮询中</string>
     <string name="panel_strip_paused">主站 · 轮询已暂停</string>
@@ -199,7 +222,21 @@
     <string name="panel_wiz_kind_gauge">仪表</string>
     <string name="panel_wiz_kind_gauge_desc">量程 + 分段颜色</string>
     <string name="panel_wiz_title_gauge">仪表组件</string>
-    <string name="panel_wiz_more_later">开关、寄存器表、按钮（这些会写设备，要先确认）会在后续版本加入。</string>
+    <string name="panel_wiz_more_later">寄存器表（会写设备，要先确认）会在后续版本加入。</string>
+    <string name="panel_wiz_kind_switch">开关</string>
+    <string name="panel_wiz_kind_switch_desc">切换线圈 / 寄存器位 · 会写设备</string>
+    <string name="panel_wiz_title_switch">开关组件</string>
+    <string name="panel_wiz_kind_button">按钮</string>
+    <string name="panel_wiz_kind_button_desc">一键写入预设值 · 会写设备</string>
+    <string name="panel_wiz_title_button">按钮组件</string>
+    <string name="panel_wiz_button_label">按钮文字（可空，默认“写入”）</string>
+    <string name="panel_wiz_write_value">预设值</string>
+    <string name="panel_wiz_unit_broadcast">Unit 0 = 广播：同一总线上所有从站都会收到，没有响应，无法确认谁执行了。点按钮时确认弹窗是红色。</string>
+    <string name="panel_wiz_err_unit_broadcast">范围 0–247（0 = 广播）</string>
+    <string name="panel_wiz_err_write_value">超出该类型的范围（线圈只能是 0 或 1，整数类型要填整数）</string>
+    <string name="panel_wiz_switch_note">点开关只是请求：会先弹确认（显示将发送的整帧），点“发送写入”才会写；取消不发。编辑模式和这里的预览都不会写设备；从站模式不能写。</string>
+    <string name="panel_wiz_switch_bit_note">寄存器位的写入是「先读整字 → 改这一位 → FC06 写回」，不是原子操作，其他位可能被同时改动（确认时会再读一次核对）。线圈请用 FC05。</string>
+    <string name="panel_wiz_button_note">点按钮只是请求：会先弹确认（显示将发送的整帧），点“发送写入”才会写；取消不发。按钮不读设备，没有当前值。编辑模式和这里的预览都不会写设备；从站模式不能写。</string>
     <string name="panel_wiz_sec_source">数据源</string>
     <string name="panel_wiz_sec_convert">换算与显示</string>
     <string name="panel_wiz_sec_display">显示</string>
