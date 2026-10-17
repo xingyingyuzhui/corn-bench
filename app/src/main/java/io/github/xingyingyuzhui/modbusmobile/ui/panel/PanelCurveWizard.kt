@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -82,7 +81,6 @@ import io.github.xingyingyuzhui.modbusmobile.ui.curve.seriesColor
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.JetBrainsMono
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 
-private val PaddingCard = PaddingValues(10.dp)
 private val WindowChoices = listOf(60, 300, 600, 3600)
 
 // ---- 选类型卡里的小图示（稿面 b2-3：橙 + 蓝两条折线）----
@@ -122,11 +120,11 @@ internal fun CurveConfigStep(
     CurvePreviewCard(curve, history, live)
     SeriesList(wizard, result, onAddSeries, onOpenSeries)
     SectionTitle(stringResource(R.string.panel_wiz_curve_sec_time))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = PaddingCard) { TimeSection(wizard, result, onCurve) }
+    ModbusCard(Modifier.fillMaxWidth()) { TimeSection(wizard, result, onCurve) }
     SectionTitle(stringResource(R.string.panel_wiz_curve_sec_axes))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = PaddingCard) { AxesSection(wizard, result, onCurve) }
+    ModbusCard(Modifier.fillMaxWidth()) { AxesSection(wizard, result, onCurve) }
     SectionTitle(stringResource(R.string.panel_wiz_curve_sec_display))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = PaddingCard) { DisplaySection(curve, onCurve) }
+    ModbusCard(Modifier.fillMaxWidth()) { DisplaySection(curve, onCurve) }
 }
 
 /** 预览：真实的曲线卡（强调色描边）；还没有能成立的系列时画只有标题的占位。 */
@@ -156,7 +154,7 @@ internal fun CurvePreviewCard(curve: CurveForm, history: SampleHistory?, live: B
         if (!live) {
             Text(
                 stringResource(R.string.panel_wiz_preview_none), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-                modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-preview-none"),
+                modifier = Modifier.testTag("wiz-preview-none"),
             )
         }
     }
@@ -171,7 +169,7 @@ private fun SeriesList(wizard: WizardState, result: CurveResult, onAdd: () -> Un
     Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             stringResource(R.string.panel_wiz_curve_series, curve.series.size, CurveConfig.MAX_SERIES),
-            color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f).padding(start = 2.dp).testTag("wiz-series-title"),
+            color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f).testTag("wiz-series-title"),
         )
         if (curve.series.size < CurveConfig.MAX_SERIES) {
             val add = stringResource(R.string.panel_wiz_curve_add_series)
@@ -191,7 +189,7 @@ private fun SeriesList(wizard: WizardState, result: CurveResult, onAdd: () -> Un
         Text(
             stringResource(if (need) R.string.panel_wiz_curve_series_need else R.string.panel_wiz_curve_series_empty),
             color = if (need) colors.error else colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-            modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-series-empty"),
+            modifier = Modifier.testTag("wiz-series-empty"),
         )
         return
     }
@@ -603,11 +601,11 @@ internal fun SeriesPointPage(
     val onForm: (WidgetForm) -> Unit = { f -> onChange { it.copy(point = f) } }
     PreviewCard(inner, result, snapshot, live)
     SectionTitle(stringResource(R.string.panel_wiz_sec_source))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = PaddingCard) { SourceSection(inner, result, onForm) }
+    ModbusCard(Modifier.fillMaxWidth()) { SourceSection(inner, result, onForm) }
     SectionTitle(stringResource(R.string.panel_wiz_sec_convert))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = PaddingCard) { ConvertSection(inner, result, snapshot, onForm, compact = true) }
+    ModbusCard(Modifier.fillMaxWidth()) { ConvertSection(inner, result, snapshot, onForm, compact = true) }
     SectionTitle(stringResource(R.string.panel_wiz_sec_poll))
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = PaddingCard) {
+    ModbusCard(Modifier.fillMaxWidth()) {
         NumberInput(
             stringResource(R.string.panel_wiz_poll), series.point.pollMs, Modifier.fillMaxWidth().testTag("wiz-poll"),
             sub = stringResource(R.string.panel_wiz_poll_unit),
@@ -651,10 +649,10 @@ internal fun CurveLookStep(
         }
         Text(
             stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp,
-            modifier = Modifier.padding(start = 2.dp).testTag("wiz-actual-size"),
+            modifier = Modifier.testTag("wiz-actual-size"),
         )
     }
-    ModbusCard(Modifier.fillMaxWidth(), contentPadding = PaddingCard) {
+    ModbusCard(Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.panel_wiz_size), color = colors.muted, fontSize = 12.sp)
             SegmentedTextControl(CurveSizes, curve.spanRows, { onCurve(curve.copy(spanRows = it)) }, Modifier.testTag("wiz-size"), small = true) { "2 × $it" }
@@ -662,6 +660,6 @@ internal fun CurveLookStep(
     }
     Text(
         stringResource(R.string.panel_wiz_curve_size_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-        modifier = Modifier.padding(horizontal = 2.dp).testTag("wiz-size-note"),
+        modifier = Modifier.testTag("wiz-size-note"),
     )
 }

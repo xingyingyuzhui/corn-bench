@@ -97,7 +97,7 @@ class ConnectionSpacingTest {
         assertClose("角色卡→串口卡", serialCard.top - roleCard.bottom, 10f)
         assertClose("串口卡→高级卡", advanced.top - serialCard.bottom, 10f)
         val lastDevice = b(compose.onAllNodesWithTag("device-row")[1].getBoundsInRoot())
-        assertClose("设备卡底内边距", deviceCard.bottom - lastDevice.bottom, 13f)
+        assertClose("设备卡底内边距", deviceCard.bottom - lastDevice.bottom, 12f) // CL-16：卡片内边距只有 12（去掉 border-box 的 1dp）
         compose.onRoot().captureRoboImage("src/test/screenshots/connection-spacing/idle_light.png")
     }
 

@@ -70,11 +70,12 @@ import io.github.xingyingyuzhui.modbusmobile.application.panel.PointSnapshot
 import io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectEdits
 import io.github.xingyingyuzhui.modbusmobile.application.panel.Widget
 import io.github.xingyingyuzhui.modbusmobile.ui.components.CloseIcon
-import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
+import io.github.xingyingyuzhui.modbusmobile.ui.components.SubPageHeader
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSize
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SelectChip
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
-import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.pageStart
@@ -116,7 +117,6 @@ fun PanelEditor(
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
-    val dock = LocalDockInsets.current
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val panel: Panel = edit.draft.panels.firstOrNull { it.id == edit.panelId } ?: edit.draft.panels.first()
     val columns = if (landscape) 4 else panel.columns
@@ -126,18 +126,15 @@ fun PanelEditor(
     BackHandler(onBack = requestCancel)
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = pageStart() - 8.dp, end = spacing.page).height(52.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        // AL-03：关闭钮和其它二级页的返回钮同一位置（SubPageHeader 统一处理），不再自己减 8。
+        SubPageHeader(
+            title = stringResource(R.string.panel_edit_title),
+            onBack = requestCancel,
+            modifier = Modifier.padding(start = pageStart(), end = spacing.page),
+            leadingDescription = stringResource(R.string.panel_edit_close),
+            leadingTag = "edit-close",
+            leadingIcon = { CloseIcon(it, size = ModbusSize.iconM) },
         ) {
-            HeaderIconButton(stringResource(R.string.panel_edit_close), requestCancel, Modifier.testTag("edit-close")) {
-                CloseIcon(colors.text)
-            }
-            Text(
-                stringResource(R.string.panel_edit_title), color = colors.text, fontSize = 20.sp,
-                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
-            )
             SmallButton(
                 stringResource(R.string.panel_edit_done), actions.onDone, Modifier.testTag("edit-done"),
                 primary = true, enabled = !edit.saving,
@@ -148,7 +145,7 @@ fun PanelEditor(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(start = pageStart(), end = spacing.page, top = 8.dp, bottom = dock.bottom + spacing.gapS),
+                .padding(start = pageStart(), end = spacing.page, top = 8.dp, bottom = dockClearance()),
             verticalArrangement = Arrangement.spacedBy(spacing.gapS),
         ) {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

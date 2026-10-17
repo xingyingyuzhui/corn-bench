@@ -1,7 +1,7 @@
 {
   "meta": {
     "card": "T-20261018-and-03",
-    "version": "v1",
+    "version": "v2",
     "base": "main 05ea1e2",
     "note": "值以 ModbusColors.kt / Spacing.kt / Type.kt 为落点；status=沿用/修改/新增"
   },
@@ -347,109 +347,125 @@
     }
   },
   "spacing": {
-    "2xs": {
-      "dp": 2,
-      "status": "沿用（值）",
-      "previous": "",
-      "usage": "图标与文字的微调、表头文字内边距；不用于布局分组"
-    },
     "xs": {
       "dp": 4,
+      "grid": "4",
+      "layer": "组件级",
       "status": "沿用（值）",
-      "previous": "",
-      "usage": "标签与值之间、输入格与错误文字之间"
+      "previous": "v1 另有 2、6 两档，v2 删除",
+      "usage": "[组件级] 标签与值、输入格与错误文字、图标与文字（≤16dp 图标）"
     },
     "s": {
-      "dp": 6,
-      "status": "沿用（值）",
-      "previous": "",
-      "usage": "chip 之间、badge 与文字之间、统计格之间"
-    },
-    "m": {
       "dp": 8,
+      "grid": "4",
+      "layer": "组件级",
       "status": "沿用",
       "previous": "",
-      "usage": "组内元素间距（卡片内行、按钮并排）"
+      "usage": "[组件级] 组内元素（卡内行、并排按钮、chip 之间、badge 与文字、20dp+ 图标与文字）；面板网格卡片间距"
     },
-    "l": {
-      "dp": 10,
-      "status": "沿用",
-      "previous": "",
-      "usage": "同一屏内组与组之间（卡片之间）"
-    },
-    "xl": {
+    "card": {
       "dp": 12,
+      "grid": "4",
+      "layer": "组件级",
       "status": "沿用（值）",
-      "previous": "",
-      "usage": "卡片内边距、行内水平内边距"
+      "previous": "卡片内边距现有 10/12/14/8 四种",
+      "usage": "[组件级] 卡片内边距、列表行水平内边距、Sheet 内行"
     },
     "page": {
-      "dp": 14,
-      "status": "沿用",
-      "previous": "",
-      "usage": "屏幕左右边距；弹层水平内边距（ConfirmSheet 16→14）"
-    },
-    "2xl": {
       "dp": 16,
-      "status": "新增",
-      "previous": "",
-      "usage": "向导等长表单的分区之间（替代外层卡片）"
+      "grid": "8",
+      "layer": "布局级",
+      "status": "修改",
+      "previous": "代码 14（v1 沿用 14）",
+      "usage": "[布局级] 屏幕左右边距 K0；Sheet 水平内边距（ConfirmSheet 已是 16，InPageSheet 14→16）"
     },
-    "3xl": {
+    "group": {
+      "dp": 16,
+      "grid": "8",
+      "layer": "布局级",
+      "status": "修改",
+      "previous": "代码 10（v1 沿用 10）",
+      "usage": "[布局级] 卡片之间（纵向堆叠）、组与组之间、SectionLabel 上方"
+    },
+    "section": {
       "dp": 24,
+      "grid": "8",
+      "layer": "布局级",
       "status": "新增",
-      "previous": "",
-      "usage": "空态块上下留白"
+      "previous": "v1 为 16",
+      "usage": "[布局级] 长表单（向导）分区之间；页头与第一组之间"
+    },
+    "empty": {
+      "dp": 32,
+      "grid": "8",
+      "layer": "布局级",
+      "status": "新增",
+      "previous": "v1 为 24",
+      "usage": "[布局级] 空态块上下留白"
+    },
+    "dockGap": {
+      "dp": 16,
+      "grid": "8",
+      "layer": "布局级",
+      "status": "修改",
+      "previous": "代码 Insets.kt:49 为 dock+gapS(8)；连接页另 +10=18",
+      "usage": "[布局级] 最后一个元素底边到 Dock 顶的距离（所有页统一）"
     },
     "compact.page": {
-      "dp": 12,
+      "dp": 16,
+      "grid": "8",
+      "layer": "布局级",
       "status": "修改",
-      "previous": "14×0.75=10.5",
-      "usage": "紧凑密度屏幕边距"
+      "previous": "代码 14×0.75=10.5（v1 定 12）",
+      "usage": "紧凑密度屏幕边距：不缩"
     },
-    "compact.gapS": {
-      "dp": 6,
-      "status": "修改",
-      "previous": "8×0.75=6",
-      "usage": "紧凑密度组内"
-    },
-    "compact.gapM": {
+    "compact.group": {
       "dp": 8,
+      "grid": "8",
+      "layer": "布局级",
       "status": "修改",
-      "previous": "10×0.75=7.5",
+      "previous": "代码 10×0.75=7.5",
       "usage": "紧凑密度组间"
+    },
+    "compact.s": {
+      "dp": 4,
+      "grid": "4",
+      "layer": "组件级",
+      "status": "修改",
+      "previous": "代码 8×0.75=6",
+      "usage": "紧凑密度组内"
     }
   },
   "radius": {
     "badge": {
-      "dp": 6,
-      "status": "沿用",
-      "previous": "",
+      "dp": 4,
+      "status": "修改",
+      "previous": "代码 6",
       "usage": "Badge"
     },
-    "iconBlock": {
+    "small": {
       "dp": 8,
-      "status": "沿用",
-      "previous": "",
-      "usage": "设置行图标底块、BitPicker 位格"
+      "status": "修改",
+      "previous": "SmallButton 代码 10（借用 FieldRadius）",
+      "usage": "SmallButton（32 高）、设置图标底块、BitPicker 位格、分段选中块"
     },
     "field": {
-      "dp": 10,
-      "status": "沿用",
-      "previous": "",
-      "usage": "输入格、ChoiceTile、SmallButton"
+      "dp": 12,
+      "status": "修改",
+      "previous": "代码 10",
+      "usage": "输入格、FieldTile、ChoiceTile、统计格"
     },
     "row": {
       "dp": 12,
       "status": "沿用（值）",
-      "previous": "原散落 RoundedCornerShape(12.dp) ×8",
-      "usage": "设备行、设置行选中底、统计格、分段外框"
+      "previous": "散落 RoundedCornerShape(12.dp)",
+      "usage": "设备行、设置行选中底、分段外框（SegContainerRadius 已是 12）"
     },
     "button": {
-      "dp": 14,
-      "status": "沿用",
-      "previous": "",
-      "usage": "主/次按钮、SessionStrip、菜单"
+      "dp": 12,
+      "status": "修改",
+      "previous": "代码 14",
+      "usage": "主/次按钮、SessionStrip、菜单、UndoBar"
     },
     "card": {
       "dp": 16,
@@ -459,15 +475,15 @@
     },
     "chip": {
       "dp": 16,
-      "status": "沿用",
+      "status": "沿用（32 高时=16；xs 28 高=14，按“胶囊”豁免）",
       "previous": "",
-      "usage": "chip（胶囊）"
+      "usage": "chip 一律胶囊"
     },
     "sheet": {
       "dp": 24,
       "status": "修改",
       "previous": "InPageSheet / RowEntrySheet 22",
-      "usage": "所有底部弹层顶角"
+      "usage": "底部弹层顶角"
     },
     "island": {
       "dp": 24,
@@ -479,21 +495,21 @@
   "stroke": {
     "hairline": {
       "dp": 1,
-      "status": "沿用",
+      "status": "沿用（豁免网格）",
       "previous": "",
       "usage": "卡片描边、分隔线、chip 描边"
     },
     "control": {
       "dp": 1.5,
-      "status": "沿用",
+      "status": "沿用（豁免网格）",
       "previous": "",
-      "usage": "次按钮描边、焦点环、出错输入格、编辑虚线框、开关关闭轨道描边"
+      "usage": "次按钮描边、焦点环、出错输入格、开关关闭轨道描边"
     },
     "selected": {
       "dp": 1.5,
-      "status": "修改",
-      "previous": "KindCard 选中 2（PanelWizardScreen.kt:314）",
-      "usage": "选中卡片描边（与 chip 选中 1dp 区分：卡片 1.5、chip 1）"
+      "status": "修改（豁免网格）",
+      "previous": "KindCard 选中 2",
+      "usage": "选中卡片描边"
     }
   },
   "elevation": {
@@ -513,88 +529,97 @@
       "dp": 0,
       "status": "沿用",
       "previous": "",
-      "usage": "卡片、弹层不加投影（弹层靠遮罩分层）"
+      "usage": "卡片、弹层不加投影"
     }
   },
   "type": {
     "headline": {
       "sizeSp": 20,
-      "lineHeightSp": 26,
+      "lineHeightSp": 28,
       "weight": "Bold 700",
       "family": "系统",
-      "status": "沿用（值）",
-      "previous": "",
+      "status": "沿用（字号）/ 修改（补行高）",
+      "previous": "行高未定义",
       "usage": "PageHeader / SubPageHeader / 编辑页标题"
     },
     "titleL": {
-      "sizeSp": 17,
+      "sizeSp": 18,
       "lineHeightSp": 24,
       "weight": "Bold 700",
       "family": "系统",
-      "status": "修改",
-      "previous": "ConfirmSheet 18/24、AlertDialog 18",
+      "status": "沿用",
+      "previous": "InPageSheet 17、AlertDialog 18（v1 曾定 17，按 arch 改回代码现有 18）",
       "usage": "弹层与对话框标题"
     },
     "titleM": {
       "sizeSp": 16,
-      "lineHeightSp": 22,
+      "lineHeightSp": 24,
       "weight": "Bold 700",
       "family": "系统",
-      "status": "沿用（值）",
-      "previous": "",
-      "usage": "横屏页标题、帧详情标题、曲线全屏标题"
+      "status": "沿用（字号）/ 修改（补行高）",
+      "previous": "行高未定义",
+      "usage": "横屏详情页标题、帧详情标题、曲线全屏标题"
     },
     "titleS": {
       "sizeSp": 15,
       "lineHeightSp": 20,
       "weight": "SemiBold 600",
       "family": "系统",
-      "status": "沿用（值）",
+      "status": "沿用",
       "previous": "",
-      "usage": "提示卡标题、开关/灯状态文字"
+      "usage": "提示卡标题、开关/灯状态文字、空态标题"
     },
     "body": {
       "sizeSp": 14,
       "lineHeightSp": 20,
       "weight": "Regular 400 / SemiBold 600",
       "family": "系统",
-      "status": "沿用（值）",
+      "status": "沿用",
       "previous": "",
-      "usage": "正文、设置行、设备名、紧凑按钮"
+      "usage": "正文、设置行、设备名"
     },
     "bodyS": {
       "sizeSp": 13,
-      "lineHeightSp": 18,
+      "lineHeightSp": 20,
       "weight": "Regular 400",
       "family": "系统",
-      "status": "修改",
-      "previous": "13/19、13.5",
-      "usage": "说明段落、空态正文、读取失败说明"
+      "status": "修改（行高）",
+      "previous": "13/18、13/19、13.5",
+      "usage": "说明段落、空态正文、设置行右侧值"
     },
     "label": {
       "sizeSp": 12,
-      "lineHeightSp": 17,
-      "weight": "Regular 400",
+      "lineHeightSp": 16,
+      "weight": "Regular 400 / SemiBold 600",
       "family": "系统",
       "status": "修改",
-      "previous": "12.5、11.5、12",
+      "previous": "12.5/17、11.5",
       "usage": "SectionLabel、chip、SmallButton、输入错误、提示"
     },
     "caption": {
       "sizeSp": 11,
-      "lineHeightSp": 15,
+      "lineHeightSp": 16,
       "weight": "Regular 400 / SemiBold 600(badge)",
       "family": "系统",
       "status": "修改",
-      "previous": "10、10.5、9.5、11",
-      "usage": "输入格标签、表头、badge、Dock 标签；全 App 最小字号"
+      "previous": "10、10.5、9.5；行高 14/15",
+      "usage": "输入格标签、表头、badge、Dock 标签；最小字号"
+    },
+    "statusText": {
+      "sizeSp": 22,
+      "lineHeightSp": 28,
+      "weight": "Bold 700",
+      "family": "系统",
+      "status": "沿用",
+      "previous": "",
+      "usage": "状态文字组件的主值（“制冷”“运行”）"
     },
     "button": {
       "sizeSp": 16,
-      "lineHeightSp": 22,
+      "lineHeightSp": 24,
       "weight": "Bold 700",
       "family": "系统",
-      "status": "沿用（值）",
+      "status": "沿用（字号）",
       "previous": "",
       "usage": "52dp 主/次按钮"
     },
@@ -603,7 +628,7 @@
       "lineHeightSp": 20,
       "weight": "Bold 700 / SemiBold 600",
       "family": "系统",
-      "status": "沿用（值）",
+      "status": "沿用",
       "previous": "",
       "usage": "44dp 按钮"
     },
@@ -612,36 +637,54 @@
       "lineHeightSp": 32,
       "weight": "SemiBold 600",
       "family": "JetBrains Mono",
-      "status": "沿用（值）",
+      "status": "沿用",
       "previous": "",
-      "usage": "面板数值卡主值"
+      "usage": "面板数值卡主值（向导预览 24sp 改用同一档）"
     },
     "mono.valueL": {
       "sizeSp": 22,
       "lineHeightSp": 28,
       "weight": "SemiBold 600",
       "family": "JetBrains Mono",
-      "status": "沿用（值）",
-      "previous": "曲线全屏 22、仪表 20",
-      "usage": "写入确认 当前→新值、曲线全屏当前值、仪表中心值（20→22 需截图确认能放下）"
+      "status": "沿用",
+      "previous": "",
+      "usage": "写入确认 当前→新值、曲线全屏当前值"
+    },
+    "mono.gauge": {
+      "sizeSp": 20,
+      "lineHeightSp": 24,
+      "weight": "SemiBold 600",
+      "family": "JetBrains Mono",
+      "status": "沿用",
+      "previous": "v1 曾提议并入 22，撤回",
+      "usage": "仪表中心值"
     },
     "mono.valueM": {
       "sizeSp": 17,
-      "lineHeightSp": 22,
+      "lineHeightSp": 24,
       "weight": "SemiBold 600",
       "family": "JetBrains Mono",
-      "status": "沿用（值）",
-      "previous": "",
+      "status": "修改（行高）",
+      "previous": "17/22",
       "usage": "输入格值、FieldTile、结果表值、统计格"
+    },
+    "mono.title": {
+      "sizeSp": 15,
+      "lineHeightSp": 20,
+      "weight": "SemiBold 600",
+      "family": "JetBrains Mono",
+      "status": "沿用",
+      "previous": "",
+      "usage": "面板寄存器表值、条件编辑运算符"
     },
     "mono.body": {
       "sizeSp": 13,
-      "lineHeightSp": 18,
+      "lineHeightSp": 20,
       "weight": "Medium 500",
       "family": "JetBrains Mono",
-      "status": "沿用（值）",
-      "previous": "Mono 13（无行高）",
-      "usage": "地址、最近写入摘要、HEX 帧"
+      "status": "沿用（字号）/ 修改（补行高）",
+      "previous": "Mono 无行高",
+      "usage": "地址、最近写入摘要"
     },
     "mono.small": {
       "sizeSp": 12,
@@ -650,16 +693,16 @@
       "family": "JetBrains Mono",
       "status": "修改",
       "previous": "11.5、12.5",
-      "usage": "HEX 列、日志时间/字节、会话条副行"
+      "usage": "HEX 帧、日志时间/字节、会话条副行"
     },
     "mono.caption": {
       "sizeSp": 11,
-      "lineHeightSp": 15,
+      "lineHeightSp": 16,
       "weight": "Medium 500",
       "family": "JetBrains Mono",
       "status": "修改",
       "previous": "10、10.5",
-      "usage": "面板 meta、参考号小字、坐标轴、计数"
+      "usage": "面板 meta、坐标轴、寄存器表 sub 行、计数"
     }
   },
   "motion": {
@@ -710,7 +753,7 @@
     "touch": {
       "dp": 48,
       "status": "沿用",
-      "usage": "所有可点元素最小触控区"
+      "usage": "所有可点元素最小触控区（宽和高都 ≥48）"
     },
     "button": {
       "dp": 52,
@@ -720,7 +763,7 @@
     "buttonCompact": {
       "dp": 44,
       "status": "沿用",
-      "usage": "紧凑按钮高"
+      "usage": "紧凑按钮视觉高（触控补到 48）"
     },
     "buttonSmall": {
       "dp": 32,
@@ -731,6 +774,11 @@
       "dp": 52,
       "status": "沿用",
       "usage": "页头高"
+    },
+    "headerIconBox": {
+      "dp": 36,
+      "status": "沿用",
+      "usage": "页头图标钮可见圆（触控 48）"
     },
     "sessionStrip": {
       "dp": 56,
@@ -743,19 +791,74 @@
       "usage": "Dock 高"
     },
     "rail": {
-      "dp": 62,
+      "dp": 64,
+      "status": "修改",
+      "usage": "Rail 宽（dockStart = 12+64+12 = 88）"
+    },
+    "tableHeader": {
+      "dp": 32,
+      "status": "修改",
+      "usage": "寄存器表表头高"
+    },
+    "tableRow": {
+      "dp": 40,
       "status": "沿用",
-      "usage": "Rail 宽"
+      "usage": "寄存器表行高（横屏 36 沿用）"
+    },
+    "chip": {
+      "dp": 32,
+      "status": "修改",
+      "usage": "chip 视觉高"
+    },
+    "chipXs": {
+      "dp": 28,
+      "status": "修改",
+      "usage": "xs chip 视觉高（触控补到 48×48，含宽度）"
+    },
+    "segItem": {
+      "dp": 36,
+      "status": "沿用 / 修改",
+      "usage": "分段项高 36（小号 32）"
+    },
+    "switch": {
+      "dp": 44,
+      "status": "修改",
+      "usage": "开关 44×24"
+    },
+    "iconBlock": {
+      "dp": 32,
+      "status": "修改",
+      "usage": "设置行图标底块"
+    },
+    "fieldTile": {
+      "dp": 56,
+      "status": "修改",
+      "usage": "8 + 16（label）+ 24（值）+ 8"
+    },
+    "badgeHeight": {
+      "dp": 20,
+      "status": "新增",
+      "usage": "Badge 固定高 20、左右 8"
+    },
+    "statusDot": {
+      "dp": 8,
+      "status": "修改",
+      "usage": "状态点"
+    },
+    "changeDot": {
+      "dp": 8,
+      "status": "新增",
+      "usage": "寄存器值变化静态标记"
     },
     "icon.s": {
-      "dp": 14,
-      "status": "沿用",
-      "usage": "行内小图标（✎、锁、警告）"
+      "dp": 16,
+      "status": "修改",
+      "usage": "行内小图标盒"
     },
     "icon.m": {
-      "dp": 16,
-      "status": "沿用",
-      "usage": "页头图标钮内图标"
+      "dp": 20,
+      "status": "修改",
+      "usage": "页头返回图标盒"
     },
     "icon.l": {
       "dp": 20,
@@ -763,9 +866,9 @@
       "usage": "设备图标、Rail 图标"
     },
     "icon.nav": {
-      "dp": 22,
-      "status": "沿用",
-      "usage": "Dock 图标"
+      "dp": 24,
+      "status": "修改",
+      "usage": "Dock 图标盒"
     },
     "progress": {
       "dp": 16,

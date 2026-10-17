@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -106,8 +105,8 @@ fun ConnectionScreen() {
     if (landscape) {
         ConnectionLandscape(model, state, devices, echoDetected)
     } else {
-        // 主按钮底边距 dock 顶 18（稿面）：dockClearance 已含 8，再补 gapM(10)。
-        val bottomInset = dockClearance().let { if (it > 0.dp) it + spacing.gapM else spacing.gapS }
+        // AL-12：主按钮底到 Dock 顶 = space.dockGap 16（dockClearance 已含），不再另加；没有 Dock 时到底边也是 16。
+        val bottomInset = dockClearance().takeIf { it > 0.dp } ?: spacing.dockGap
         Column(Modifier.screenFrame().padding(bottom = bottomInset)) {
             PageHeader(stringResource(R.string.title_connection)) { HelpButton(model) }
             ErrorCaption(state)
@@ -340,7 +339,7 @@ private fun SerialCard(model: ConnectionViewModel) {
 @Composable
 private fun AdvancedCard(model: ConnectionViewModel, state: SessionState, echoDetected: Boolean?) {
     val colors = LocalModbusColors.current
-    ModbusCard(Modifier.testTag("card-advanced"), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) {
+    ModbusCard(Modifier.testTag("card-advanced")) {
         Row(
             Modifier.testTag("advanced-row").fillMaxWidth().clickable { model.advancedOpen = !model.advancedOpen },
             verticalAlignment = Alignment.CenterVertically,

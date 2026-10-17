@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -216,7 +215,7 @@ fun PanelContent(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = pageStart(), end = spacing.page, bottom = dock.bottom + spacing.gapS),
+                    .padding(start = pageStart(), end = spacing.page, bottom = dockClearance()),
                 verticalArrangement = Arrangement.spacedBy(spacing.gapS),
             ) {
                 when (state) {
@@ -250,7 +249,7 @@ fun PanelContent(
                                     color = colors.muted,
                                     fontSize = 12.sp,
                                     lineHeight = 17.sp,
-                                    modifier = Modifier.padding(start = 2.dp).testTag("panel-poll-hint"),
+                                    modifier = Modifier.testTag("panel-poll-hint"),
                                 )
                             }
                             PanelGrid(
@@ -336,7 +335,7 @@ private fun LandscapeHeader(
             fontSize = 16.sp,
             lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 2.dp),
+            modifier = Modifier,
         )
         Row(Modifier.weight(1f)) {
             if (panels.size > 1) PanelChips(panels, current, true, onSelect)
@@ -402,7 +401,7 @@ private fun WriteNotice(notice: PanelWriteNotice, onClear: () -> Unit) {
         WriteNoticeKind.SENT, WriteNoticeKind.CHANGED, WriteNoticeKind.UNKNOWN, WriteNoticeKind.INVALID -> colors.txText
         else -> colors.error
     }
-    ModbusCard(Modifier.fillMaxWidth().testTag("panel-write-notice"), contentPadding = PaddingValues(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 2.dp)) {
+    ModbusCard(Modifier.fillMaxWidth().testTag("panel-write-notice")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text, color = color, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.weight(1f).padding(vertical = 6.dp))
             io.github.xingyingyuzhui.modbusmobile.ui.components.TextLink(
@@ -449,10 +448,7 @@ private fun PanelWriteSheet(pending: PanelPending, writer: PanelWriteController)
 @Composable
 private fun NoticeCard(title: String?, body: String, tag: String, action: (@Composable () -> Unit)? = null) {
     val colors = LocalModbusColors.current
-    ModbusCard(
-        Modifier.fillMaxWidth().testTag(tag),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-    ) {
+    ModbusCard(Modifier.fillMaxWidth().testTag(tag)) {
         if (title != null) {
             Text(title, color = colors.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }

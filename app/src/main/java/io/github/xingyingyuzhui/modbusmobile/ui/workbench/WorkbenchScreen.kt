@@ -152,7 +152,7 @@ private fun MasterPortrait(model: WorkbenchViewModel, settings: UiSettings, form
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             RequestCard(model, settings, landscape = false)
-            model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 2.dp)) }
+            model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp) }
             if (model.mode == WorkbenchMode.READ) {
                 ReadSection(model, settings, format, landscape = false)
             } else {
@@ -178,7 +178,7 @@ private fun MasterLandscape(model: WorkbenchViewModel, settings: UiSettings, for
             ) {
                 SessionStrip()
                 RequestCard(model, settings, landscape = true)
-                model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 2.dp)) }
+                model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp) }
             }
             // 读取页：主按钮固定在左栏底部，不随表单滚出屏幕。写入页的主按钮在右栏（帧预览下面）。
             if (model.mode == WorkbenchMode.READ) ReadButtons(model)
@@ -370,7 +370,7 @@ private fun WriteValues(model: WorkbenchViewModel, landscape: Boolean) {
         count == 1 -> stringResource(R.string.write_values_forced, count, fcLabel(fc))
         else -> stringResource(R.string.write_values_auto, count, fcLabel(fc))
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
         if (count > 1) TextLink(stringResource(R.string.write_remove), model::removeValue)
         TextLink(stringResource(R.string.write_add), model::addValue, color = colors.txText)
@@ -453,9 +453,9 @@ private fun WriteButtons(model: WorkbenchViewModel) {
 private fun ReadSection(model: WorkbenchViewModel, settings: UiSettings, format: NumberFormat, landscape: Boolean) {
     val colors = LocalModbusColors.current
     when (val state = model.readState) {
-        ReadState.None -> Text(stringResource(R.string.workbench_no_result), color = colors.muted, modifier = Modifier.padding(horizontal = 2.dp))
+        ReadState.None -> Text(stringResource(R.string.workbench_no_result), color = colors.muted)
         is ReadState.Failed -> Row(
-            Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -476,7 +476,7 @@ private fun ReadSection(model: WorkbenchViewModel, settings: UiSettings, format:
 private fun ResultHead(model: WorkbenchViewModel, result: ReadResult, format: NumberFormat) {
     val colors = LocalModbusColors.current
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -545,7 +545,7 @@ private val ClockFormat = ThreadLocal.withInitial { SimpleDateFormat("HH:mm:ss",
 private fun RecentSection(model: WorkbenchViewModel, settings: UiSettings) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
-    Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.recent_title), color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
         TextLink(stringResource(R.string.recent_clear), model::clearRecentWrites)
     }
