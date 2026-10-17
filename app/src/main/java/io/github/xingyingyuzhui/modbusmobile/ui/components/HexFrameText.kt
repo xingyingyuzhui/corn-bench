@@ -73,7 +73,7 @@ fun HexFrame(
         HexFrameText(
             bytes,
             highlight = highlight,
-            style = Mono.copy(fontSize = if (compact) 12.sp else 14.5.sp, letterSpacing = 0.3.sp),
+            style = Mono.copy(fontSize = if (compact) 12.sp else 14.5.sp, lineHeight = if (compact) 16.sp else 20.sp, letterSpacing = 0.3.sp),
         )
     }
 }
