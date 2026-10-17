@@ -76,6 +76,15 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SemanticKind
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
 import io.github.xingyingyuzhui.modbusmobile.ui.components.TextLink
 import io.github.xingyingyuzhui.modbusmobile.ui.resolve
+import io.github.xingyingyuzhui.modbusmobile.ui.UiText
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalOpenConnection
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ErrorBanner
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ResultBanner
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ResultNotice
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSize
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusType
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.height
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
@@ -142,22 +151,25 @@ private fun MasterWorkbench(model: WorkbenchViewModel, landscape: Boolean) {
 
 @Composable
 private fun MasterPortrait(model: WorkbenchViewModel, settings: UiSettings, format: NumberFormat) {
-    val colors = LocalModbusColors.current
+    val spacing = LocalSpacing.current
     val scroll = rememberScrollState()
     Column(Modifier.screenFrame()) {
         PageHeader(stringResource(R.string.title_workbench)) { WorkbenchMenu(model) }
         SessionStrip(Modifier.padding(bottom = 8.dp))
         Column(
-            Modifier.weight(1f).verticalScroll(scroll).padding(bottom = dockClearance()),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.weight(1f).verticalScroll(scroll).testTag(WorkbenchScrollTag),
+            verticalArrangement = Arrangement.spacedBy(spacing.gapM),
         ) {
             RequestCard(model, settings, landscape = false)
-            model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 2.dp)) }
+            FormError(model)
             if (model.mode == WorkbenchMode.READ) {
                 ReadSection(model, settings, format, landscape = false)
             } else {
                 RecentSection(model, settings)
             }
+            // qa and-02 bug 6：滚到底时最后一行要完全露在浮动 Dock 上方。留白 = LocalDockInsets.bottom + gapS（dockClearance），
+            // 放在滚动内容的最后，滚到底才出现；不在滚动容器外面加 padding（那样会把可视区截短，不是把内容垫高）。
+            Spacer(Modifier.height(dockClearance()).testTag(WorkbenchDockSpacerTag))
         }
     }
 }
@@ -178,7 +190,7 @@ private fun MasterLandscape(model: WorkbenchViewModel, settings: UiSettings, for
             ) {
                 SessionStrip()
                 RequestCard(model, settings, landscape = true)
-                model.formError?.let { Text(it.resolve(), color = colors.error, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 2.dp)) }
+                FormError(model)
             }
             // 读取页：主按钮固定在左栏底部，不随表单滚出屏幕。写入页的主按钮在右栏（帧预览下面）。
             if (model.mode == WorkbenchMode.READ) ReadButtons(model)
@@ -296,21 +308,27 @@ private fun RequestCard(model: WorkbenchViewModel, settings: UiSettings, landsca
                 stringResource(R.string.field_unit),
                 model.unit,
                 Modifier.weight(if (landscape) 0.7f else 0.8f),
+                error = model.fieldErrors[WorkbenchField.UNIT]?.deep(),
                 minHeight = tileMin,
+                readOnly = model.busy,
             ) { model.unit = it }
             NumberInput(
                 stringResource(if (landscape) R.string.field_address else R.string.field_start_address),
                 model.address,
-                Modifier.weight(1.3f),
+                Modifier.weight(1.3f).testTag(WorkbenchAddressTag),
+                error = model.fieldErrors[WorkbenchField.ADDRESS]?.deep(),
                 sub = referenceLabel(settings, activeArea, model.address),
                 minHeight = tileMin,
+                readOnly = model.busy,
             ) { model.address = it }
             if (!writing) {
                 NumberInput(
                     stringResource(R.string.field_quantity),
                     model.quantity,
                     Modifier.weight(1f),
+                    error = model.fieldErrors[WorkbenchField.QUANTITY]?.deep(),
                     minHeight = tileMin,
+                    readOnly = model.busy,
                 ) { model.quantity = it }
             } else if (model.writeArea == RegisterArea.HOLDING_REGISTER) {
                 ChoiceTile(
@@ -335,17 +353,22 @@ private fun RequestCard(model: WorkbenchViewModel, settings: UiSettings, landsca
 private fun ReadButtons(model: WorkbenchViewModel) {
     val colors = LocalModbusColors.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 读取在途：按钮 loading（“正在读取…”）；写入 / 回读在途：读取不可点（§7.4 同类按钮互斥）。
         PrimaryButton(
             stringResource(R.string.action_read_fc, fcLabel(readFunctionCode(model.area))),
             model::read,
-            Modifier.weight(1.4f),
+            Modifier.weight(1.4f).testTag(WorkbenchReadButtonTag),
+            enabled = !model.busy,
             compact = true,
+            loading = model.reading,
+            loadingText = stringResource(R.string.wb_reading),
         )
         val seconds = secondsLabel(model.pollIntervalMs)
         SecondaryButton(
             stringResource(if (model.polling) R.string.poll_running else R.string.poll_idle, seconds),
             { model.changePolling(!model.polling) },
             Modifier.weight(1f),
+            enabled = !model.busy,
             compact = true,
             active = model.polling,
             icon = { RefreshIcon(if (model.polling) colors.accentText else colors.muted) },
@@ -428,17 +451,24 @@ private fun WriteButtons(model: WorkbenchViewModel) {
         multi -> 0x10
         else -> 0x06
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val spacing = LocalSpacing.current
+    // §1-P1：结果出现在操作位置——写入按钮正上方（S2-01）。
+    WriteResult(model)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.gapS)) {
         PrimaryButton(
             stringResource(R.string.write_preview, fcLabel(fc)),
             model::requestWrite,
-            Modifier.weight(1f),
+            Modifier.weight(1f).testTag(WorkbenchWriteButtonTag),
+            enabled = !model.busy,
             compact = true,
+            loading = model.writing,
+            loadingText = stringResource(R.string.wb_writing),
         )
         SecondaryButton(
             stringResource(R.string.write_force, if (coil) "15" else "16"),
             model::toggleForceMultiple,
             Modifier.width(92.dp),
+            enabled = !model.busy,
             compact = true,
             fontSize = 12.sp,
             active = model.forceMultiple,
@@ -447,20 +477,71 @@ private fun WriteButtons(model: WorkbenchViewModel) {
     }
 }
 
+@Composable
+private fun WriteResult(model: WorkbenchViewModel) {
+    val notice = model.writeNotice
+    ResultBanner(
+        notice = notice?.let { ResultNotice(it.kind, it.text.deep(), it.id) },
+        onReadBack = if (notice?.canReadBack == true) model::readBack else null,
+        readBackLoading = model.readingBack,
+        onRetry = if (notice?.canRetry == true) model::retryWrite else null,
+        onDismiss = model::dismissWriteNotice,
+    )
+}
+
+/** 字段级错误已经写在对应输入格下面时，不再在卡下重复一遍；只有值格这类没有专属输入格的错误显示在这里。 */
+@Composable
+private fun FormError(model: WorkbenchViewModel) {
+    val colors = LocalModbusColors.current
+    val spacing = LocalSpacing.current
+    val error = model.formError ?: return
+    if (model.fieldErrors.isNotEmpty()) return
+    Text(error.deep(), color = colors.error, style = ModbusType.label, modifier = Modifier.padding(horizontal = spacing.xxs))
+}
+
+/**
+ * [UiText.resolve] 只解析一层参数；工作台的提示会把异常说明、字段名、值列表作为参数嵌进句子里
+ * （“设备拒绝写入（异常 02 非法地址），…”“地址应在 0–65535 之间”），这里逐层解析。List 参数用“, ”连起来。
+ */
+@Composable
+internal fun UiText.deep(): String = when (this) {
+    is UiText.Of -> stringResource(id, *args.map { arg -> deepArg(arg) }.toTypedArray())
+    else -> resolve()
+}
+
+@Composable
+private fun deepArg(arg: Any): Any = when (arg) {
+    is UiText -> arg.deep()
+    is List<*> -> arg.map { item -> if (item is UiText) item.deep() else item.toString() }.joinToString(", ")
+    else -> arg
+}
+
 // ---- 读取结果 ----
 
 @Composable
 private fun ReadSection(model: WorkbenchViewModel, settings: UiSettings, format: NumberFormat, landscape: Boolean) {
     val colors = LocalModbusColors.current
+    val spacing = LocalSpacing.current
     when (val state = model.readState) {
-        ReadState.None -> Text(stringResource(R.string.workbench_no_result), color = colors.muted, modifier = Modifier.padding(horizontal = 2.dp))
-        is ReadState.Failed -> Row(
-            Modifier.fillMaxWidth().padding(horizontal = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SemanticBadge(SemanticKind.ERROR, state.badge.resolve())
-            Text(state.message.resolve(), color = colors.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        ReadState.None -> Text(
+            stringResource(R.string.wb_no_result),
+            color = colors.muted,
+            style = ModbusType.bodyS,
+            modifier = Modifier.padding(horizontal = spacing.xxs),
+        )
+        is ReadState.Failed -> {
+            // S2-04：错误放表上方（ErrorBanner：原因 + 怎么办 + 详情折叠），上一次成功的表保留并标“上次成功 hh:mm:ss”。
+            ErrorBanner(
+                reason = state.message.deep(),
+                actionLabel = stringResource(R.string.feedback_retry),
+                onAction = if (model.busy) null else model::read,
+                details = state.details?.deep() ?: state.badge.deep(),
+            )
+            val last = model.lastGood
+            if (last != null) {
+                LastGoodHead(model)
+                ResultTable(model, last, settings, format, landscape)
+            }
         }
         is ReadState.Ok -> {
             val result = state.result
@@ -470,6 +551,37 @@ private fun ReadSection(model: WorkbenchViewModel, settings: UiSettings, format:
             ResultTable(model, result, settings, format, landscape)
         }
     }
+}
+
+@Composable
+private fun LastGoodHead(model: WorkbenchViewModel) {
+    val colors = LocalModbusColors.current
+    val spacing = LocalSpacing.current
+    val at = model.lastGoodAtMillis ?: return
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = spacing.xxs),
+        horizontalArrangement = Arrangement.spacedBy(spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(R.string.wb_last_ok, ClockFormat.get()!!.format(Date(at))),
+            color = colors.muted,
+            style = ModbusType.caption,
+            modifier = Modifier.weight(1f).testTag(WorkbenchLastGoodTag),
+        )
+        ReadProgress(model)
+    }
+}
+
+/** S2-03：读取在途时表头右侧 16dp 进度圈，旧表不清空。 */
+@Composable
+private fun ReadProgress(model: WorkbenchViewModel) {
+    if (!model.reading) return
+    CircularProgressIndicator(
+        modifier = Modifier.size(ModbusSize.progress),
+        color = LocalModbusColors.current.muted,
+        strokeWidth = ModbusSize.progressStroke,
+    )
 }
 
 @Composable
@@ -488,6 +600,7 @@ private fun ResultHead(model: WorkbenchViewModel, result: ReadResult, format: Nu
                 color = colors.muted,
                 maxLines = 1,
             )
+            ReadProgress(model)
         }
         if (!result.isBits) {
             ChipRow(NumberFormat.entries, { it == format }, { it.name }, { model.formatOverride = it }, xs = true)
@@ -772,7 +885,9 @@ private fun ConfirmValues(pending: PendingWrite, onCoil: (Boolean) -> Unit, word
             val total = plan.words.size + plan.bits.size
             Text(stringResource(R.string.confirm_multi_head, plan.address, total), color = colors.muted, fontSize = 12.sp)
             if (!pending.broadcast && ageText != null) Text(ageText, color = colors.dim, fontSize = 11.sp)
-            val shown = minOf(total, 6)
+            // S2-08：超过 6 行时“还有 n 个，展开”；全部展开后 Sheet 内滚动，按钮固定在底（ConfirmSheet）。
+            var expanded by remember(pending.plan) { mutableStateOf(false) }
+            val shown = if (expanded) total else minOf(total, ConfirmPreviewRows)
             // 列宽按字号换算（5 位数 = 5 个等宽字符），箭头才会在每一行上下对齐，放大字体也一样。
             val addressWidth = with(LocalDensity.current) { 52.sp.toDp() }
             val valueWidth = with(LocalDensity.current) { 46.sp.toDp() }
@@ -782,10 +897,21 @@ private fun ConfirmValues(pending: PendingWrite, onCoil: (Boolean) -> Unit, word
                     Text((plan.address + index).toString(), style = Mono, color = colors.dim, modifier = Modifier.width(addressWidth))
                     Text(show(pending.current.getOrNull(index), coil), style = Mono, color = colors.muted, modifier = Modifier.width(valueWidth))
                     ArrowGlyph(colors.dim, Modifier.size(width = 14.dp, height = 10.dp))
-                    Text(show(new, coil), style = Mono, color = colors.txText)
+                    // S2-09：新值用 text 色 SemiBold，变化靠“当前 → 新值”箭头表达，不着琥珀。
+                    Text(show(new, coil), style = Mono.copy(fontWeight = FontWeight.SemiBold), color = colors.text)
                 }
             }
-            if (total > shown) Text(stringResource(R.string.confirm_multi_more, total), color = colors.dim, fontSize = 12.sp)
+            if (total > ConfirmPreviewRows) {
+                TextLink(
+                    if (expanded) {
+                        stringResource(R.string.wb_confirm_collapse)
+                    } else {
+                        stringResource(R.string.wb_confirm_show_all, total - shown)
+                    },
+                    { expanded = !expanded },
+                    modifier = Modifier.testTag(WorkbenchConfirmExpandTag),
+                )
+            }
         }
     }
 }
@@ -797,9 +923,37 @@ private fun ConfirmValues(pending: PendingWrite, onCoil: (Boolean) -> Unit, word
 @Composable
 private fun NoSessionWorkbench() {
     val colors = LocalModbusColors.current
-    Column(Modifier.screenFrame(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val spacing = LocalSpacing.current
+    val openConnection = LocalOpenConnection.current
+    Column(Modifier.screenFrame(), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
         PageHeader(stringResource(R.string.title_workbench))
         SessionStrip()
-        Text(stringResource(R.string.workbench_need_session), color = colors.muted)
+        // §7.1 空态：为什么空（标题）+ 能做什么、怎么做（一句）+ 一个动词按钮；左对齐、不加卡片，上下各 24（xxl）。
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = spacing.xxl).testTag(WorkbenchEmptyTag),
+            verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+        ) {
+            Text(stringResource(R.string.wb_empty_title), color = colors.text, style = ModbusType.titleS)
+            Text(stringResource(R.string.wb_empty_body), color = colors.muted, style = ModbusType.bodyS)
+            Spacer(Modifier.height(spacing.xs))
+            SecondaryButton(
+                stringResource(R.string.wb_go_connect),
+                openConnection,
+                Modifier.testTag(WorkbenchGoConnectTag),
+            )
+        }
     }
 }
+
+/** 多值确认默认显示的行数（S2-08，稿面 6 行）。 */
+private const val ConfirmPreviewRows = 6
+
+internal const val WorkbenchScrollTag = "workbench-scroll"
+internal const val WorkbenchDockSpacerTag = "workbench-dock-spacer"
+internal const val WorkbenchAddressTag = "workbench-address"
+internal const val WorkbenchReadButtonTag = "workbench-read"
+internal const val WorkbenchWriteButtonTag = "workbench-write"
+internal const val WorkbenchLastGoodTag = "workbench-last-good"
+internal const val WorkbenchEmptyTag = "workbench-empty"
+internal const val WorkbenchGoConnectTag = "workbench-go-connect"
+internal const val WorkbenchConfirmExpandTag = "workbench-confirm-expand"
