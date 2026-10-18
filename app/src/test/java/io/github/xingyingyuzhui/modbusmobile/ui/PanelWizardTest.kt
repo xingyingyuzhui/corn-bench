@@ -153,7 +153,7 @@ class PanelWizardTest {
         assertEquals("列间距 8", 8f, (b.left - a.right).value, 0.6f)
         assertEquals("行间距 8", 8f, (c.top - a.bottom).value, 0.6f)
         assertEquals(a.width.value, b.width.value, 0.6f)
-        assertEquals(14f, a.left.value, 0.6f)
+        assertEquals("K0 = space.page 16（CL-16）", 16f, a.left.value, 0.6f)
         // 没有的类型不画灰卡：寄存器表在后续版本
         val g = bounds("wiz-kind-gauge")
         val btn = bounds("wiz-kind-button")
@@ -342,7 +342,7 @@ class PanelWizardTest {
         assertEquals("上一步 : 下一步 = 1 : 1.6", 1.6f, next.width.value / prev.width.value, 0.05f)
         assertEquals(52f, prev.height.value, 0.6f)
         assertEquals(10f, (next.left - prev.right).value, 0.6f)
-        assertEquals(14f, prev.left.value, 0.6f)
+        assertEquals("K0 = space.page 16（CL-16）", 16f, prev.left.value, 0.6f)
         compose.onNodeWithText("下一步 · 外观", useUnmergedTree = true).assertIsDisplayed()
     }
 
@@ -442,12 +442,12 @@ class PanelWizardTest {
         assertEquals(2, form().spanRows)
         compose.onNodeWithText("添加到面板", useUnmergedTree = true).assertIsDisplayed()
         // 预览卡宽度随尺寸变
-        assertEquals(360f - 28f, bounds("panel-card-w-new").width.value, 1f)
+        assertEquals(360f - 32f, bounds("panel-card-w-new").width.value, 1f)
     }
 
     @Test fun lookStepPreviewIsOneColumnWideForOneByOne() {
         show(wizardState(3, WidgetForm.forKind(WidgetKinds.NUMBER).copy(name = "x", address = "1")))
-        assertEquals((360f - 28f - 8f) / 2, bounds("panel-card-w-new").width.value, 1f)
+        assertEquals((360f - 32f - 8f) / 2, bounds("panel-card-w-new").width.value, 1f)
     }
 
     @Test fun lookStepOnEditSaysSaveChanges() {

@@ -155,7 +155,7 @@ private fun MasterPortrait(model: WorkbenchViewModel, settings: UiSettings, form
         SessionStrip(Modifier.padding(bottom = 8.dp))
         Column(
             Modifier.weight(1f).verticalScroll(scroll).testTag(WorkbenchScrollTag),
-            verticalArrangement = Arrangement.spacedBy(spacing.gapM),
+            verticalArrangement = Arrangement.spacedBy(spacing.group),
         ) {
             RequestCard(model, settings, landscape = false)
             FormError(model)
@@ -390,7 +390,7 @@ private fun WriteValues(model: WorkbenchViewModel, landscape: Boolean) {
         count == 1 -> stringResource(R.string.write_values_forced, count, fcLabel(fc))
         else -> stringResource(R.string.write_values_auto, count, fcLabel(fc))
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
         if (count > 1) TextLink(stringResource(R.string.write_remove), model::removeValue)
         TextLink(stringResource(R.string.write_add), model::addValue, color = colors.txText)
@@ -451,7 +451,7 @@ private fun WriteButtons(model: WorkbenchViewModel) {
     val spacing = LocalSpacing.current
     // §1-P1：结果出现在操作位置——写入按钮正上方（S2-01）。
     WriteResult(model)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.s)) {
         PrimaryButton(
             stringResource(R.string.write_preview, fcLabel(fc)),
             model::requestWrite,
@@ -493,7 +493,7 @@ private fun FormError(model: WorkbenchViewModel) {
     val spacing = LocalSpacing.current
     val error = model.formError ?: return
     if (model.fieldErrors.isNotEmpty()) return
-    Text(error.deep(), color = colors.error, style = ModbusType.label, modifier = Modifier.padding(horizontal = spacing.xxs))
+    Text(error.deep(), color = colors.error, style = ModbusType.label, modifier = Modifier)
 }
 
 /**
@@ -524,7 +524,7 @@ private fun ReadSection(model: WorkbenchViewModel, settings: UiSettings, format:
             stringResource(R.string.wb_no_result),
             color = colors.muted,
             style = ModbusType.bodyS,
-            modifier = Modifier.padding(horizontal = spacing.xxs),
+            modifier = Modifier,
         )
         is ReadState.Failed -> {
             // S2-04：错误放表上方（ErrorBanner：原因 + 怎么办 + 详情折叠），上一次成功的表保留并标“上次成功 hh:mm:ss”。
@@ -556,7 +556,7 @@ private fun LastGoodHead(model: WorkbenchViewModel) {
     val spacing = LocalSpacing.current
     val at = model.lastGoodAtMillis ?: return
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = spacing.xxs),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -585,7 +585,7 @@ private fun ReadProgress(model: WorkbenchViewModel) {
 private fun ResultHead(model: WorkbenchViewModel, result: ReadResult, format: NumberFormat) {
     val colors = LocalModbusColors.current
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -593,7 +593,7 @@ private fun ResultHead(model: WorkbenchViewModel, result: ReadResult, format: Nu
             SemanticBadge(SemanticKind.RX_LOCAL, stringResource(R.string.result_ok))
             Text(
                 stringResource(R.string.result_stats, result.elapsedMs, result.values.size),
-                style = Mono.copy(fontSize = 12.sp),
+                style = Mono.copy(fontSize = 12.sp, lineHeight = 16.sp),
                 color = colors.muted,
                 maxLines = 1,
             )
@@ -655,7 +655,7 @@ private val ClockFormat = ThreadLocal.withInitial { SimpleDateFormat("HH:mm:ss",
 private fun RecentSection(model: WorkbenchViewModel, settings: UiSettings) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
-    Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.recent_title), color = colors.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
         TextLink(stringResource(R.string.recent_clear), model::clearRecentWrites)
     }
@@ -922,13 +922,13 @@ private fun NoSessionWorkbench() {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
     val openConnection = LocalOpenConnection.current
-    Column(Modifier.screenFrame(), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(Modifier.screenFrame(), verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         PageHeader(stringResource(R.string.title_workbench))
         SessionStrip()
         // §7.1 空态：为什么空（标题）+ 能做什么、怎么做（一句）+ 一个动词按钮；左对齐、不加卡片，上下各 24（xxl）。
         Column(
             Modifier.fillMaxWidth().padding(vertical = spacing.xxl).testTag(WorkbenchEmptyTag),
-            verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+            verticalArrangement = Arrangement.spacedBy(spacing.s),
         ) {
             Text(stringResource(R.string.wb_empty_title), color = colors.text, style = ModbusType.titleS)
             Text(stringResource(R.string.wb_empty_body), color = colors.muted, style = ModbusType.bodyS)

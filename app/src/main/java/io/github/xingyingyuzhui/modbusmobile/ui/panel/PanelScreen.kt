@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,6 +55,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
+import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.pageStart
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
@@ -145,7 +145,6 @@ fun PanelContent(
 ) {
     val colors = LocalModbusColors.current
     val spacing = LocalSpacing.current
-    val dock = LocalDockInsets.current
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     val sessionState by LocalSession.current.state.collectAsStateWithLifecycle()
     val masterRunning = (sessionState as? SessionState.Running)?.role == Role.MASTER
@@ -197,7 +196,7 @@ fun PanelContent(
                         else -> null
                     }
                     SessionStrip(
-                        Modifier.padding(bottom = spacing.gapS).testTag("panel-strip"),
+                        Modifier.padding(bottom = spacing.s).testTag("panel-strip"),
                         title = title,
                         detail = detail,
                         trailing = if (masterRunning && anyPolled) {
@@ -207,7 +206,7 @@ fun PanelContent(
                         },
                     )
                     if (panels.size > 1) {
-                        PanelChips(panels, current, false, onSelectPanel, Modifier.padding(bottom = spacing.gapS))
+                        PanelChips(panels, current, false, onSelectPanel, Modifier.padding(bottom = spacing.s))
                     }
                 }
             }
@@ -216,8 +215,8 @@ fun PanelContent(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = pageStart(), end = spacing.page, bottom = dock.bottom + spacing.gapS),
-                verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+                    .padding(start = pageStart(), end = spacing.page, bottom = dockClearance()),
+                verticalArrangement = Arrangement.spacedBy(spacing.s),
             ) {
                 when (state) {
                     PanelUiState.Loading -> Unit
@@ -250,7 +249,7 @@ fun PanelContent(
                                     color = colors.muted,
                                     fontSize = 12.sp,
                                     lineHeight = 17.sp,
-                                    modifier = Modifier.padding(start = 2.dp).testTag("panel-poll-hint"),
+                                    modifier = Modifier.testTag("panel-poll-hint"),
                                 )
                             }
                             PanelGrid(
@@ -258,7 +257,7 @@ fun PanelContent(
                                 spans = widgets.map { it.spanColumns },
                                 spanRows = widgets.map { it.spanRows },
                                 modifier = Modifier.fillMaxWidth().testTag("panel-grid"),
-                                gap = spacing.gapS,
+                                gap = spacing.s,
                             ) { index ->
                                 val widget: Widget = widgets[index]
                                 if (widget.curve != null) {
@@ -336,7 +335,7 @@ private fun LandscapeHeader(
             fontSize = 16.sp,
             lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 2.dp),
+            modifier = Modifier,
         )
         Row(Modifier.weight(1f)) {
             if (panels.size > 1) PanelChips(panels, current, true, onSelect)
@@ -402,7 +401,7 @@ private fun WriteNotice(notice: PanelWriteNotice, onClear: () -> Unit) {
         WriteNoticeKind.SENT, WriteNoticeKind.CHANGED, WriteNoticeKind.UNKNOWN, WriteNoticeKind.INVALID -> colors.txText
         else -> colors.error
     }
-    ModbusCard(Modifier.fillMaxWidth().testTag("panel-write-notice"), contentPadding = PaddingValues(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 2.dp)) {
+    ModbusCard(Modifier.fillMaxWidth().testTag("panel-write-notice")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text, color = color, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.weight(1f).padding(vertical = 6.dp))
             io.github.xingyingyuzhui.modbusmobile.ui.components.TextLink(
@@ -449,10 +448,7 @@ private fun PanelWriteSheet(pending: PanelPending, writer: PanelWriteController)
 @Composable
 private fun NoticeCard(title: String?, body: String, tag: String, action: (@Composable () -> Unit)? = null) {
     val colors = LocalModbusColors.current
-    ModbusCard(
-        Modifier.fillMaxWidth().testTag(tag),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-    ) {
+    ModbusCard(Modifier.fillMaxWidth().testTag(tag)) {
         if (title != null) {
             Text(title, color = colors.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }

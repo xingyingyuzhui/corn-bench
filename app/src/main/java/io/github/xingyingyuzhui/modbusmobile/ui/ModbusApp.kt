@@ -55,6 +55,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSize
 import io.github.xingyingyuzhui.modbusmobile.ui.traffic.TrafficScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.workbench.WorkbenchScreen
 
@@ -141,7 +142,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val navStart = bars.calculateStartPadding(LocalLayoutDirection.current)
     val dockGap = dockBottomGap(navBottom)
     val dockBottom = if (showDock) dockGap + 64.dp + navBottom else 0.dp
-    val dockStart = if (showRail) 12.dp + 62.dp + 12.dp + navStart else 0.dp
+    val dockStart = if (showRail) 12.dp + ModbusSize.rail + 12.dp + navStart else 0.dp
     val openConnection: () -> Unit = {
         selectTab(nav, Destination.Connection)
     }
@@ -208,7 +209,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
                     .statusBarsPadding()
                     .navigationBarsPadding()
                     .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
-                    .width(62.dp)
+                    .width(ModbusSize.rail)
                     .fillMaxHeight(),
             )
         }

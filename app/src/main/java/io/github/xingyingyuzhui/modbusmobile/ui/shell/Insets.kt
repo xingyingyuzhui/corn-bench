@@ -41,12 +41,15 @@ fun Modifier.screenFrame(): Modifier {
         .padding(start = pageStart(), end = spacing.page)
 }
 
-/** Space that keeps the last row above the floating dock. Apply it after verticalScroll, inside the scroll. */
+/**
+ * 让最后一行留在浮动 Dock 上方的留白：Dock 占位 + space.dockGap（16，tokens_v2；v1 时是 8）。
+ * 放在 verticalScroll 之后、滚动内容里面。
+ */
 @Composable
 fun dockClearance(): Dp {
     val dock = LocalDockInsets.current
     val spacing = LocalSpacing.current
-    return if (dock.bottom > 0.dp) dock.bottom + spacing.gapS else 0.dp
+    return if (dock.bottom > 0.dp) dock.bottom + spacing.dockGap else 0.dp
 }
 
 @Composable

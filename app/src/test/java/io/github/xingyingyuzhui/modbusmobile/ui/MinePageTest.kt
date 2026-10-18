@@ -126,7 +126,7 @@ class MinePageTest {
         val row = compose.onNodeWithTag("sw-keep").getBoundsInRoot()
         assertTrue("整行触控高度 ≥ 48dp：${row.height}", row.height.value >= 47.9f)
         val visual = compose.onAllNodesWithTag(SwitchVisualTag, useUnmergedTree = true)[0].getBoundsInRoot()
-        assertEquals("开关轨道 42dp", 42f, visual.width.value, 0.6f)
+        assertEquals("开关轨道 44dp", 44f, visual.width.value, 0.6f)
         assertEquals("开关轨道 24dp", 24f, visual.height.value, 0.6f)
     }
 

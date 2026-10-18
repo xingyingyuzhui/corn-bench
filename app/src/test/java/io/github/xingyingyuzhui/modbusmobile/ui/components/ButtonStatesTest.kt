@@ -52,6 +52,8 @@ class ButtonStatesTest {
         repeat(5) { compose.onNodeWithTag("write").performClick() }
         compose.waitForIdle()
         assertEquals(1, calls)
+        // §7.2：进度圈 300ms 后才出现；loading 一开始就不可点（上面 5 次只触发 1 次）。
+        compose.mainClock.advanceTimeBy(LOADING_SHOW_DELAY_MS + 300)
         compose.onNodeWithTag("write").assertIsNotEnabled()
         compose.onNodeWithTag("write").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "正在写入…"))
         compose.onNodeWithText("正在写入…").assertExists()

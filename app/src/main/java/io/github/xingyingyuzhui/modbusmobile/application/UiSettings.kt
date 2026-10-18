@@ -6,7 +6,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryPolicy
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /**
- * 强调色：每个主题 4 个值（设计规范_v1 §4.4，tokens_v1.json color.accent）。
+ * 强调色：每个主题 4 个值（设计规范_v2 §4.4，tokens_v2.json color.accent）。
  * fill = 主按钮/开关开/选中填充；on = fill 上的文字；text = surface 上的选中文字/链接；border = 焦点环/选中描边（≥3:1）。
  *
  * D2 待 Xing 拍板：GREEN、PURPLE 是否保留（ux 建议去掉，只留 琥珀/蓝/青）。当前按默认方案保留 5 个，值已调到达标；

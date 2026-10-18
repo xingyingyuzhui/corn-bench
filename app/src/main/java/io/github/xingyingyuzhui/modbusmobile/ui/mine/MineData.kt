@@ -73,7 +73,7 @@ internal fun MineDataSection(
 ) {
     val spacing = LocalSpacing.current
     val colors = LocalModbusColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         SectionLabel(stringResource(R.string.mine_section_data))
         SettingsCard {
             SettingRow(
@@ -171,7 +171,7 @@ internal fun HistoryPage(
 ) {
     val spacing = LocalSpacing.current
     val colors = LocalModbusColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         Text(recordingLabel(recording), color = if (recording == RecordingState.STOPPED_STORAGE) colors.error else colors.muted, fontSize = 13.sp, modifier = Modifier.testTag("history-state"))
         if (recording == RecordingState.STOPPED_STORAGE) {
             Text(stringResource(R.string.mine_storage_stopped_detail), color = colors.error, fontSize = 12.sp, lineHeight = 16.sp)
@@ -274,7 +274,7 @@ internal fun StorageSettings(model: MineViewModel, settings: UiSettings) {
         StorageEditor(field, settings, model) { editing = null }
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         SectionLabel(stringResource(R.string.mine_history_interval))
         SegmentedTextControl(
             HistoryInterval.entries,
@@ -311,7 +311,7 @@ private fun StorageEditor(field: StorageField, settings: UiSettings, model: Mine
     var text by rememberSaveable(field.name) { mutableStateOf(initial.toString()) }
     val parsed = MineViewModel.parseInt(text, range)
     val label = stringResource(if (field == StorageField.RETENTION) R.string.mine_history_keep_days else R.string.mine_history_capacity)
-    Column(Modifier.testTag("storage-editor"), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(Modifier.testTag("storage-editor"), verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         SectionLabel(stringResource(R.string.comm_edit_title, label))
         NumberInput(
             label = label,

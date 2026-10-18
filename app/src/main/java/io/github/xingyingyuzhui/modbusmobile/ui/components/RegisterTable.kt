@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -160,7 +161,8 @@ private fun RegisterRowView(
         Modifier
             .fillMaxWidth()
             // 能点的行（✎ 写入）按触控优先补到 48dp，比稿面的 40 / 36 高；不能点的行保持稿面行高。
-            .height(if (clickable) maxOf(rowHeight, MinTouch) else rowHeight)
+            // 用最小高度而不是固定高度：系统 1.3x + App 特大时「行号 + 参考号」超过 48dp 就撑高，不截字（qa-03 B）。
+            .heightIn(min = if (clickable) maxOf(rowHeight, MinTouch) else rowHeight)
             .drawBehind {
                 val fraction = flash.value
                 if (fraction > 0f) {
@@ -179,11 +181,11 @@ private fun RegisterRowView(
     ) {
         Column(Modifier.width(addressWidth)) {
             Text(row.addressText ?: row.address.toString(), style = Mono, color = colors.text)
-            if (row.sub != null) Text(row.sub, color = colors.dim, fontSize = 10.sp, lineHeight = 10.sp, style = Mono.copy(fontSize = 10.sp))
+            if (row.sub != null) Text(row.sub, color = colors.dim, style = Mono.copy(fontSize = 10.sp, lineHeight = 16.sp))
         }
         Text(
             row.value,
-            style = Mono.copy(fontSize = 17.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+            style = Mono.copy(fontSize = 17.sp, lineHeight = 24.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
             color = if (flash.value > 0.02f) colors.txText else colors.text,
             maxLines = 1,
             modifier = Modifier.weight(1f),
@@ -200,7 +202,7 @@ private fun RegisterRowView(
         } else {
             Text(
                 row.hex.orEmpty(),
-                style = Mono.copy(fontSize = 12.sp),
+                style = Mono.copy(fontSize = 12.sp, lineHeight = 16.sp),
                 color = colors.muted,
                 maxLines = 1,
                 modifier = Modifier.width(hexWidth),

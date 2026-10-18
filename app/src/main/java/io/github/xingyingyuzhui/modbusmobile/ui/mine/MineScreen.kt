@@ -149,7 +149,7 @@ private fun MinePortrait(
             }
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
-                verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+                verticalArrangement = Arrangement.spacedBy(spacing.s),
             ) {
                 MineDataSection(settings, overview, recording, null, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) })
                 SectionLabel(stringResource(R.string.mine_section_settings))
@@ -159,7 +159,7 @@ private fun MinePortrait(
             SubPageHeader(pageTitle(page), onBack = { go(MinePage.HOME) })
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
-                verticalArrangement = Arrangement.spacedBy(spacing.gapM),
+                verticalArrangement = Arrangement.spacedBy(spacing.group),
             ) {
                 if (page == MinePage.SETTINGS) {
                     // 完整设置页：外观 / 显示与格式 / 安全 / 通信默认值 / 存储，各带一个小标题
@@ -194,17 +194,17 @@ private fun MineLandscape(
     val colors = LocalModbusColors.current
     Column(Modifier.screenFrame()) {
         PageHeader(stringResource(R.string.title_mine))
-        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.gapM)) {
+        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.group)) {
             Column(
                 Modifier.weight(0.4f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
-                verticalArrangement = Arrangement.spacedBy(spacing.gapS),
+                verticalArrangement = Arrangement.spacedBy(spacing.s),
             ) {
                 MineDataSection(settings, overview, recording, page, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) })
                 GroupList(settings, selected = page, onSelect = go)
             }
             Column(
                 Modifier.weight(0.6f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
-                verticalArrangement = Arrangement.spacedBy(spacing.gapM),
+                verticalArrangement = Arrangement.spacedBy(spacing.group),
             ) {
                 Text(pageTitle(page), color = colors.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.testTag("mine-detail-title"))
                 GroupContent(page, model, settings, overview, recording, onDelete)
@@ -319,7 +319,7 @@ private fun DeleteSessionSheet(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Composable
 private fun AppearanceGroup(model: MineViewModel, settings: UiSettings) {
     val spacing = LocalSpacing.current
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         SectionLabel(stringResource(R.string.setting_theme))
         SegmentedTextControl(ThemeMode.entries, settings.theme, model::setTheme) { themeName(it) }
         SectionLabel(stringResource(R.string.setting_accent))
@@ -363,7 +363,7 @@ private fun AppearanceGroup(model: MineViewModel, settings: UiSettings) {
 private fun DisplayGroup(model: MineViewModel, settings: UiSettings) {
     val spacing = LocalSpacing.current
     val colors = LocalModbusColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         SectionLabel(stringResource(R.string.setting_address))
         SegmentedTextControl(AddressStyle.entries, settings.addressStyle, model::setAddress) { addressName(it) }
         SectionLabel(stringResource(R.string.setting_number))
@@ -431,7 +431,7 @@ private fun CommGroup(model: MineViewModel, settings: UiSettings) {
         CommEditor(field, settings, model, onDone = { editing = null })
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         SettingsCard {
             SettingRow(
                 stringResource(R.string.comm_timeout),
@@ -470,7 +470,7 @@ private fun CommGroup(model: MineViewModel, settings: UiSettings) {
 private fun CommEditor(field: CommField, settings: UiSettings, model: MineViewModel, onDone: () -> Unit) {
     val spacing = LocalSpacing.current
     val label = stringResource(field.label)
-    Column(Modifier.testTag("comm-editor"), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+    Column(Modifier.testTag("comm-editor"), verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         SectionLabel(stringResource(R.string.comm_edit_title, label))
         if (field == CommField.ECHO) {
             var mode by remember { mutableStateOf(settings.defaultEcho) }

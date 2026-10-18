@@ -65,12 +65,14 @@ class ConnectionSpacingTest {
         val serialCard = tag("card-serial")
         val advanced = tag("card-advanced")
 
-        // 标题行顶 = 卡顶 + 13（内边距 12 + 边框 1）
-        assertClose("设备卡 标题行顶", labels[0].top - deviceCard.top, 13f)
-        assertClose("角色卡 标题行顶", labels[1].top - roleCard.top, 13f)
-        assertClose("串口卡 标题行顶", labels[2].top - serialCard.top, 13f)
-        // 标题行高 ≈ 17（12sp × 1.4 = 16.8，mdpi 下取整 17~18），而不是 Material 默认的 24
-        labels.forEach { assertClose("标题行高", it.height.value, 17f, 1.2f) }
+        // 标题行顶 = 卡顶 + 12（v2 内边距不另计边框）
+        assertClose("设备卡 标题行顶", labels[0].top - deviceCard.top, 12f)
+        assertClose("角色卡 标题行顶", labels[1].top - roleCard.top, 12f)
+        assertClose("串口卡 标题行顶", labels[2].top - serialCard.top, 12f)
+        // v2 label 使用16sp行高（系统字体实际布局18dp），串口 Mono 副标题20dp。
+        labels.zip(listOf(18f, 18f, 20f)).forEach { (label, height) ->
+            assertClose("标题行高", label.height.value, height, 0.6f)
+        }
 
         // 标题行底 → 首行内容顶 = 8
         val firstDevice = b(compose.onAllNodesWithTag("device-row")[0].getBoundsInRoot())
@@ -83,21 +85,21 @@ class ConnectionSpacingTest {
         println("MEASURE 串口卡 标题行底→预设 chip 顶 = ${(chips.top - labels[2].bottom).value}dp")
         assertClose("串口卡：标题行底→预设 chip 顶", chips.top - labels[2].bottom, 8f, 2f)
 
-        // 设备行 58、角色分段 60、“高级”折叠卡 46
+        // 设备行58（字体取整59）、角色分段62（padding4）、高级卡44（12+20+12）
         compose.onAllNodesWithTag("device-row").fetchSemanticsNodes().indices.forEach {
             val row = b(compose.onAllNodesWithTag("device-row")[it].getBoundsInRoot())
             assertClose("设备行高", row.height.value, 58f, 1f)
         }
-        assertClose("角色分段高", seg.height.value, 60f, 1f)
+        assertClose("角色分段高", seg.height.value, 62f, 1f)
         println("MEASURE 高级折叠卡高 = ${advanced.height.value}dp；设备行高 = ${b(compose.onAllNodesWithTag("device-row")[0].getBoundsInRoot()).height.value}dp；角色分段高 = ${seg.height.value}dp")
-        assertClose("“高级”折叠卡总高", advanced.height.value, 46f, 1f)
+        assertClose("“高级”折叠卡总高", advanced.height.value, 44f, 1f)
 
-        // 卡间距 10；设备卡底 = 最后一个设备行底 + 13
-        assertClose("设备卡→角色卡", roleCard.top - deviceCard.bottom, 10f)
-        assertClose("角色卡→串口卡", serialCard.top - roleCard.bottom, 10f)
-        assertClose("串口卡→高级卡", advanced.top - serialCard.bottom, 10f)
+        // v2 卡间距16；设备卡底内边距12
+        assertClose("设备卡→角色卡", roleCard.top - deviceCard.bottom, 16f) // space.group 16（CL-16，v1 是 10）
+        assertClose("角色卡→串口卡", serialCard.top - roleCard.bottom, 16f) // space.group 16（CL-16，v1 是 10）
+        assertClose("串口卡→高级卡", advanced.top - serialCard.bottom, 16f) // space.group 16（CL-16，v1 是 10）
         val lastDevice = b(compose.onAllNodesWithTag("device-row")[1].getBoundsInRoot())
-        assertClose("设备卡底内边距", deviceCard.bottom - lastDevice.bottom, 13f)
+        assertClose("设备卡底内边距", deviceCard.bottom - lastDevice.bottom, 12f) // CL-16：卡片内边距只有 12（去掉 border-box 的 1dp）
         compose.onRoot().captureRoboImage("src/test/screenshots/connection-spacing/idle_light.png")
     }
 

@@ -57,7 +57,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ButtonRadius
-import io.github.xingyingyuzhui.modbusmobile.ui.theme.FieldRadius
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.SmallRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusColors
@@ -89,10 +89,10 @@ data class ResultNotice(
     val id: Long,
 )
 
-/** 结果条内边距：水平 12（space.xl）/ 垂直 10（space.l），§6.9。 */
-private val BannerPaddingVertical: Dp @Composable get() = LocalSpacing.current.gapM
+/** 结果条内边距：水平 12（space.card）/ 垂直 8（space.s），§6.9。 */
+private val BannerPaddingVertical: Dp @Composable get() = LocalSpacing.current.s
 
-/** 紧凑版结果条（面板卡底）总高 36（§6.9）；= 动作按钮视觉高 32 + 上下 2。 */
+/** 紧凑版结果条（面板卡底）最小总高 36（§6.9）；32dp 动作在行内居中，大字体允许增长。 */
 private val CompactBannerMinHeight = 36.dp
 
 private fun ModbusColors.tone(kind: ResultKind): Color = when (kind) {
@@ -133,7 +133,7 @@ private fun CheckGlyph(color: Color, size: Dp) {
 @Composable
 private fun BannerAction(text: String, loading: Boolean, loadingText: String, tag: String, onClick: () -> Unit) {
     val colors = LocalModbusColors.current
-    val shape = RoundedCornerShape(FieldRadius)
+    val shape = RoundedCornerShape(SmallRadius)
     Box(
         Modifier
             .testTag(tag)
@@ -237,9 +237,9 @@ private fun ResultBannerContent(
                 liveRegion = LiveRegionMode.Polite
                 stateDescription = kindLabel
             }
-            .padding(horizontal = spacing.card, vertical = if (compact) spacing.xxs else BannerPaddingVertical),
+            .padding(horizontal = spacing.card, vertical = if (compact) 0.dp else BannerPaddingVertical),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(spacing.gapS),
+        horizontalArrangement = Arrangement.spacedBy(spacing.s),
     ) {
         Box(Modifier.semantics { contentDescription = kindLabel }) { ResultIcon(notice.kind, tone) }
         Text(
@@ -301,9 +301,9 @@ fun ErrorBanner(
             .padding(horizontal = spacing.card, vertical = BannerPaddingVertical),
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.s)) {
             CloseIcon(colors.error, size = ModbusSize.iconM)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Text(reason, color = colors.error, style = ModbusType.bodyS)
                 if (hint != null) Text(hint, color = colors.text, style = ModbusType.bodyS)
             }
@@ -391,7 +391,7 @@ fun BoxScope.UndoBarHost(state: UndoBarState, modifier: Modifier = Modifier) {
         visible = current != null,
         modifier = modifier
             .align(Alignment.BottomCenter)
-            .padding(start = spacing.page, end = spacing.page, bottom = dock.bottom + spacing.gapS),
+            .padding(start = spacing.page, end = spacing.page, bottom = dock.bottom + spacing.s),
         enter = fadeIn(tween(ModbusMotion.STANDARD)),
         exit = fadeOut(tween(ModbusMotion.STANDARD)),
     ) {
@@ -447,7 +447,7 @@ private fun FeedbackPreview(dark: Boolean) {
         val spacing = LocalSpacing.current
         val unknown = stringResource(R.string.feedback_unknown_write)
         Box(Modifier.background(colors.bg)) {
-            Column(Modifier.padding(spacing.page), verticalArrangement = Arrangement.spacedBy(spacing.gapS)) {
+            Column(Modifier.padding(spacing.page), verticalArrangement = Arrangement.spacedBy(spacing.s)) {
                 ResultBanner(ResultNotice(ResultKind.SUCCESS, stringResource(R.string.feedback_preview_success), 1))
                 ResultBanner(ResultNotice(ResultKind.FAILURE, stringResource(R.string.feedback_preview_failure), 2), onRetry = {})
                 ResultBanner(ResultNotice(ResultKind.UNKNOWN, unknown, 3), onReadBack = {})

@@ -102,18 +102,33 @@ class FeedbackTest {
             }
         }
         compose.runOnIdle { state.show("已删除 A", "撤销") { undone += "A" } }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
         compose.mainClock.advanceTimeBy(ModbusMotion.UNDO - 2000)
         compose.onNodeWithText("已删除 A").assertExists()
         // 新的替换旧的，重新计时
         compose.runOnIdle { state.show("已删除 B", "撤销") { undone += "B" } }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
         compose.mainClock.advanceTimeBy(ModbusMotion.STANDARD.toLong() + 50)
         compose.onNodeWithText("已删除 A").assertDoesNotExist()
         compose.mainClock.advanceTimeBy(ModbusMotion.UNDO - 1000)
         compose.onNodeWithText("已删除 B").assertExists()
         compose.onNodeWithTag(UndoBarActionTag).performClick()
         assertEquals("B", undone)
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
         compose.mainClock.advanceTimeBy(ModbusMotion.STANDARD.toLong() + 50)
         compose.onNodeWithText("已删除 B").assertDoesNotExist()
+        // 没有点击动作时，第 5 秒自动收起；4.8 秒仍存在。
+        compose.runOnIdle { state.show("已删除 C", "撤销") { undone += "C" } }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(ModbusMotion.UNDO - 200)
+        compose.onNodeWithText("已删除 C").assertExists()
+        compose.mainClock.advanceTimeBy(200 + ModbusMotion.STANDARD.toLong() + 100)
+        compose.onNodeWithText("已删除 C").assertDoesNotExist()
+        assertEquals("B", undone)
     }
 
     @Test
