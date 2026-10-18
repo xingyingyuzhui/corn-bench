@@ -9,6 +9,8 @@ import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Entity(tableName = "sessions")
 data class SessionEntity(
@@ -31,7 +33,7 @@ data class SessionEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("sessionId"), Index(value = ["pointId", "sampleAtMs"])],
+    indices = [Index("sessionId"), Index(value = ["pointId", "sampleAtMs"]), Index(value = ["sessionId", "sampleAtMs", "id"])],
 )
 data class SampleEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -80,7 +82,15 @@ interface HistoryDao {
     suspend fun setRetained(id: Long, retained: Boolean)
 }
 
-@Database(entities = [SessionEntity::class, SampleEntity::class], version = 1, exportSchema = true)
+@Database(entities = [SessionEntity::class, SampleEntity::class], version = 2, exportSchema = true)
 abstract class HistoryDatabase : RoomDatabase() {
     abstract fun dao(): HistoryDao
+
+    companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_samples_sessionId_sampleAtMs_id ON samples (sessionId, sampleAtMs, id)")
+            }
+        }
+    }
 }
