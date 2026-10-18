@@ -22,6 +22,9 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.core.model.TrafficEvent
 import io.github.xingyingyuzhui.modbusmobile.core.slave.VirtualRegisterBank
 import io.github.xingyingyuzhui.modbusmobile.ui.components.dropLeadingZero
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -505,6 +508,188 @@ class WorkbenchWriteTest {
         assertEquals("05", dropLeadingZero("5", "05"))
     }
 
+    @Test
+    fun inFlightReadKeepsOldValuesAndFailureMarksThemAsLastGood() = withModel { model, session ->
+        session.next += readOf(listOf(12, 34))
+        model.read()
+        advanceUntilIdle()
+        val old = model.lastGood
+        val at = model.lastGoodAtMillis
+        val gate = session.deferNext()
+        model.read()
+        testScheduler.runCurrent()
+        assertTrue(model.reading)
+        assertEquals(old, (model.readState as ReadState.Ok).result)
+        model.read()
+        model.requestWrite()
+        assertNull(model.pending)
+        assertEquals(2, session.requests.size)
+        gate.complete(ModbusResult.Timeout)
+        advanceUntilIdle()
+        assertFalse(model.busy)
+        assertTrue(model.readState is ReadState.Failed)
+        assertEquals(old, model.lastGood)
+        assertEquals(at, model.lastGoodAtMillis)
+    }
+
+    @Test
+    fun duplicateConfirmAndOtherActionsCannotSendWhileWriting() = withModel { model, session ->
+        val gate = session.deferNext()
+        model.requestWrite()
+        model.confirmWrite()
+        model.confirmWrite()
+        model.read()
+        model.requestWrite()
+        testScheduler.runCurrent()
+        assertTrue(model.writing)
+        assertEquals(1, session.requests.size)
+        gate.complete(ModbusResult.UnknownOutcome)
+        advanceUntilIdle()
+        assertFalse(model.busy)
+        assertTrue(model.writeNotice!!.canReadBack)
+        assertFalse(model.writeNotice!!.canRetry)
+        assertEquals(1, session.requests.size)
+    }
+
+    @Test
+    fun unknownWriteReadBackUsesOriginalPlanAndRetryNeedsConfirmation() = withModel { model, session ->
+        session.next += ModbusResult.UnknownOutcome
+        model.address = "7"
+        model.setWordText(0, "42")
+        model.requestWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        model.address = "99"
+        val gate = session.deferNext()
+        model.readBack()
+        model.readBack()
+        testScheduler.runCurrent()
+        assertTrue(model.readingBack)
+        assertEquals(ModbusRequest.ReadHoldingRegisters(1, 7, 1), session.requests.last())
+        assertEquals(2, session.requests.size)
+        gate.complete(readOf(listOf(9)))
+        advanceUntilIdle()
+        assertTrue(model.writeNotice!!.canRetry)
+        model.retryWrite()
+        assertEquals(2, session.requests.size)
+        assertEquals(ModbusRequest.WriteSingleRegister(1, 7, 42), model.pending!!.plan.request)
+        model.dismissPending()
+        assertEquals(2, session.requests.size)
+        model.retryWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        assertEquals(ModbusRequest.WriteSingleRegister(1, 7, 42), session.requests.last())
+        assertEquals(3, session.requests.size)
+    }
+
+    @Test
+    fun delayedOldReadCannotReplaceNewSessionResultOrClearItsBusyFlag() = withModel { model, session ->
+        val old = session.deferNext()
+        model.read()
+        testScheduler.runCurrent()
+        session.state.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 2)
+        testScheduler.runCurrent()
+        assertFalse(model.busy)
+        val fresh = session.deferNext()
+        model.read()
+        testScheduler.runCurrent()
+        old.complete(readOf(listOf(111)))
+        testScheduler.runCurrent()
+        assertTrue(model.reading)
+        assertEquals(ReadState.None, model.readState)
+        fresh.complete(readOf(listOf(222)))
+        advanceUntilIdle()
+        assertEquals(listOf(222), (model.readState as ReadState.Ok).result.values)
+    }
+
+    @Test
+    fun delayedOldWriteCannotRestoreNoticeRecentWritesOrCurrentValue() = withModel { model, session ->
+        val gate = session.deferNext()
+        model.setWordText(0, "99")
+        model.requestWrite()
+        model.confirmWrite()
+        testScheduler.runCurrent()
+        session.state.value = SessionState.Idle
+        testScheduler.runCurrent()
+        session.state.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 2)
+        testScheduler.runCurrent()
+        gate.complete(ModbusResult.Success(ModbusResponse.WriteSingleRegister(1, FunctionCode.WRITE_SINGLE_REGISTER, 0, 99)))
+        advanceUntilIdle()
+        assertNull(model.writeNotice)
+        assertTrue(model.recentWrites.isEmpty())
+        model.requestWrite()
+        assertEquals(listOf<Int?>(null), model.pending!!.current)
+    }
+
+    @Test
+    fun reconnectBeforeWatcherRunsDiscardsPendingConfirmation() = withModel { model, session ->
+        model.requestWrite()
+        session.state.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 2)
+        model.confirmWrite()
+        advanceUntilIdle()
+        assertNull(model.pending)
+        assertTrue(session.requests.isEmpty())
+    }
+
+    @Test
+    fun reconnectBeforeQueuedReadStartsDoesNotSendOldRequest() = withModel { model, session ->
+        model.address = "123"
+        model.read()
+        session.state.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 2)
+        advanceUntilIdle()
+        assertTrue(session.requests.isEmpty())
+        assertEquals(ReadState.None, model.readState)
+        assertFalse(model.busy)
+    }
+
+    @Test
+    fun delayedReadBackCannotRestoreOldSessionNotice() = withModel { model, session ->
+        session.next += ModbusResult.UnknownOutcome
+        model.requestWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        val gate = session.deferNext()
+        model.readBack()
+        testScheduler.runCurrent()
+        session.state.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 2)
+        testScheduler.runCurrent()
+        gate.complete(readOf(listOf(0)))
+        advanceUntilIdle()
+        assertNull(model.writeNotice)
+        assertNull(model.lastGood)
+        assertFalse(model.busy)
+        assertTrue(model.recentWrites.isEmpty())
+    }
+
+    @Test
+    fun readBackRequiresExactResponseShapeAndNeverRetriesAutomatically() = withModel { model, session ->
+        session.next += ModbusResult.UnknownOutcome
+        model.setWordText(0, "42")
+        model.requestWrite()
+        model.confirmWrite()
+        advanceUntilIdle()
+        val invalid = listOf(
+            readOf(listOf(42, 43)),
+            ModbusResult.Success(ModbusResponse.ReadBits(1, FunctionCode.READ_COILS, listOf(true))),
+            ModbusResult.Success(ModbusResponse.ReadRegisters(2, FunctionCode.READ_HOLDING_REGISTERS, listOf(42))),
+        )
+        invalid.forEach { response ->
+            session.next += response
+            model.readBack()
+            advanceUntilIdle()
+            assertTrue(model.writeNotice!!.canReadBack)
+            assertFalse(model.writeNotice!!.canRetry)
+            assertEquals(io.github.xingyingyuzhui.modbusmobile.ui.components.ResultKind.UNKNOWN, model.writeNotice!!.kind)
+        }
+        assertEquals(4, session.requests.size)
+        session.next += readOf(listOf(42))
+        model.readBack()
+        advanceUntilIdle()
+        assertEquals(io.github.xingyingyuzhui.modbusmobile.ui.components.ResultKind.SUCCESS, model.writeNotice!!.kind)
+        assertFalse(model.writeNotice!!.canReadBack)
+        assertEquals(5, session.requests.size)
+    }
+
     private fun readOf(values: List<Int>) =
         ModbusResult.Success(ModbusResponse.ReadRegisters(1, FunctionCode.READ_HOLDING_REGISTERS, values))
 
@@ -529,6 +714,8 @@ private fun WorkbenchViewModel.onClearedForTest() = changePolling(false)
 private class ScriptedSession : SessionManager {
     val requests = mutableListOf<ModbusRequest>()
     val next = ArrayDeque<ModbusResult>()
+    private val delayed = ArrayDeque<CompletableDeferred<ModbusResult>>()
+    fun deferNext() = CompletableDeferred<ModbusResult>().also { delayed += it }
     override val state = MutableStateFlow<SessionState>(SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 1))
     override val traffic = MutableSharedFlow<TrafficEvent>()
     override val slaveBank = MutableStateFlow<VirtualRegisterBank?>(null)
@@ -542,6 +729,8 @@ private class ScriptedSession : SessionManager {
 
     override suspend fun execute(request: ModbusRequest): ModbusResult {
         requests += request
+        // 非协作式驱动/已经完成的 I/O 即使 cancel 仍可能返回，epoch 防护必须独立成立。
+        delayed.removeFirstOrNull()?.let { gate -> return withContext(NonCancellable) { gate.await() } }
         next.removeFirstOrNull()?.let { return it }
         return when (request) {
             is ModbusRequest.WriteSingleRegister ->
