@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
+import io.github.xingyingyuzhui.modbusmobile.application.MasterPoller
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
@@ -284,21 +285,69 @@ class WorkbenchWriteTest {
         assertFalse(model.polling)
     }
 
+    /**
+     * T-20261018-qa-02 回归：离开工作台（工作台 VM 被清掉 / 页面不可见）轮询不能停。
+     * 修复前（main 05ea1e2）同一场景的测试是 pollingPausesWhileThePageIsHiddenAndResumesAfterwards，断言的是「页面不可见时不读」，
+     * 也就是 qa-02 报的静默停止；本测试断言相反的行为，在修复前的实现上不可能通过。
+     */
     @Test
-    fun pollingPausesWhileThePageIsHiddenAndResumesAfterwards() = withModel { model, session ->
-        session.next += List(50) { readOf(listOf(1)) }
-        model.setVisible(false)
+    fun pollingKeepsGoingAfterLeavingTheWorkbenchAndTheButtonStaysOn() = withModel { _, session ->
+        val poller = MasterPoller(session, backgroundScope) { testScheduler.currentTime }
+        session.next += List(80) { readOf(listOf(1)) }
+        val first = ViewModelStore()
+        val before = ViewModelProvider(first, session.factory(poller))[WorkbenchViewModel::class.java]
+        before.address = "7"
+        before.changePolling(true)
+        testScheduler.runCurrent()
+        // 离开工作台：VM 被清掉（最坏情况），只剩应用级 poller。
+        first.clear()
+        testScheduler.advanceTimeBy(60_000)
+        testScheduler.runCurrent()
+        assertTrue("离开 60 s 仍在发请求：${session.requests.size}", session.requests.size in 60..62)
+        assertTrue(poller.state.value.running)
+
+        // 回到工作台：新 VM 从唯一状态源接上，按钮仍是「停止 · 1 s」，表单回填成正在轮询的请求。
+        val second = ViewModelStore()
+        val after = ViewModelProvider(second, session.factory(poller))[WorkbenchViewModel::class.java]
+        testScheduler.runCurrent()
+        assertTrue(after.polling)
+        assertEquals(1_000L, after.pollIntervalMs)
+        assertEquals("7", after.address)
+        testScheduler.advanceTimeBy(1_000)
+        testScheduler.runCurrent()
+        assertTrue("回来后结果照常显示", after.readState is ReadState.Ok)
+
+        // 点停止：请求停。
+        after.changePolling(false)
+        val sent = session.requests.size
+        testScheduler.advanceTimeBy(10_000)
+        testScheduler.runCurrent()
+        assertEquals(sent, session.requests.size)
+        assertFalse(after.polling)
+        second.clear()
+        poller.close()
+    }
+
+    @Test
+    fun disconnectTurnsTheButtonBackToStart() = withModel { _, session ->
+        val poller = MasterPoller(session, backgroundScope) { testScheduler.currentTime }
+        session.next += List(20) { readOf(listOf(1)) }
+        val store = ViewModelStore()
+        val model = ViewModelProvider(store, session.factory(poller))[WorkbenchViewModel::class.java]
         model.changePolling(true)
         testScheduler.advanceTimeBy(3_000)
         testScheduler.runCurrent()
-        assertTrue("页面不可见时不读", session.requests.isEmpty())
-        assertTrue("轮询意图保留", model.polling)
-        model.setVisible(true)
-        testScheduler.advanceTimeBy(1_500)
+        assertTrue(model.polling)
+        session.state.value = SessionState.Idle
+        testScheduler.advanceTimeBy(1)
         testScheduler.runCurrent()
-        assertTrue("回来后继续读", session.requests.isNotEmpty())
-        model.changePolling(false)
-        advanceUntilIdle()
+        val sent = session.requests.size
+        testScheduler.advanceTimeBy(5_000)
+        testScheduler.runCurrent()
+        assertFalse("断开后按钮回到「开始」", model.polling)
+        assertEquals(sent, session.requests.size)
+        store.clear()
+        poller.close()
     }
 
     @Test
@@ -507,10 +556,10 @@ private class ScriptedSession : SessionManager {
         }
     }
 
-    fun factory(): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+    fun factory(poller: MasterPoller? = null): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return WorkbenchViewModel(this@ScriptedSession) as T
+            return WorkbenchViewModel(this@ScriptedSession, poller = poller) as T
         }
     }
 }

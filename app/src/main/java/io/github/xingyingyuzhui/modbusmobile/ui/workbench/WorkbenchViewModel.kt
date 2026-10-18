@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.xingyingyuzhui.modbusmobile.R
+import io.github.xingyingyuzhui.modbusmobile.application.MasterPoller
 import io.github.xingyingyuzhui.modbusmobile.application.NumberFormat
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
@@ -17,9 +18,6 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.ui.UiText
 import io.github.xingyingyuzhui.modbusmobile.ui.components.FlashDurationMs
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 enum class WorkbenchMode { READ, WRITE }
@@ -89,7 +87,14 @@ class WorkbenchViewModel(
     private val session: SessionManager,
     private val clock: () -> Long = { SystemClock.elapsedRealtime() },
     private val wallClock: () -> Long = { System.currentTimeMillis() },
-) : ViewModel() {
+    /**
+     * 应用级轮询（AppContainer.masterPoller，T-20261018-qa-02）。null = 自己建一个挂在 viewModelScope 上的（只给测试和预览用），
+     * VM 清掉时一起关。
+     */
+    poller: MasterPoller? = null,
+) : ViewModel(), MasterPoller.Client {
+    private val ownsPoller = poller == null
+    private val poller: MasterPoller = poller ?: MasterPoller(session, viewModelScope, clock)
     val sessionState = session.state
 
     var mode by mutableStateOf(WorkbenchMode.READ)
@@ -127,9 +132,10 @@ class WorkbenchViewModel(
     var formError by mutableStateOf<UiText?>(null)
         private set
 
-    var polling by mutableStateOf(false)
+    /** 轮询是否在跑：镜像 [MasterPoller.state]（唯一状态源），这里只订阅。 */
+    var polling by mutableStateOf(this.poller.state.value.running)
         private set
-    var pollIntervalMs by mutableLongStateOf(1_000L)
+    var pollIntervalMs by mutableLongStateOf(this.poller.state.value.intervalMs)
         private set
 
     var pending by mutableStateOf<PendingWrite?>(null)
@@ -139,15 +145,22 @@ class WorkbenchViewModel(
     private var writing by mutableStateOf(false)
 
     private val known = HashMap<ValueKey, KnownValue>()
-    private var pollJob: Job? = null
     private var invalidStreak = 0
-    private var lastEpoch: Long? = null
 
-    /** 工作台页面当前是否可见。不可见时轮询暂停（保留“轮询已开”的意图，回来后继续）。 */
-    @Volatile
-    private var visible = true
+    /** 取构造时的 epoch：VM 重建（如 Activity 重建）时不把还在跑的应用级轮询和回填的表单当成“新会话”清掉。 */
+    private var lastEpoch: Long? = (session.state.value as? SessionState.Running)?.epoch
+    private val detachPoller: () -> Unit
 
     init {
+        // 应用级轮询还在跑（工作台 VM 重建了）：表单回填成正在轮询的请求，按钮和结果都接得上。
+        this.poller.state.value.request?.takeIf { this.poller.state.value.running }?.let(::adoptRequest)
+        detachPoller = this.poller.attach(this)
+        viewModelScope.launch {
+            this@WorkbenchViewModel.poller.state.collect { s ->
+                polling = s.running
+                pollIntervalMs = s.intervalMs
+            }
+        }
         // 换了一次连接（epoch 变化）或断开：上一次连接读到的“当前值”、结果表和待确认的写入都不再可信，清掉。
         viewModelScope.launch {
             session.state.collect { state ->
@@ -162,12 +175,9 @@ class WorkbenchViewModel(
 
     /**
      * 断开、重连或切换角色（epoch 变化）：表单、读取结果、最近写入、待确认的写入和“当前值”缓存都属于上一次会话，全部清空。
-     * 轮询意图也一并取消。
+     * 轮询由 [MasterPoller] 自己在 epoch 变化时停掉，这里不用管。
      */
     private fun resetForNewSession() {
-        pollJob?.cancel()
-        pollJob = null
-        polling = false
         known.clear()
         invalidStreak = 0
         readState = ReadState.None
@@ -281,41 +291,71 @@ class WorkbenchViewModel(
         viewModelScope.launch { performRead(params) }
     }
 
-    /** 页面可见性由界面报告（离开工作台 / 应用退到后台 = 不可见）。 */
-    fun setVisible(value: Boolean) {
-        visible = value
-    }
-
+    /**
+     * 开 / 停轮询。轮询本身在应用级 [MasterPoller] 里跑：离开工作台、退到后台都不停，
+     * 只有这里停止、断开连接、poller close() 才停（T-20261018-qa-02）。
+     */
     fun changePolling(enabled: Boolean) {
-        pollJob?.cancel()
-        pollJob = null
-        polling = enabled
-        if (!enabled) return
-        invalidStreak = 0
-        pollJob = viewModelScope.launch {
-            while (isActive) {
-                // 手动写入优先：写模式、有待确认的写入、写入在途时，轮询让路；页面不可见时也暂停。
-                if (!visible || mode == WorkbenchMode.WRITE || pending != null || writing) {
-                    delay(100)
-                    continue
-                }
-                val params = readParams()
-                if (params == null) {
-                    polling = false
-                    return@launch
-                }
-                val stop = performRead(params)
-                if (stop) {
-                    polling = false
-                    return@launch
-                }
-                delay(pollIntervalMs)
-            }
+        if (!enabled) {
+            poller.stop()
+        } else {
+            val params = readParams() ?: return
+            invalidStreak = 0
+            poller.start(params.request, pollIntervalMs)
         }
+        syncPollState()
     }
 
     fun setPollInterval(ms: Long) {
-        pollIntervalMs = ms
+        poller.setInterval(ms)
+        syncPollState()
+    }
+
+    /** 自己的操作立刻反映到按钮上（不等 StateFlow 收集）。 */
+    private fun syncPollState() {
+        val s = poller.state.value
+        polling = s.running
+        pollIntervalMs = s.intervalMs
+    }
+
+    // ---- MasterPoller.Client ----
+
+    /** 手动写入优先：写模式、有待确认的写入、写入在途时，轮询让路。 */
+    override fun holdPolling(): Boolean = mode == WorkbenchMode.WRITE || pending != null || writing
+
+    /** 每一拍跟随当前表单；表单非法时返回 null（同时显示表单错误），轮询停。 */
+    override fun nextRequest(): ModbusRequest? = readParams()?.request
+
+    override fun onPollResult(outcome: MasterPoller.Outcome) {
+        val params = paramsOf(outcome.request) ?: return
+        showRead(params, outcome.result, outcome.elapsedMs)
+    }
+
+    private fun adoptRequest(request: ModbusRequest) {
+        val params = paramsOf(request) ?: return
+        area = params.area
+        unit = params.unit.toString()
+        address = params.start.toString()
+        quantity = when (request) {
+            is ModbusRequest.ReadCoils -> request.quantity
+            is ModbusRequest.ReadDiscreteInputs -> request.quantity
+            is ModbusRequest.ReadHoldingRegisters -> request.quantity
+            is ModbusRequest.ReadInputRegisters -> request.quantity
+            else -> return
+        }.toString()
+    }
+
+    private fun paramsOf(request: ModbusRequest): ReadParams? = when (request) {
+        is ModbusRequest.ReadCoils -> ReadParams(request, RegisterArea.COIL, request.unitId, request.address)
+        is ModbusRequest.ReadDiscreteInputs -> ReadParams(request, RegisterArea.DISCRETE_INPUT, request.unitId, request.address)
+        is ModbusRequest.ReadHoldingRegisters -> ReadParams(request, RegisterArea.HOLDING_REGISTER, request.unitId, request.address)
+        is ModbusRequest.ReadInputRegisters -> ReadParams(request, RegisterArea.INPUT_REGISTER, request.unitId, request.address)
+        else -> null
+    }
+
+    override fun onCleared() {
+        detachPoller()
+        if (ownsPoller) poller.close()
     }
 
     fun clearResult() {

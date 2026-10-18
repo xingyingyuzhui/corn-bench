@@ -58,6 +58,15 @@ class AppContainer(app: Application) {
         history = historyRecorder,
     )
     val trafficRecorder = TrafficRecorder(sessionManager, scope)
+
+    /**
+     * 主站工作台的「每 N s」轮询（T-20261018-qa-02）：应用级作用域，离开工作台 / 退到后台都不停，
+     * 只在用户点停止、断开连接或 close() 时停。跑在主线程（和原来 viewModelScope 一样），结果直接交给工作台显示。
+     */
+    val masterPoller = io.github.xingyingyuzhui.modbusmobile.application.MasterPoller(
+        sessionManager,
+        CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate),
+    )
     val pointStore = io.github.xingyingyuzhui.modbusmobile.application.panel.PointStore()
     val sampleHistory = io.github.xingyingyuzhui.modbusmobile.application.panel.SampleHistory()
     val pollScheduler = io.github.xingyingyuzhui.modbusmobile.application.panel.PollScheduler(

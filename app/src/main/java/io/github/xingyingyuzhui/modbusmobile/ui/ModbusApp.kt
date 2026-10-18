@@ -58,6 +58,11 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.traffic.TrafficScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.workbench.WorkbenchScreen
 
+/**
+ * 应用级主站轮询（AppContainer.masterPoller，T-20261018-qa-02）。null = 没有提供（预览 / 测试），工作台 VM 自己建一个。
+ */
+val LocalMasterPoller = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.MasterPoller?> { null }
+
 val LocalSession = staticCompositionLocalOf<SessionManager> {
     error("SessionManager 还没有提供")
 }
