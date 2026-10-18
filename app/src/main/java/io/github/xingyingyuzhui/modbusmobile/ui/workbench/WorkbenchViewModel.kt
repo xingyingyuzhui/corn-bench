@@ -12,6 +12,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.MasterPoller
 import io.github.xingyingyuzhui.modbusmobile.application.NumberFormat
 import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
+import io.github.xingyingyuzhui.modbusmobile.core.model.FunctionCode
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusRequest
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResponse
 import io.github.xingyingyuzhui.modbusmobile.core.model.ModbusResult
@@ -19,6 +20,8 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.ui.UiText
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ResultKind
 import io.github.xingyingyuzhui.modbusmobile.ui.components.FlashDurationMs
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 enum class WorkbenchMode { READ, WRITE }
@@ -197,6 +200,8 @@ class WorkbenchViewModel(
     /** 取构造时的 epoch：VM 重建（如 Activity 重建）时不把还在跑的应用级轮询和回填的表单当成“新会话”清掉。 */
     private var lastEpoch: Long? = (session.state.value as? SessionState.Running)?.epoch
     private val detachPoller: () -> Unit
+    private var operationGeneration = 0L
+    private var manualJob: Job? = null
 
     init {
         // 应用级轮询还在跑（工作台 VM 重建了）：表单回填成正在轮询的请求，按钮和结果都接得上。
@@ -225,6 +230,12 @@ class WorkbenchViewModel(
      * 轮询由 [MasterPoller] 自己在 epoch 变化时停掉，这里不用管。
      */
     private fun resetForNewSession() {
+        operationGeneration++
+        manualJob?.cancel()
+        manualJob = null
+        reading = false
+        writing = false
+        readingBack = false
         known.clear()
         invalidStreak = 0
         readState = ReadState.None
@@ -247,6 +258,38 @@ class WorkbenchViewModel(
         writeNotice = null
         lastGood = null
         lastGoodAtMillis = null
+    }
+
+    /** StateFlow 的收集可能晚于点击或 execute 返回；同步核对避免把旧连接的请求/结果带进新连接。 */
+    private fun syncSession() {
+        val epoch = (session.state.value as? SessionState.Running)?.epoch
+        if (epoch != lastEpoch) {
+            lastEpoch = epoch
+            resetForNewSession()
+        }
+    }
+
+    private fun operationIsCurrent(generation: Long): Boolean {
+        syncSession()
+        return generation == operationGeneration
+    }
+
+    private fun launchManual(block: suspend (Long) -> Unit) {
+        val generation = operationGeneration
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                if (operationIsCurrent(generation)) block(generation)
+            } finally {
+                if (generation == operationGeneration) {
+                    reading = false
+                    writing = false
+                    readingBack = false
+                    manualJob = null
+                }
+            }
+        }
+        manualJob = job
+        job.start()
     }
 
     private fun formOverrideReset() {
@@ -339,15 +382,12 @@ class WorkbenchViewModel(
     // ---- 读取与轮询 ----
 
     fun read() {
+        syncSession()
         if (busy) return
         val params = readParams() ?: return
         reading = true
-        viewModelScope.launch {
-            try {
-                performRead(params)
-            } finally {
-                reading = false
-            }
+        launchManual { generation ->
+            performRead(params, generation)
         }
     }
 
@@ -359,6 +399,7 @@ class WorkbenchViewModel(
         if (!enabled) {
             poller.stop()
         } else {
+            syncSession()
             val params = readParams() ?: return
             invalidStreak = 0
             poller.start(params.request, pollIntervalMs)
@@ -454,11 +495,11 @@ class WorkbenchViewModel(
     }
 
     /** 返回 true 表示轮询应该停（连接已断开，或连续多次无效响应）。 */
-    private suspend fun performRead(params: ReadParams): Boolean {
+    private suspend fun performRead(params: ReadParams, generation: Long): Boolean {
         val began = clock()
         val result = session.execute(params.request)
         val elapsed = clock() - began
-        return showRead(params, result, elapsed)
+        return if (operationIsCurrent(generation)) showRead(params, result, elapsed) else true
     }
 
     private fun showRead(params: ReadParams, result: ModbusResult, elapsed: Long): Boolean {
@@ -543,6 +584,7 @@ class WorkbenchViewModel(
 
     /** 点“预览并写入”：校验输入，生成写入计划，交给确认弹窗。**不会**直接发送。 */
     fun requestWrite() {
+        syncSession()
         if (busy) return
         val errors = writeFieldErrors()
         fieldErrors = errors
@@ -596,19 +638,16 @@ class WorkbenchViewModel(
 
     /** 用户在确认弹窗里点“发送写入”。 */
     fun confirmWrite() {
+        syncSession()
         // 写入在途时再点确认（连点、弹层关闭动画期间的第二次点击）一律忽略：execute 只调用一次（验收 A6）。
-        if (writing) return
+        if (busy) return
         val ready = pending ?: return
         pending = null
         writing = true
         writeNotice = null
-        viewModelScope.launch {
-            try {
-                val result = session.execute(ready.plan.request)
-                recordWrite(ready.plan, result)
-            } finally {
-                writing = false
-            }
+        launchManual { generation ->
+            val result = session.execute(ready.plan.request)
+            if (operationIsCurrent(generation)) recordWrite(ready.plan, result)
         }
     }
 
@@ -618,6 +657,7 @@ class WorkbenchViewModel(
 
     /** 结果条的“重试”：重新打开确认单（不绕过确认，§1-P1）。 */
     fun retryWrite() {
+        syncSession()
         val notice = writeNotice ?: return
         if (!notice.canRetry || busy) return
         pending = pendingFor(notice.plan)
@@ -629,6 +669,7 @@ class WorkbenchViewModel(
      * 只在用户点按钮时发；未知结果从不自动重试（契约 v1.2 §4）。
      */
     fun readBack() {
+        syncSession()
         val notice = writeNotice ?: return
         if (!notice.canReadBack || busy) return
         val plan = notice.plan
@@ -643,13 +684,9 @@ class WorkbenchViewModel(
             return
         }
         readingBack = true
-        viewModelScope.launch {
-            try {
-                val result = session.execute(request)
-                applyReadBack(notice, result)
-            } finally {
-                readingBack = false
-            }
+        launchManual { generation ->
+            val result = session.execute(request)
+            if (operationIsCurrent(generation)) applyReadBack(notice, result)
         }
     }
 
@@ -660,8 +697,14 @@ class WorkbenchViewModel(
         val count = plan.words.size + plan.bits.size
         val expected = if (plan.area == RegisterArea.COIL) plan.bits.map { if (it) 1 else 0 } else plan.words
         val values: List<Int>? = when (val response = (result as? ModbusResult.Success)?.response) {
-            is ModbusResponse.ReadRegisters -> response.values.take(count)
-            is ModbusResponse.ReadBits -> response.values.take(count).map { if (it) 1 else 0 }
+            is ModbusResponse.ReadRegisters -> response.values.takeIf {
+                plan.area == RegisterArea.HOLDING_REGISTER && response.unitId == plan.unit &&
+                    response.function == FunctionCode.READ_HOLDING_REGISTERS
+            }
+            is ModbusResponse.ReadBits -> response.values.takeIf {
+                plan.area == RegisterArea.COIL && response.unitId == plan.unit &&
+                    response.function == FunctionCode.READ_COILS
+            }?.map { if (it) 1 else 0 }
             else -> null
         }
         if (values == null || values.size != count) {

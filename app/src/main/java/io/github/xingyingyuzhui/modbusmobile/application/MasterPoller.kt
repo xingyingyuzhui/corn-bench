@@ -110,6 +110,7 @@ class MasterPoller(
         try {
             var invalidStreak = 0
             while (isActive) {
+                if ((session.state.value as? SessionState.Running)?.epoch != epoch) return
                 val c = client
                 if (c != null && c.holdPolling()) {
                     delay(HoldStepMs)
@@ -119,7 +120,7 @@ class MasterPoller(
                 if (request != _state.value.request) _state.value = _state.value.copy(request = request)
                 val began = clock()
                 val result = session.execute(request)
-                if (!isActive) return
+                if (!isActive || (session.state.value as? SessionState.Running)?.epoch != epoch) return
                 val outcome = Outcome(request, result, clock() - began)
                 client?.onPollResult(outcome)
                 invalidStreak = if (isInvalid(result)) invalidStreak + 1 else 0

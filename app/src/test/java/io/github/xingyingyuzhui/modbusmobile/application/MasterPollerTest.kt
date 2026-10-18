@@ -208,6 +208,20 @@ class MasterPollerTest {
         poller.stop()
     }
 
+    @Test
+    fun reconnectDuringExecuteDoesNotDeliverOldOutcomeBeforeWatcherRuns() = withPoller { poller, session ->
+        val client = RecordingClient(read)
+        poller.attach(client)
+        session.afterExecute = {
+            session.state.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 2)
+        }
+        poller.start(read, 1_000)
+        advance(1)
+        assertEquals(1, session.requests.size)
+        assertTrue(client.outcomes.isEmpty())
+        assertFalse(poller.state.value.running)
+    }
+
     private fun ok() = ModbusResult.Success(ModbusResponse.ReadRegisters(1, FunctionCode.READ_HOLDING_REGISTERS, listOf(1, 2)))
 
     private fun TestScope.advance(ms: Long) {
@@ -237,6 +251,7 @@ class MasterPollerTest {
         val requests = mutableListOf<ModbusRequest>()
         val next = ArrayDeque<ModbusResult>()
         var throwOnNext: Throwable? = null
+        var afterExecute: (() -> Unit)? = null
         override val state = MutableStateFlow<SessionState>(SessionState.Running(Role.MASTER, ConnectionTarget.Demo, 1))
         override val traffic = MutableSharedFlow<TrafficEvent>()
         override val slaveBank = MutableStateFlow<VirtualRegisterBank?>(null)
@@ -249,6 +264,7 @@ class MasterPollerTest {
         }
         override suspend fun execute(request: ModbusRequest): ModbusResult {
             requests += request
+            afterExecute?.invoke()
             throwOnNext?.let { throwOnNext = null; throw it }
             next.removeFirstOrNull()?.let { return it }
             return ModbusResult.Success(ModbusResponse.ReadRegisters(request.unitId, FunctionCode.READ_HOLDING_REGISTERS, listOf(1, 2)))
