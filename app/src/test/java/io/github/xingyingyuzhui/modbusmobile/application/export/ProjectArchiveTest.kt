@@ -12,6 +12,9 @@ import io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveSetup
 import io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveUnitSetup
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import java.util.TimeZone
+import java.io.ByteArrayOutputStream
+import java.io.OutputStream
+import kotlinx.coroutines.test.runTest
 import java.util.zip.ZipInputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,6 +23,27 @@ import org.junit.Test
 
 class ProjectArchiveTest {
     private val utc = TimeZone.getTimeZone("UTC")
+
+    @Test
+    fun streamingHistoryMatchesExistingCsvAndWritesBeforeAllSamplesAreRead() = runTest {
+        val rows = (0 until 2000).map {
+            HistorySample(1, "p", it.toLong(), 0, 1, SampleQuality.OK, it.toDouble(), "汉字,\"value\"")
+        }
+        val input = ArchiveInput(zone = utc, samples = rows, pointTypes = mapOf("p" to "U16"))
+        val body = ByteArrayOutputStream()
+        var written = 0L
+        val sink = object : OutputStream() {
+            override fun write(b: Int) { body.write(b); written++ }
+            override fun write(b: ByteArray, off: Int, len: Int) { body.write(b, off, len); written += len }
+        }
+        writeArchiveStreaming(sink, setOf(ArchivePart.HISTORY), input) { emit ->
+            rows.forEachIndexed { index, row ->
+                emit(row)
+                if (index == 1000) assertTrue("读取完历史前已经写入压缩输出", written > 100)
+            }
+        }
+        assertEquals(unzip(archiveBytes(setOf(ArchivePart.HISTORY), input)), unzip(body.toByteArray()))
+    }
 
     @Test
     fun zipUsesTheSelectedNamesAndCsvHeaders() {

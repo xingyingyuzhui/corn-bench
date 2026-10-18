@@ -4,6 +4,7 @@ import androidx.room.Room
 import io.github.xingyingyuzhui.modbusmobile.application.history.room.HistoryDatabase
 import io.github.xingyingyuzhui.modbusmobile.application.history.room.RoomHistoryStore
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.toList
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -26,6 +27,37 @@ class RoomHistoryStoreTest {
     @After
     fun close() {
         database.close()
+    }
+
+    @Test
+    fun deletedPagesBecomeReusableCapacity() = runTest {
+        val session = store.openSession("MASTER", "DEMO", 1, 0)
+        store.insertSamples((0 until 600).map {
+            HistorySample(session.id, "point-$it", it.toLong(), 0, 1, SampleQuality.OK, 1.0, "x".repeat(1000))
+        })
+        val used = store.usageBytes()
+        store.deleteSessions(listOf(session.id))
+        assertTrue("空闲数据库页应从使用容量扣除", store.usageBytes() < used)
+    }
+
+    @Test
+    fun pagedExportKeepsTimeAndIdOrderAndHasAFixedUpperBoundary() = runTest {
+        val session = store.openSession("MASTER", "DEMO", 1, 0)
+        val rows = (0 until 700).map {
+            HistorySample(session.id, "p-$it", (it % 11).toLong(), 0, 1, SampleQuality.OK, it.toDouble(), null)
+        }
+        store.insertSamples(rows)
+        val output = mutableListOf<HistorySample>()
+        store.samplePages(session.id).collect { page ->
+            assertTrue(page.size <= 256)
+            if (output.isEmpty()) {
+                // 导出进行时持续采样，不延长本轮导出，也不重复/漏掉同时间戳行。
+                store.insertSamples(listOf(rows.first().copy(pointId = "late", sampleAtMs = 999)))
+            }
+            output += page
+        }
+        assertEquals(rows.sortedBy { it.sampleAtMs }, output)
+        assertTrue(store.samplePages(-1).toList().isEmpty())
     }
 
     @Test

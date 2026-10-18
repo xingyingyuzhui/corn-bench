@@ -47,7 +47,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.describeFrame
 import io.github.xingyingyuzhui.modbusmobile.application.export.ArchiveInput
 import io.github.xingyingyuzhui.modbusmobile.application.export.ArchivePart
 import io.github.xingyingyuzhui.modbusmobile.application.export.PointValueExport
-import io.github.xingyingyuzhui.modbusmobile.application.export.archiveBytes
+import io.github.xingyingyuzhui.modbusmobile.application.export.writeArchiveStreaming
 import io.github.xingyingyuzhui.modbusmobile.application.export.pointsForExport
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryCatalog
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PointDefinition
@@ -77,10 +77,12 @@ import io.github.xingyingyuzhui.modbusmobile.ui.traffic.LogMarker
 import io.github.xingyingyuzhui.modbusmobile.ui.traffic.writeLogExport
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -107,18 +109,14 @@ internal class ArchiveGatherer(
 ) {
     fun pointCount(): Int = pointsForExport(loadProject()).size
 
-    suspend fun build(parts: Set<ArchivePart>): ByteArray {
+    suspend fun write(out: OutputStream, parts: Set<ArchivePart>) {
         val project = loadProject()
         val defined = pointsForExport(project)
         val savedJson = slaves?.exportJson() ?: SlaveSetupJson.encode(SlaveSetup.default())
         val saved = runCatching { SlaveSetupJson.decode(savedJson).setup }.getOrNull()
         val snaps = points?.snapshots?.value.orEmpty()
-        val samples = if (ArchivePart.HISTORY in parts) {
-            history.overview().sessions.flatMap { history.samples(it.id) }
-        } else {
-            emptyList()
-        }
-        return archiveBytes(
+        writeArchiveStreaming(
+            out,
             parts,
             ArchiveInput(
                 zone = zone,
@@ -128,11 +126,14 @@ internal class ArchiveGatherer(
                 savedSlave = saved,
                 liveSlave = liveSetup(),
                 pointValues = defined.map { pointValue(it, snaps[it.id]) },
-                samples = samples,
                 trafficCsv = if (ArchivePart.TRAFFIC in parts) trafficBytes(ExportFormat.CSV) else null,
                 trafficTxt = if (ArchivePart.TRAFFIC in parts) trafficBytes(ExportFormat.TXT) else null,
             ),
-        )
+        ) { emit ->
+            for (entry in history.overview().sessions) {
+                history.samplePages(entry.id).collect { page -> page.forEach(emit) }
+            }
+        }
     }
 
     private fun loadProject(): Project {
@@ -192,19 +193,28 @@ private class DeviceExport(
     private val gatherer: ArchiveGatherer,
     private val launchSave: (String) -> Unit,
 ) : MineExport {
-    private var pending: ByteArray? = null
+    private var pending: File? = null
 
     override suspend fun pointCount(): Int = withContext(Dispatchers.IO) { gatherer.pointCount() }
 
     override fun save(parts: Set<ArchivePart>) {
         scope.launch {
-            val bytes = runCatching { withContext(Dispatchers.IO) { gatherer.build(parts) } }
+            val bytes = runCatching { withContext(Dispatchers.IO) { buildFile(parts) } }
             val body = bytes.getOrElse {
+                if (it is CancellationException) throw it
                 toast(context.getString(R.string.export_failed, it.message ?: ""))
                 return@launch
             }
+            pending?.delete()
             pending = body
-            launchSave(exportZipName(System.currentTimeMillis()))
+            try {
+                launchSave(exportZipName(System.currentTimeMillis()))
+            } catch (error: Exception) {
+                pending = null
+                body.delete()
+                if (error is CancellationException) throw error
+                toast(context.getString(R.string.export_failed, error.message ?: ""))
+            }
         }
     }
 
@@ -212,11 +222,7 @@ private class DeviceExport(
         scope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    val bytes = gatherer.build(parts)
-                    val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    dir.listFiles()?.filter { it.name.startsWith("modbus-export-") && it.name.endsWith(".zip") }?.forEach { it.delete() }
-                    val file = File(dir, exportZipName(System.currentTimeMillis()))
-                    file.writeBytes(bytes)
+                    val file = buildFile(parts)
                     FileProvider.getUriForFile(context, context.packageName + ".exports", file)
                 }
             }
@@ -228,21 +234,32 @@ private class DeviceExport(
                 }
                 context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }.onFailure {
+                if (it is CancellationException) throw it
                 toast(context.getString(R.string.export_failed, it.message ?: ""))
             }
         }
     }
 
     fun write(uri: Uri?) {
-        val bytes = pending
+        val file = pending ?: return
         pending = null
-        if (uri == null || bytes == null) return
+        if (uri == null) {
+            file.delete()
+            return
+        }
         scope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } ?: error("无法打开目标文件")
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            file.inputStream().use { it.copyTo(out) }
+                        } ?: error("无法打开目标文件")
+                    } finally {
+                        file.delete()
+                    }
                 }
             }
+            result.exceptionOrNull()?.let { if (it is CancellationException) throw it }
             toast(
                 result.exceptionOrNull()?.let { context.getString(R.string.export_failed, it.message ?: "") }
                     ?: context.getString(R.string.export_saved),
@@ -250,8 +267,27 @@ private class DeviceExport(
         }
     }
 
+    private suspend fun buildFile(parts: Set<ArchivePart>): File =
+        buildArchiveFile(File(context.cacheDir, "exports"), System.currentTimeMillis()) { gatherer.write(it, parts) }
+
     private fun toast(text: String) {
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** 失败或取消时不留下部分 ZIP；分享中的文件至少保留一天。 */
+internal suspend fun buildArchiveFile(dir: File, nowMs: Long, write: suspend (OutputStream) -> Unit): File {
+    check(dir.isDirectory || dir.mkdirs()) { "无法创建导出目录" }
+    val expiry = nowMs - 24 * 60 * 60 * 1000L
+    dir.listFiles()?.filter { it.name.startsWith("modbus-export-") && it.lastModified() < expiry }
+        ?.forEach { it.delete() }
+    val file = File.createTempFile("modbus-export-", ".zip", dir)
+    try {
+        file.outputStream().buffered().use { write(it) }
+        return file
+    } catch (error: Throwable) {
+        file.delete()
+        throw error
     }
 }
 

@@ -65,6 +65,14 @@ interface HistoryDao {
     @Query("SELECT * FROM samples WHERE sessionId = :sessionId ORDER BY sampleAtMs ASC, id ASC")
     suspend fun samples(sessionId: Long): List<SampleEntity>
 
+    @Query("SELECT MAX(id) FROM samples WHERE sessionId = :sessionId")
+    suspend fun lastSampleId(sessionId: Long): Long?
+
+    @Query("SELECT * FROM samples WHERE sessionId = :sessionId AND id <= :lastId AND " +
+        "(sampleAtMs > :afterTime OR (sampleAtMs = :afterTime AND id > :afterId)) " +
+        "ORDER BY sampleAtMs ASC, id ASC LIMIT :limit")
+    suspend fun samplePage(sessionId: Long, lastId: Long, afterTime: Long, afterId: Long, limit: Int): List<SampleEntity>
+
     @Query("DELETE FROM sessions WHERE retained = 0 AND id IN (:ids)")
     suspend fun deleteUnretained(ids: List<Long>)
 
