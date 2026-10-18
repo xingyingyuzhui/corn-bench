@@ -2,7 +2,9 @@ package io.github.xingyingyuzhui.modbusmobile.application.history.room
 
 import android.content.Context
 import android.database.sqlite.SQLiteException
+import android.database.sqlite.SQLiteFullException
 import androidx.room.Room
+import kotlinx.coroutines.flow.flow
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistorySample
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistorySession
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryStore
@@ -51,6 +53,20 @@ class RoomHistoryStore internal constructor(
     override suspend fun samples(sessionId: Long): List<HistorySample> =
         db.dao().samples(sessionId).map { it.toModel() }
 
+    override fun samplePages(sessionId: Long) = flow {
+        val dao = db.dao()
+        val lastId = dao.lastSampleId(sessionId) ?: return@flow
+        var afterTime = Long.MIN_VALUE
+        var afterId = 0L
+        while (true) {
+            val page = dao.samplePage(sessionId, lastId, afterTime, afterId, 256)
+            if (page.isEmpty()) break
+            emit(page.map { it.toModel() })
+            afterTime = page.last().sampleAtMs
+            afterId = page.last().id
+        }
+    }
+
     override suspend fun usageBytes(): Long =
         try {
             val database = db.openHelper.readableDatabase
@@ -61,7 +77,7 @@ class RoomHistoryStore internal constructor(
             }
             val pages = pragma("page_count")
             val pageSize = pragma("page_size")
-            pages * pageSize
+            (pages - pragma("freelist_count")).coerceAtLeast(0) * pageSize
         } catch (_: SQLiteException) {
             Long.MAX_VALUE
         }
@@ -80,7 +96,7 @@ class RoomHistoryStore internal constructor(
             block()
         } catch (error: SQLiteException) {
             val message = error.message.orEmpty()
-            if (message.contains("disk is full", ignoreCase = true) || message.contains("SQLITE_FULL", ignoreCase = true)) {
+            if (error is SQLiteFullException || message.contains("disk is full", ignoreCase = true) || message.contains("SQLITE_FULL", ignoreCase = true)) {
                 throw StorageFullException()
             }
             throw error

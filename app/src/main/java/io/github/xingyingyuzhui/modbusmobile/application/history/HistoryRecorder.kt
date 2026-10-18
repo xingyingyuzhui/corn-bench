@@ -108,6 +108,7 @@ class HistoryRecorder(
     }
 
     private suspend fun record(command: Command.Sample) {
+        if (command.epoch != openEpoch) return
         if (_state.value == RecordingState.STOPPED_STORAGE) {
             noteDrop()
             return
@@ -133,15 +134,19 @@ class HistoryRecorder(
     }
 
     private suspend fun prune() {
+        write { pruneStorage() }
+    }
+
+    private suspend fun pruneStorage() {
         val current = policy()
         val openId = openSessionId
         val expired = sessionsEligibleToDelete(store.sessions(), nowMs(), current.retentionDays, openId)
         if (expired.isNotEmpty()) store.deleteSessions(expired)
         while (store.usageBytes() > current.capacityBytes) {
             val victim = oldestDeletableSession(store.sessions(), openId) ?: break
-            val before = store.usageBytes()
             store.deleteSessions(listOf(victim.id))
-            if (store.usageBytes() >= before) break
+            // 小会话可能尚未释放整页；只要会话删除成功，就继续选下一个。
+            if (store.sessions().any { it.id == victim.id }) break
         }
         if (store.usageBytes() > current.capacityBytes) _state.value = RecordingState.STOPPED_STORAGE
     }

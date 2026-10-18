@@ -1,5 +1,7 @@
 package io.github.xingyingyuzhui.modbusmobile.application.history
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -25,6 +27,8 @@ interface HistoryCatalog {
     suspend fun deleteClosed(id: Long): Boolean
 
     suspend fun samples(sessionId: Long): List<HistorySample>
+
+    fun samplePages(sessionId: Long): Flow<List<HistorySample>> = flow { emit(samples(sessionId)) }
 }
 
 class StoreHistoryCatalog(
@@ -48,6 +52,8 @@ class StoreHistoryCatalog(
     }
 
     override suspend fun samples(sessionId: Long): List<HistorySample> = store.samples(sessionId)
+
+    override fun samplePages(sessionId: Long): Flow<List<HistorySample>> = store.samplePages(sessionId)
 }
 
 object EmptyHistoryCatalog : HistoryCatalog {

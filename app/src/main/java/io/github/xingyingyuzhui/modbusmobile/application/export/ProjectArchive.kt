@@ -87,21 +87,60 @@ fun formatExportTime(epochMs: Long, zone: TimeZone): String {
 }
 
 fun writeArchive(out: OutputStream, parts: Set<ArchivePart>, input: ArchiveInput) {
-    val zip = ZipOutputStream(out)
-    val types = input.points.associate { it.id to it.type.name } + input.pointTypes
+    archiveZip(out).use { zip ->
+        writeEntries(zip, parts, input)
+        val types = input.points.associate { it.id to it.type.name } + input.pointTypes
+        if (ArchivePart.HISTORY in parts) zip.csv(ArchiveNames.HISTORY, HISTORY_HEADER, historyRows(input.samples, types, input.zone))
+        zip.finish()
+        zip.flush()
+    }
+}
+
+/** 历史逐页提供，CSV 逐行写入 ZIP，输出直接落盘。 */
+suspend fun writeArchiveStreaming(
+    out: OutputStream,
+    parts: Set<ArchivePart>,
+    input: ArchiveInput,
+    samples: suspend ((HistorySample) -> Unit) -> Unit,
+) {
+    archiveZip(out).use { zip ->
+        writeEntries(zip, parts, input)
+        if (ArchivePart.HISTORY in parts) {
+            val types = input.points.associate { it.id to it.type.name } + input.pointTypes
+            zip.putNextEntry(ZipEntry(ArchiveNames.HISTORY))
+            val writer = OutputStreamWriter(zip, Charsets.UTF_8)
+            writer.write("\uFEFF" + HISTORY_HEADER + "\r\n")
+            samples { sample ->
+                writer.write(historyRow(sample, types, input.zone).joinToString(",") { csvCell(it) })
+                writer.write("\r\n")
+            }
+            writer.flush()
+            zip.closeEntry()
+        }
+        zip.finish()
+        zip.flush()
+    }
+}
+
+/** 释放压缩器资源，输出流的所有权仍由调用方管理。 */
+private fun archiveZip(out: OutputStream): ZipOutputStream = ZipOutputStream(object : OutputStream() {
+    override fun write(b: Int) = out.write(b)
+    override fun write(b: ByteArray, off: Int, len: Int) = out.write(b, off, len)
+    override fun flush() = out.flush()
+    override fun close() = flush()
+})
+
+private fun writeEntries(zip: ZipOutputStream, parts: Set<ArchivePart>, input: ArchiveInput) {
     if (ArchivePart.PROJECT in parts) input.projectJson?.let { zip.bytes(ArchiveNames.PROJECT, it.toByteArray(Charsets.UTF_8)) }
     if (ArchivePart.SLAVE in parts) input.slaveJson?.let { zip.bytes(ArchiveNames.SLAVE, it.toByteArray(Charsets.UTF_8)) }
     if (ArchivePart.POINTS in parts) zip.csv(ArchiveNames.POINTS, POINTS_HEADER, pointRows(input.points, input.zone))
     if (ArchivePart.REGISTERS in parts) {
         zip.csv(ArchiveNames.REGISTERS, REGISTERS_HEADER, registerRows(input.savedSlave, input.liveSlave, input.pointValues, input.zone))
     }
-    if (ArchivePart.HISTORY in parts) zip.csv(ArchiveNames.HISTORY, HISTORY_HEADER, historyRows(input.samples, types, input.zone))
     if (ArchivePart.TRAFFIC in parts) {
         input.trafficCsv?.let { zip.bytes(ArchiveNames.TRAFFIC_CSV, it) }
         input.trafficTxt?.let { zip.bytes(ArchiveNames.TRAFFIC_TXT, it) }
     }
-    zip.finish()
-    zip.flush()
 }
 
 fun archiveBytes(parts: Set<ArchivePart>, input: ArchiveInput): ByteArray =
@@ -183,8 +222,10 @@ private fun regionRows(source: String, setup: SlaveSetup, timeSource: String, zo
 private fun rawType(region: SlaveRegion): String = if (region.area.isBitArea()) "BIT" else "WORD"
 
 private fun historyRows(samples: List<HistorySample>, types: Map<String, String>, zone: TimeZone): List<List<String>> =
-    samples.map { sample ->
-        listOf(
+    samples.map { historyRow(it, types, zone) }
+
+private fun historyRow(sample: HistorySample, types: Map<String, String>, zone: TimeZone): List<String> =
+    listOf(
             sample.sessionId.toString(),
             sample.pointId,
             formatExportTime(sample.sampleAtMs, zone),
@@ -197,7 +238,6 @@ private fun historyRows(samples: List<HistorySample>, types: Map<String, String>
             zone.id,
             "wall",
         )
-    }
 
 private fun formatExportNumber(value: Double): String {
     if (!value.isFinite()) return ""
