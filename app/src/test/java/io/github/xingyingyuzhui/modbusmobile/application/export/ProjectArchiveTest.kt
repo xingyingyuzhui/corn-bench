@@ -26,8 +26,13 @@ class ProjectArchiveTest {
 
     @Test
     fun streamingHistoryMatchesExistingCsvAndWritesBeforeAllSamplesAreRead() = runTest {
+        // 固定种子的高熵文本让中途数据跨过 Deflater 的有限缓冲；重复短行可能直到 finish 才输出。
+        val random = java.util.Random(20261018L)
         val rows = (0 until 2000).map {
-            HistorySample(1, "p", it.toLong(), 0, 1, SampleQuality.OK, it.toDouble(), "汉字,\"value\"")
+            val text = "汉字,\"value\"" + buildString {
+                repeat(256) { append((33 + random.nextInt(94)).toChar()) }
+            }
+            HistorySample(1, "p", it.toLong(), 0, 1, SampleQuality.OK, it.toDouble(), text)
         }
         val input = ArchiveInput(zone = utc, samples = rows, pointTypes = mapOf("p" to "U16"))
         val body = ByteArrayOutputStream()
