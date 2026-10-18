@@ -42,7 +42,7 @@ class RoomHistoryStoreTest {
 
     @Test
     fun versionOneDatabaseMigratesWithoutLosingSessionsOrSamples() = runTest {
-        val context = RuntimeEnvironment.getApplication<android.app.Application>()
+        val context = RuntimeEnvironment.getApplication()
         val name = "history-migration-test.db"
         context.deleteDatabase(name)
         context.openOrCreateDatabase(name, 0, null).use { old ->
