@@ -925,9 +925,9 @@ private fun NoSessionWorkbench() {
     Column(Modifier.screenFrame(), verticalArrangement = Arrangement.spacedBy(spacing.s)) {
         PageHeader(stringResource(R.string.title_workbench))
         SessionStrip()
-        // §7.1 空态：为什么空（标题）+ 能做什么、怎么做（一句）+ 一个动词按钮；左对齐、不加卡片，上下各 24（xxl）。
+        // §7.1 空态：为什么空（标题）+ 能做什么、怎么做（一句）+ 一个动词按钮；左对齐、不加卡片，上下使用 v2 empty 留白。
         Column(
-            Modifier.fillMaxWidth().padding(vertical = spacing.xxl).testTag(WorkbenchEmptyTag),
+            Modifier.fillMaxWidth().padding(vertical = spacing.empty).testTag(WorkbenchEmptyTag),
             verticalArrangement = Arrangement.spacedBy(spacing.s),
         ) {
             Text(stringResource(R.string.wb_empty_title), color = colors.text, style = ModbusType.titleS)
