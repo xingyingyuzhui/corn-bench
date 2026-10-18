@@ -164,7 +164,7 @@ private fun MasterPortrait(model: WorkbenchViewModel, settings: UiSettings, form
             } else {
                 RecentSection(model, settings)
             }
-            // qa and-02 bug 6：滚到底时最后一行要完全露在浮动 Dock 上方。留白 = LocalDockInsets.bottom + gapS（dockClearance），
+            // qa and-02 bug 6：滚到底时最后一行要完全露在浮动 Dock 上方。留白 = LocalDockInsets.bottom + dockGap（dockClearance），
             // 放在滚动内容的最后，滚到底才出现；不在滚动容器外面加 padding（那样会把可视区截短，不是把内容垫高）。
             Spacer(Modifier.height(dockClearance()).testTag(WorkbenchDockSpacerTag))
         }
@@ -895,7 +895,7 @@ private fun ConfirmValues(pending: PendingWrite, onCoil: (Boolean) -> Unit, word
                     Text(show(pending.current.getOrNull(index), coil), style = Mono, color = colors.muted, modifier = Modifier.width(valueWidth))
                     ArrowGlyph(colors.dim, Modifier.size(width = 14.dp, height = 10.dp))
                     // S2-09：新值用 text 色 SemiBold，变化靠“当前 → 新值”箭头表达，不着琥珀。
-                    Text(show(new, coil), style = Mono.copy(fontWeight = FontWeight.SemiBold), color = colors.text)
+                    Text(show(new, coil), style = Mono.copy(fontWeight = FontWeight.SemiBold, lineHeight = Mono.lineHeight), color = colors.text)
                 }
             }
             if (total > ConfirmPreviewRows) {
