@@ -77,7 +77,7 @@ class SlaveScreenshotTest {
         compose.onNodeWithText("3,902").assertIsDisplayed()
         compose.onNodeWithText("方向不明 1").assertIsDisplayed()
         // 竖屏一行四格：整块宽度 = 内容区宽（360 − 左右各 14）
-        assertEquals(332f, stats.getBoundsInRoot().width.value, 1.5f)
+        assertEquals(328f, stats.getBoundsInRoot().width.value, 1.5f)
     }
 
     @Test @Config(qualifiers = "w780dp-h360dp-land")

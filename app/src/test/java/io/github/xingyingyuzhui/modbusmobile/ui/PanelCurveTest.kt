@@ -244,8 +244,8 @@ class PanelCurveTest {
         show()
         val c = bounds("panel-card-w-curve")
         val single = bounds("panel-card-w-temp")
-        assertEquals(14f, c.left.value, 0.6f)
-        assertEquals(360f - 14f, c.right.value, 0.6f)
+        assertEquals(16f, c.left.value, 0.6f)
+        assertEquals(360f - 16f, c.right.value, 0.6f)
         assertTrue("2×2 比普通卡高得多 ${c.height.value} vs ${single.height.value}", c.height.value >= 2 * single.height.value + 8f)
         assertTrue("2×2 绘图区 ≥160dp 高 ${bounds("curve-chart-w-curve").height.value}", bounds("curve-chart-w-curve").height.value >= 160f)
     }
@@ -313,7 +313,7 @@ class PanelCurveTest {
     @Test fun editSizeButtonsOnCurveNeverOfferOneColumn() {
         showEdit()
         val c = bounds("edit-card-w-curve")
-        assertEquals("曲线卡 2 列宽", 360f - 28f, c.width.value, 1f)
+        assertEquals("曲线卡 2 列宽", 360f - 32f, c.width.value, 1f)
     }
 
     // ---- 渲染图 ----

@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -284,8 +286,8 @@ private fun titleRes(wizard: WizardState): Int = if (wizard.step == 1) {
 private fun KindPicker(selected: String?, onKind: (String) -> Unit) {
     val colors = LocalModbusColors.current
     Kinds.chunked(2).forEach { pair ->
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            pair.forEach { kind -> KindCard(kind, kind == selected, { onKind(kind) }, Modifier.weight(1f)) }
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            pair.forEach { kind -> KindCard(kind, kind == selected, { onKind(kind) }, Modifier.weight(1f).fillMaxHeight()) }
             if (pair.size == 1) Box(Modifier.weight(1f))
         }
     }
@@ -314,8 +316,8 @@ private fun KindCard(kind: String, selected: Boolean, onClick: () -> Unit, modif
             .border(if (selected) 2.dp else 1.dp, if (selected) colors.accent else colors.line, shape)
             .semantics(mergeDescendants = true) { role = Role.Button }
             .clickable(onClick = onClick)
-            .padding(10.dp)
-            .testTag("wiz-kind-$kind"),
+            .testTag("wiz-kind-$kind")
+            .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Box(

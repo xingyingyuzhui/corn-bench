@@ -442,12 +442,12 @@ class PanelWizardTest {
         assertEquals(2, form().spanRows)
         compose.onNodeWithText("添加到面板", useUnmergedTree = true).assertIsDisplayed()
         // 预览卡宽度随尺寸变
-        assertEquals(360f - 28f, bounds("panel-card-w-new").width.value, 1f)
+        assertEquals(360f - 32f, bounds("panel-card-w-new").width.value, 1f)
     }
 
     @Test fun lookStepPreviewIsOneColumnWideForOneByOne() {
         show(wizardState(3, WidgetForm.forKind(WidgetKinds.NUMBER).copy(name = "x", address = "1")))
-        assertEquals((360f - 28f - 8f) / 2, bounds("panel-card-w-new").width.value, 1f)
+        assertEquals((360f - 32f - 8f) / 2, bounds("panel-card-w-new").width.value, 1f)
     }
 
     @Test fun lookStepOnEditSaysSaveChanges() {

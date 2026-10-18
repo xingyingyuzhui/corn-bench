@@ -172,9 +172,9 @@ class PanelWidgetsTest {
         assertEquals("同行等高", a.height.value, b.height.value, 0.6f)
         assertEquals("行间距 8", 8f, (c.top - a.bottom).value, 0.6f)
         assertEquals("同行顶对齐", a.top.value, b.top.value, 0.6f)
-        // 左右边距 14
-        assertEquals(14f, a.left.value, 0.6f)
-        assertEquals(360f - 14f, b.right.value, 0.6f)
+        // 左右边距 16
+        assertEquals(16f, a.left.value, 0.6f)
+        assertEquals(360f - 16f, b.right.value, 0.6f)
     }
 
     @Test fun cardInnerPaddingMatchesDesign() {
@@ -197,7 +197,7 @@ class PanelWidgetsTest {
         val w = bounds("panel-card-w-wide")
         val single = bounds("panel-card-w-press")
         assertEquals(2 * single.width.value + 8f, w.width.value, 0.8f)
-        assertEquals(14f, w.left.value, 0.6f)
+        assertEquals(16f, w.left.value, 0.6f)
     }
 
     @Test fun lampCardLampIs14dpAndLabelAligned() {

@@ -154,8 +154,8 @@ class PanelGaugeTest {
         val b = bounds("panel-card-g2")
         assertEquals(a.top.value, b.top.value, 0.6f)
         assertEquals(a.height.value, b.height.value, 0.6f)
-        assertEquals(14f, a.left.value, 0.6f)
-        assertEquals(360f - 14f, b.right.value, 0.6f)
+        assertEquals(16f, a.left.value, 0.6f)
+        assertEquals(360f - 16f, b.right.value, 0.6f)
         assertTrue("半圆图高度 ${bounds("panel-gauge-g1").height.value}", bounds("panel-gauge-g1").height.value >= 60f)
     }
 

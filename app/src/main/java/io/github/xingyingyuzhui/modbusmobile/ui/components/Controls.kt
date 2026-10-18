@@ -116,9 +116,9 @@ fun ModbusCard(
 @Composable
 fun SectionLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
     val colors = LocalModbusColors.current
-    // 稿面 `.lbl`：12px、行高 ≈ 17（1.4 倍）、下边距 8；不用 Material 默认的 24sp 行高。
+    // v2 label：12sp / 16sp，卡内间距由 ModbusCard 提供。
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("section-label").fillMaxWidth()) {
-        Text(text, color = colors.muted, fontSize = 12.sp, lineHeight = 1.4.em, modifier = Modifier.weight(1f))
+        Text(text, color = colors.muted, style = ModbusType.label, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }
