@@ -1,14 +1,56 @@
 package io.github.xingyingyuzhui.modbusmobile.application
 
+import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryInterval
+import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryPolicy
+
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-enum class AccentColor(val argb: Long, val onAccentArgb: Long) {
-    AMBER(0xFFF5A524, 0xFF1A1200),
-    BLUE(0xFF2F81F7, 0xFFFFFFFF),
-    GREEN(0xFF2DA44E, 0xFFFFFFFF),
-    TEAL(0xFF0E8A8A, 0xFFFFFFFF),
-    PURPLE(0xFF8250DF, 0xFFFFFFFF),
+/**
+ * 强调色：每个主题 4 个值（设计规范_v2 §4.4，tokens_v2.json color.accent）。
+ * fill = 主按钮/开关开/选中填充；on = fill 上的文字；text = surface 上的选中文字/链接；border = 焦点环/选中描边（≥3:1）。
+ *
+ * D2 待 Xing 拍板：GREEN、PURPLE 是否保留（ux 建议去掉，只留 琥珀/蓝/青）。当前按默认方案保留 5 个，值已调到达标；
+ * 拍板后只改这个枚举。
+ */
+enum class AccentColor(
+    val light: AccentTones,
+    val dark: AccentTones,
+) {
+    AMBER(
+        light = AccentTones(fill = 0xFFF5A524, on = 0xFF1A1200, text = 0xFF955800, border = 0xFF955800),
+        dark = AccentTones(fill = 0xFFF5A524, on = 0xFF1A1200, text = 0xFFF5A524, border = 0xFFF5A524),
+    ),
+    BLUE(
+        light = AccentTones(fill = 0xFF1F6FEB, on = 0xFFFFFFFF, text = 0xFF0A60C9, border = 0xFF1F6FEB),
+        dark = AccentTones(fill = 0xFF4493F8, on = 0xFF0D1117, text = 0xFF4493F8, border = 0xFF4493F8),
+    ),
+    GREEN(
+        light = AccentTones(fill = 0xFF1A7F37, on = 0xFFFFFFFF, text = 0xFF177334, border = 0xFF1A7F37),
+        dark = AccentTones(fill = 0xFF2DA44E, on = 0xFF0D1117, text = 0xFF2DA44E, border = 0xFF2DA44E),
+    ),
+    TEAL(
+        light = AccentTones(fill = 0xFF0B7373, on = 0xFFFFFFFF, text = 0xFF0B7373, border = 0xFF0B7373),
+        dark = AccentTones(fill = 0xFF14A3A3, on = 0xFF0D1117, text = 0xFF14A3A3, border = 0xFF14A3A3),
+    ),
+    PURPLE(
+        light = AccentTones(fill = 0xFF8250DF, on = 0xFFFFFFFF, text = 0xFF6E40C9, border = 0xFF8250DF),
+        dark = AccentTones(fill = 0xFFA371F7, on = 0xFF0D1117, text = 0xFFA371F7, border = 0xFFA371F7),
+    ),
+    ;
+
+    fun tones(dark: Boolean): AccentTones = if (dark) this.dark else light
+
+    /** 色块预览用的单值（浅色 fill）。按主题取值请用 [tones]。 */
+    val argb: Long get() = light.fill
+
+    companion object {
+        /** D1 待 Xing 拍板：默认强调色。默认方案 A = 继续琥珀（规范附录 C）；选 B 时改成 BLUE，只改这一处。 */
+        val DEFAULT: AccentColor = AMBER
+    }
 }
+
+/** 一个主题下的强调色 4 个值（ARGB）。 */
+data class AccentTones(val fill: Long, val on: Long, val text: Long, val border: Long)
 
 enum class FontScale(val multiplier: Float) {
     STANDARD(1f),
@@ -16,9 +58,10 @@ enum class FontScale(val multiplier: Float) {
     EXTRA(1.3f),
 }
 
-enum class DensityMode(val scale: Float) {
-    COMFORTABLE(1f),
-    COMPACT(0.75f),
+/** 密度：间距不再按倍率乘，按 ui/theme/Spacing.kt 的查表取值（规范 §2.3）。 */
+enum class DensityMode {
+    COMFORTABLE,
+    COMPACT,
 }
 
 /** 地址显示：只显示 0 基地址 / 只显示参考号（40001）/ 两者（0 基为主，参考号小字）。默认“两者”，与稿面一致。 */
@@ -30,7 +73,7 @@ enum class TimeStyle { ELAPSED, CLOCK }
 
 data class UiSettings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
-    val accent: AccentColor = AccentColor.AMBER,
+    val accent: AccentColor = AccentColor.DEFAULT,
     val fontScale: FontScale = FontScale.STANDARD,
     val density: DensityMode = DensityMode.COMFORTABLE,
     val keepScreenOn: Boolean = false,
@@ -58,6 +101,10 @@ data class UiSettings(
     /** 广播写之后等多久再发下一条（对应 SerialSettings.turnaroundMs）。 */
     val defaultBroadcastWaitMs: Long = DEFAULT_BROADCAST_WAIT_MS,
     val defaultEcho: EchoMode = EchoMode.OFF,
+    /** 历史快照间隔。曲线画面仍用内存环，这个值只控制落库。 */
+    val historyInterval: HistoryInterval = HistoryInterval.SEC_5,
+    val historyRetentionDays: Int = HistoryPolicy.DEFAULT_RETENTION_DAYS,
+    val historyCapacityMb: Int = HistoryPolicy.DEFAULT_CAPACITY_MB,
 ) {
     companion object {
         const val DEFAULT_RESPONSE_TIMEOUT_MS = 1_000L
@@ -84,6 +131,9 @@ internal object UiSettingKeys {
     const val DEF_INTERVAL = "default_inter_request_ms"
     const val DEF_BROADCAST = "default_broadcast_wait_ms"
     const val DEF_ECHO = "default_echo"
+    const val HISTORY_INTERVAL = "history_interval"
+    const val HISTORY_RETENTION_DAYS = "history_retention_days"
+    const val HISTORY_CAPACITY_MB = "history_capacity_mb"
 
     val booleans = setOf(KEEP, CURVE, VIBRATION, HEX, LOG_CRC_DIM, COIL_WARNING)
 }
@@ -106,11 +156,14 @@ fun UiSettings.toPreferenceMap(): Map<String, String> = mapOf(
     UiSettingKeys.DEF_INTERVAL to defaultInterRequestMs.toString(),
     UiSettingKeys.DEF_BROADCAST to defaultBroadcastWaitMs.toString(),
     UiSettingKeys.DEF_ECHO to defaultEcho.name,
+    UiSettingKeys.HISTORY_INTERVAL to historyInterval.name,
+    UiSettingKeys.HISTORY_RETENTION_DAYS to historyRetentionDays.toString(),
+    UiSettingKeys.HISTORY_CAPACITY_MB to historyCapacityMb.toString(),
 )
 
 fun uiSettingsFrom(map: Map<String, String>): UiSettings = UiSettings(
     theme = map.enum(UiSettingKeys.THEME, ThemeMode.SYSTEM),
-    accent = map.enum(UiSettingKeys.ACCENT, AccentColor.AMBER),
+    accent = map.enum(UiSettingKeys.ACCENT, AccentColor.DEFAULT),
     fontScale = map.enum(UiSettingKeys.FONT, FontScale.STANDARD),
     density = map.enum(UiSettingKeys.DENSITY, DensityMode.COMFORTABLE),
     keepScreenOn = map.bool(UiSettingKeys.KEEP, false),
@@ -132,6 +185,17 @@ fun uiSettingsFrom(map: Map<String, String>): UiSettings = UiSettings(
         UiSettingKeys.DEF_BROADCAST, UiSettings.DEFAULT_BROADCAST_WAIT_MS, 0L..120_000L,
     ),
     defaultEcho = map.enum(UiSettingKeys.DEF_ECHO, EchoMode.OFF),
+    historyInterval = map.enum(UiSettingKeys.HISTORY_INTERVAL, HistoryInterval.SEC_5),
+    historyRetentionDays = map.int(
+        UiSettingKeys.HISTORY_RETENTION_DAYS,
+        HistoryPolicy.DEFAULT_RETENTION_DAYS,
+        HistoryPolicy.RETENTION_DAYS,
+    ),
+    historyCapacityMb = map.int(
+        UiSettingKeys.HISTORY_CAPACITY_MB,
+        HistoryPolicy.DEFAULT_CAPACITY_MB,
+        1..10_240,
+    ),
 )
 
 private inline fun <reified T : Enum<T>> Map<String, String>.enum(key: String, default: T): T {
@@ -145,3 +209,6 @@ private fun Map<String, String>.bool(key: String, default: Boolean): Boolean =
 /** 超出范围或不是整数就回默认值：连接页的校验是 1..120000 / ≥1，存进来的值不能比它更宽。 */
 private fun Map<String, String>.long(key: String, default: Long, range: LongRange): Long =
     this[key]?.toLongOrNull()?.takeIf { it in range } ?: default
+
+private fun Map<String, String>.int(key: String, default: Int, range: IntRange): Int =
+    this[key]?.toIntOrNull()?.takeIf { it in range } ?: default

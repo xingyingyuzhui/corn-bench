@@ -29,6 +29,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalAppViewModelStoreOwner
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
@@ -61,20 +63,24 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSpacing
 
 
 @Composable
 fun SlaveWorkbench(target: ConnectionTarget, landscape: Boolean) {
     val session = LocalSession.current
-    val model = viewModel { SlaveViewModel(session) }
+    val owner = LocalAppViewModelStoreOwner.current ?: checkNotNull(LocalViewModelStoreOwner.current)
+    val model = viewModel(viewModelStoreOwner = owner) { SlaveViewModel(session) }
     val settings = LocalUiSettings.current
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
-        if (landscape) {
+        if (model.ruleDraft != null) {
+            SimulationRuleEditor(model)
+        } else if (landscape) {
             SlaveLandscape(model, settings, target)
         } else {
             SlavePortrait(model, settings, target)
         }
-        SlaveSheets(model)
+        if (model.ruleDraft == null) SlaveSheets(model)
     }
 }
 
@@ -94,6 +100,7 @@ private fun SlavePortrait(model: SlaveViewModel, settings: UiSettings, target: C
             AreaSegment(model)
             AreaTable(model, settings, landscape = false)
             SecondaryButton(stringResource(R.string.slave_add_range), model::openAddRange, Modifier.fillMaxWidth(), compact = true)
+            SimulationRules(model)
         }
     }
 }
@@ -116,8 +123,9 @@ private fun SlaveLandscape(model: SlaveViewModel, settings: UiSettings, target: 
             AreaSegment(model)
             SecondaryButton(stringResource(R.string.slave_add_range), model::openAddRange, Modifier.fillMaxWidth(), compact = true)
         }
-        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
+        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             AreaTable(model, settings, landscape = true)
+            SimulationRules(model)
         }
     }
 }
@@ -160,7 +168,10 @@ fun SlaveStatsContent(counters: SessionCounters, columns: Int = 4, modifier: Mod
     }
 }
 
-/** 稿面 .st：底 s1、1px line、圆角 12、内边距 8/8/7；标签 10.5 muted，数值 mono 17 SemiBold。 */
+/** 稿面 .st：底 s1、1px line、圆角 12、内边距 8 四边相等（AL-04，原 8/8/8/7）；标签 10.5 muted，数值 mono 17 SemiBold。 */
+/** 统计格这类卡内小格子的内边距：8 四边相等（space.s 的标准密度值，统计格不随密度缩；§13.2 / AL-04）。 */
+private val StatTilePadding = ModbusSpacing.Comfortable.s
+
 @Composable
 private fun StatTile(label: String, value: Long, valueColor: androidx.compose.ui.graphics.Color, modifier: Modifier) {
     val colors = LocalModbusColors.current
@@ -169,7 +180,7 @@ private fun StatTile(label: String, value: Long, valueColor: androidx.compose.ui
         modifier
             .background(colors.surface1, shape)
             .border(1.dp, colors.line, shape)
-            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 7.dp),
+            .padding(StatTilePadding),
     ) {
         Text(label, color = colors.muted, fontSize = 10.5.sp, lineHeight = 14.sp, maxLines = 1)
         Text(

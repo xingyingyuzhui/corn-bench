@@ -168,7 +168,7 @@ fun LogContent(
     if (landscape) {
         Row(
             Modifier.screenFrame().padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(spacing.gapM),
+            horizontalArrangement = Arrangement.spacedBy(spacing.group),
         ) {
             Column(Modifier.weight(1.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
@@ -206,7 +206,7 @@ fun LogContent(
         Column(Modifier.screenFrame()) {
             PageHeader(stringResource(R.string.title_log)) { LockButton(locked, onToggleLock) }
             SessionStrip(
-                Modifier.padding(bottom = spacing.gapS),
+                Modifier.padding(bottom = spacing.s),
                 trailing = { LogStripInfo(ui, maxFrames) },
             )
             RecorderBar(ui, onStart, onPause, onClear, onSave, Modifier.padding(bottom = 4.dp))
@@ -216,7 +216,7 @@ fun LogContent(
                 onSelect = null,
                 modifier = Modifier.weight(1f, fill = false),
             )
-            PageBar(ui, onPrevious, onNext, onLatest, Modifier.padding(bottom = dockClearance().takeIf { it > 0.dp } ?: spacing.gapS))
+            PageBar(ui, onPrevious, onNext, onLatest, Modifier.padding(bottom = dockClearance().takeIf { it > 0.dp } ?: spacing.s))
         }
     }
 }
@@ -456,7 +456,7 @@ private fun LogRow(entry: LogEntry, picked: Boolean, crcDim: Boolean, clockTime:
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     if (clockTime) formatWallClock(entry.wallMs) else formatOffset(entry.offsetMs),
-                    style = Mono.copy(fontSize = 11.5.sp),
+                    style = Mono.copy(fontSize = 11.5.sp, lineHeight = 16.sp),
                     color = colors.dim,
                     maxLines = 1,
                     modifier = Modifier.testTag("log-time"),
@@ -472,14 +472,14 @@ private fun LogRow(entry: LogEntry, picked: Boolean, crcDim: Boolean, clockTime:
                 )
                 Text(
                     stringResource(R.string.log_bytes, entry.info.size),
-                    style = Mono.copy(fontSize = 11.5.sp),
+                    style = Mono.copy(fontSize = 11.5.sp, lineHeight = 16.sp),
                     color = colors.dim,
                     maxLines = 1,
                 )
             }
             HexFrameText(
                 entry.event.bytes,
-                style = Mono.copy(fontSize = 12.5.sp),
+                style = Mono.copy(fontSize = 12.5.sp, lineHeight = 16.sp),
                 dimCrc = crcDim,
                 modifier = Modifier.alpha(0.9f),
             )
@@ -539,14 +539,14 @@ private fun FrameDetailCard(entry: LogEntry?, modifier: Modifier = Modifier) {
                 ) {
                     Text(
                         field.hex,
-                        style = Mono.copy(fontSize = 12.5.sp),
+                        style = Mono.copy(fontSize = 12.5.sp, lineHeight = 16.sp),
                         color = if (field.kind == FieldKind.CRC) colors.dim else colors.accentText,
                         modifier = Modifier.width(60.dp),
                     )
                     Text(fieldName(field, info), color = colors.text, fontSize = 12.5.sp, modifier = Modifier.width(64.dp))
                     Text(
                         fieldValue(field, info),
-                        style = Mono.copy(fontSize = 12.5.sp),
+                        style = Mono.copy(fontSize = 12.5.sp, lineHeight = 16.sp),
                         color = if (field.kind == FieldKind.CRC && info.crcOk == false) colors.error else colors.text,
                         textAlign = TextAlign.End,
                         modifier = Modifier.weight(1f),

@@ -137,9 +137,9 @@ class PanelEditTest {
         // 面板名称格 + 列数格同高，列数格宽 110
         assertEquals(110f, bounds("edit-columns").width.value, 0.6f)
         assertEquals(bounds("edit-name").height.value, bounds("edit-columns").height.value, 1f)
-        // 页面左右边距 14
-        assertEquals(14f, bounds("edit-name").left.value, 0.6f)
-        assertEquals(360f - 14f, bounds("edit-columns").right.value, 0.6f)
+        // 页面左右边距 16
+        assertEquals(16f, bounds("edit-name").left.value, 0.6f)
+        assertEquals(360f - 16f, bounds("edit-columns").right.value, 0.6f)
     }
 
     @Test fun cardsAreDashedWithPrefixAndAtLeast96High() {
@@ -152,12 +152,12 @@ class PanelEditTest {
         compose.onNodeWithText("⠿ 供水温度", useUnmergedTree = true).assertIsDisplayed()
         assertEquals(0, count("panel-meta"))
         assertEquals(PanelFixtures.widgets.size, count("edit-outline"))
-        // 两列、间距 8、边距 14
+        // 两列、间距 8、边距 16
         val a = bounds("edit-card-w-temp")
         val b = bounds("edit-card-w-press")
         assertEquals(8f, (b.left - a.right).value, 0.6f)
-        assertEquals(14f, a.left.value, 0.6f)
-        assertEquals(360f - 14f, b.right.value, 0.6f)
+        assertEquals(16f, a.left.value, 0.6f)
+        assertEquals(360f - 16f, b.right.value, 0.6f)
     }
 
     @Test fun addWidgetButtonIsRealAndHintIsHonest() {

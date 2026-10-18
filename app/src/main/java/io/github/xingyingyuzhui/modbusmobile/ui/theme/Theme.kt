@@ -15,6 +15,18 @@ import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 
 val LocalUiSettings = staticCompositionLocalOf { UiSettings() }
 
+/**
+ * D3 待 Xing 拍板：App 字号倍率与系统倍率叠乘（最高 1.69×）是否封顶。
+ * 默认方案：不封顶（null）；ux 建议 1.5f。拍板后只改这一处。
+ */
+val FONT_SCALE_CAP: Float? = null
+
+/** 系统倍率 × App 倍率，按 [FONT_SCALE_CAP] 封顶（null = 不封顶，保持叠乘）。 */
+fun totalFontScale(system: Float, app: Float): Float {
+    val total = system * app
+    return FONT_SCALE_CAP?.let { minOf(total, it) } ?: total
+}
+
 @Composable
 fun ModbusTheme(
     settings: UiSettings,
@@ -38,9 +50,9 @@ fun ModbusTheme(
             surfaceVariant = colors.surface2,
             onSurfaceVariant = colors.muted,
             error = colors.error,
-            onError = colors.text,
-            outline = colors.line,
-            outlineVariant = colors.rowLine,
+            onError = colors.onDanger,
+            outline = colors.outlineControl,
+            outlineVariant = colors.line,
             // Material 组件（菜单、对话框、底部弹层、Snackbar）按层级取这些槽位，全部映射到我们的 token，
             // 否则会落回 Material 默认的浅紫色调色板。
             surfaceTint = Color.Transparent,
@@ -60,7 +72,7 @@ fun ModbusTheme(
             onSecondaryContainer = colors.accentText,
             primaryContainer = colors.wash(colors.accent),
             onPrimaryContainer = colors.accentText,
-            scrim = Color(0x99010306),
+            scrim = colors.scrim,
         )
     } else {
         lightColorScheme(
@@ -73,9 +85,9 @@ fun ModbusTheme(
             surfaceVariant = colors.surface2,
             onSurfaceVariant = colors.muted,
             error = colors.error,
-            onError = colors.surface1,
-            outline = colors.line,
-            outlineVariant = colors.rowLine,
+            onError = colors.onDanger,
+            outline = colors.outlineControl,
+            outlineVariant = colors.line,
             // Material 组件（菜单、对话框、底部弹层、Snackbar）按层级取这些槽位，全部映射到我们的 token，
             // 否则会落回 Material 默认的浅紫色调色板。
             surfaceTint = Color.Transparent,
@@ -95,14 +107,14 @@ fun ModbusTheme(
             onSecondaryContainer = colors.accentText,
             primaryContainer = colors.wash(colors.accent),
             onPrimaryContainer = colors.accentText,
-            scrim = Color(0x99010306),
+            scrim = colors.scrim,
         )
     }
     CompositionLocalProvider(
         LocalModbusColors provides colors,
         LocalUiSettings provides settings,
-        LocalSpacing provides ModbusSpacing(settings.density.scale),
-        LocalDensity provides Density(density.density, density.fontScale * settings.fontScale.multiplier),
+        LocalSpacing provides ModbusSpacing.of(settings.density),
+        LocalDensity provides Density(density.density, totalFontScale(density.fontScale, settings.fontScale.multiplier)),
     ) {
         MaterialTheme(colorScheme = scheme, content = content)
     }

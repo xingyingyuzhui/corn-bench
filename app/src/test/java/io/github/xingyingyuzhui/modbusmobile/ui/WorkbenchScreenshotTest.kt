@@ -274,7 +274,7 @@ class WorkbenchScreenshotTest {
         compose.waitForIdle()
         val colors = io.github.xingyingyuzhui.modbusmobile.ui.theme.modbusColors(true, io.github.xingyingyuzhui.modbusmobile.application.AccentColor.AMBER)
         val pixel = compose.onNodeWithText("发送广播").captureToImage().toPixelMap().let { it[6, it.height / 2] }
-        assertEquals(colors.error.toArgb(), pixel.toArgb())
+        assertEquals(colors.dangerFill.toArgb(), pixel.toArgb())
         assertTrue("不再是琥珀色", pixel.toArgb() != colors.accent.toArgb())
     }
 
@@ -366,18 +366,18 @@ class WorkbenchScreenshotTest {
         assertEquals("读取/写入分段与区域分段左边一致", area.left.value, mode.left.value, 0.6f)
         assertEquals("读取/写入分段宽 150（稿面 .seg.sm width:150px）", 150f, (mode.right - mode.left).value, 0.6f)
         assertEquals("区域分段左右留白对称", area.left.value, (rootWidth - area.right).value, 0.6f)
-        // 内部：每个容器里项与容器四周都是 3dp
+        // 内部：每个容器里项与容器四周都是 4dp
         for (idx in 0..1) {
             val c = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegContainerTag)[idx].getBoundsInRoot()
             val items = compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegItemTag).fetchSemanticsNodes().indices
                 .map { compose.onAllNodesWithTag(io.github.xingyingyuzhui.modbusmobile.ui.components.SegItemTag)[it].getBoundsInRoot() }
                 .filter { it.top >= c.top && it.bottom <= c.bottom && it.left >= c.left && it.right <= c.right }
             assertEquals(2 + 2 * idx, items.size)
-            assertEquals("左内边距", 3f, (items.first().left - c.left).value, 0.6f)
-            assertEquals("右内边距", 3f, (c.right - items.last().right).value, 0.6f)
+            assertEquals("左内边距", 4f, (items.first().left - c.left).value, 0.6f)
+            assertEquals("右内边距", 4f, (c.right - items.last().right).value, 0.6f)
             items.forEach {
-                assertEquals("上内边距", 3f, (it.top - c.top).value, 0.6f)
-                assertEquals("下内边距", 3f, (c.bottom - it.bottom).value, 0.6f)
+                assertEquals("上内边距", 4f, (it.top - c.top).value, 0.6f)
+                assertEquals("下内边距", 4f, (c.bottom - it.bottom).value, 0.6f)
             }
         }
     }

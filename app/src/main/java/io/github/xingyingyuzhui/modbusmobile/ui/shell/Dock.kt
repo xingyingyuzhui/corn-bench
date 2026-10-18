@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.IslandRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSize
 
 /** 手势导航时系统导航栏 inset 很矮（≤ 32dp，手势条本身在 inset 里）；三键导航是 48dp 的实心栏。 */
 val GestureNavMaxInset = 32.dp
@@ -126,7 +127,7 @@ fun FloatingRail(
     val shape = RoundedCornerShape(IslandRadius)
     Column(
         modifier
-            .width(62.dp)
+            .width(ModbusSize.rail)
             .fillMaxHeight()
             .islandShadow(IslandRadius, colors.isDark)
             .clip(shape)

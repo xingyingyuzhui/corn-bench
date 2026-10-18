@@ -55,8 +55,14 @@ import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalUiSettings
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSize
 import io.github.xingyingyuzhui.modbusmobile.ui.traffic.TrafficScreen
 import io.github.xingyingyuzhui.modbusmobile.ui.workbench.WorkbenchScreen
+
+/**
+ * 应用级主站轮询（AppContainer.masterPoller，T-20261018-qa-02）。null = 没有提供（预览 / 测试），工作台 VM 自己建一个。
+ */
+val LocalMasterPoller = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.MasterPoller?> { null }
 
 val LocalSession = staticCompositionLocalOf<SessionManager> {
     error("SessionManager 还没有提供")
@@ -73,6 +79,14 @@ val LocalPanelRuntime = staticCompositionLocalOf<io.github.xingyingyuzhui.modbus
 val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
     error("SettingsRepository 还没有提供")
 }
+
+/** 历史会话和存储用量。没有提供时「我的」页按空历史显示，不碰数据库。 */
+val LocalHistoryCatalog = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.history.HistoryCatalog> {
+    io.github.xingyingyuzhui.modbusmobile.application.history.EmptyHistoryCatalog
+}
+
+/** 从站配置文件。没有提供时导出使用内置的默认映射，不读磁盘。 */
+val LocalSlaveSetupStore = staticCompositionLocalOf<io.github.xingyingyuzhui.modbusmobile.application.slave.SlaveSetupStore?> { null }
 
 /** Activity 级的 ViewModelStoreOwner。工作台的表单、结果和轮询意图不随页面切换（含系统返回键）清空。 */
 val LocalAppViewModelStoreOwner = staticCompositionLocalOf<androidx.lifecycle.ViewModelStoreOwner?> { null }
@@ -128,7 +142,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
     val navStart = bars.calculateStartPadding(LocalLayoutDirection.current)
     val dockGap = dockBottomGap(navBottom)
     val dockBottom = if (showDock) dockGap + 64.dp + navBottom else 0.dp
-    val dockStart = if (showRail) 12.dp + 62.dp + 12.dp + navStart else 0.dp
+    val dockStart = if (showRail) 12.dp + ModbusSize.rail + 12.dp + navStart else 0.dp
     val openConnection: () -> Unit = {
         selectTab(nav, Destination.Connection)
     }
@@ -195,7 +209,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
                     .statusBarsPadding()
                     .navigationBarsPadding()
                     .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
-                    .width(62.dp)
+                    .width(ModbusSize.rail)
                     .fillMaxHeight(),
             )
         }

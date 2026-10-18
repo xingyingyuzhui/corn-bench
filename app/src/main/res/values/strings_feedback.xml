@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- T-20261018-and-08（CL-03）反馈组件文案。规范_v1 §6.9 §10。 -->
+<resources>
+    <string name="feedback_kind_success">成功</string>
+    <string name="feedback_kind_failure">失败</string>
+    <string name="feedback_kind_unknown">未知</string>
+    <string name="feedback_unknown_write">结果未知：设备可能已执行，先回读再决定</string>
+    <string name="feedback_read_back">回读</string>
+    <string name="feedback_read_back_loading">正在回读…</string>
+    <string name="feedback_retry">重试</string>
+    <string name="feedback_undo">撤销</string>
+    <string name="feedback_details_show">详情</string>
+    <string name="feedback_details_hide">收起详情</string>
+    <string name="feedback_state_expanded">已展开</string>
+    <string name="feedback_state_collapsed">已收起</string>
+    <!-- 仅预览用 -->
+    <string name="feedback_preview_success">已写入 40001 = 123</string>
+    <string name="feedback_preview_failure">写入失败：异常码 02（非法地址）</string>
+    <string name="feedback_preview_error_reason">设备 2 秒内没有回应。</string>
+    <string name="feedback_preview_error_hint">检查接线和站号后重试。</string>
+    <string name="feedback_preview_undo">已删除组件“锅炉温度”</string>
+</resources>
