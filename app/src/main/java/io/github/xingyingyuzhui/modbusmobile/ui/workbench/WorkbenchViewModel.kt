@@ -471,7 +471,7 @@ class WorkbenchViewModel(
         val unitId = unit.trim().toIntOrNull()
         val start = address.trim().toIntOrNull()
         val count = quantity.trim().toIntOrNull()
-        val maxCount = if (area.isBit) ModbusRequest.MAX_READ_BITS else ModbusRequest.MAX_READ_REGISTERS
+        val maxCount = if (area == RegisterArea.COIL || area == RegisterArea.DISCRETE_INPUT) ModbusRequest.MAX_READ_BITS else ModbusRequest.MAX_READ_REGISTERS
         val errors = readFieldErrors(unitId, start, count, maxCount)
         fieldErrors = errors
         if (errors.isNotEmpty() || unitId == null || start == null || count == null) {
