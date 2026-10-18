@@ -30,6 +30,47 @@ class RoomHistoryStoreTest {
     }
 
     @Test
+    fun pagingUsesOrderedCompositeIndexWithoutTemporarySort() = runTest {
+        val sql = "EXPLAIN QUERY PLAN SELECT * FROM samples WHERE sessionId = 1 AND id <= 700 AND " +
+            "(sampleAtMs > 10 OR (sampleAtMs = 10 AND id > 256)) ORDER BY sampleAtMs ASC, id ASC LIMIT 256"
+        val plan = database.openHelper.readableDatabase.query(sql).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.getString(3)) }.joinToString("\n")
+        }
+        assertTrue(plan, plan.contains("index_samples_sessionId_sampleAtMs_id"))
+        assertTrue(plan, !plan.contains("TEMP B-TREE"))
+    }
+
+    @Test
+    fun versionOneDatabaseMigratesWithoutLosingSessionsOrSamples() = runTest {
+        val context = RuntimeEnvironment.getApplication<android.app.Application>()
+        val name = "history-migration-test.db"
+        context.deleteDatabase(name)
+        context.openOrCreateDatabase(name, 0, null).use { old ->
+            old.execSQL("CREATE TABLE sessions (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, role TEXT NOT NULL, target TEXT NOT NULL, epoch INTEGER NOT NULL, startedAtMs INTEGER NOT NULL, endedAtMs INTEGER, retained INTEGER NOT NULL)")
+            old.execSQL("CREATE TABLE samples (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, sessionId INTEGER NOT NULL, pointId TEXT NOT NULL, sampleAtMs INTEGER NOT NULL, recordedAtMs INTEGER NOT NULL, epoch INTEGER NOT NULL, quality TEXT NOT NULL, engineering REAL, text TEXT, FOREIGN KEY(sessionId) REFERENCES sessions(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+            old.execSQL("CREATE INDEX index_samples_sessionId ON samples(sessionId)")
+            old.execSQL("CREATE INDEX index_samples_pointId_sampleAtMs ON samples(pointId, sampleAtMs)")
+            old.execSQL("INSERT INTO sessions VALUES (7, 'MASTER', 'USB', 3, 10, 20, 1)")
+            old.execSQL("INSERT INTO samples VALUES (8, 7, 'temperature', 11, 12, 3, 'OK', 21.5, 'saved')")
+            old.version = 1
+        }
+        val upgraded = Room.databaseBuilder(context, HistoryDatabase::class.java, name)
+            .addMigrations(HistoryDatabase.MIGRATION_1_2).allowMainThreadQueries().build()
+        try {
+            val migrated = RoomHistoryStore(upgraded)
+            assertTrue(migrated.sessions().single().retained)
+            assertEquals(7L, migrated.sessions().single().id)
+            assertEquals("saved", migrated.samples(7).single().text)
+            assertEquals(21.5, migrated.samples(7).single().engineering)
+            val pages = migrated.samplePages(7).toList()
+            assertEquals("temperature", pages.single().single().pointId)
+        } finally {
+            upgraded.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
     fun deletedPagesBecomeReusableCapacity() = runTest {
         val session = store.openSession("MASTER", "DEMO", 1, 0)
         store.insertSamples((0 until 600).map {

@@ -15,7 +15,7 @@ class RoomHistoryStore internal constructor(
     private val db: HistoryDatabase,
 ) : HistoryStore {
     constructor(context: Context) : this(
-        Room.databaseBuilder(context.applicationContext, HistoryDatabase::class.java, "history.db").build(),
+        Room.databaseBuilder(context.applicationContext, HistoryDatabase::class.java, "history.db").addMigrations(HistoryDatabase.MIGRATION_1_2).build(),
     )
 
     override suspend fun openSession(role: String, target: String, epoch: Long, startedAtMs: Long): HistorySession =

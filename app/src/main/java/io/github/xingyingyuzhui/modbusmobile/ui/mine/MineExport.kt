@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -83,6 +84,8 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -192,27 +195,26 @@ private class DeviceExport(
     private val scope: CoroutineScope,
     private val gatherer: ArchiveGatherer,
     private val launchSave: (String) -> Unit,
+    private val pending: PendingArchive,
 ) : MineExport {
-    private var pending: File? = null
 
     override suspend fun pointCount(): Int = withContext(Dispatchers.IO) { gatherer.pointCount() }
 
     override fun save(parts: Set<ArchivePart>) {
         scope.launch {
-            val bytes = runCatching { withContext(Dispatchers.IO) { buildFile(parts) } }
-            val body = bytes.getOrElse {
-                if (it is CancellationException) throw it
-                toast(context.getString(R.string.export_failed, it.message ?: ""))
-                return@launch
-            }
-            pending?.delete()
-            pending = body
             try {
-                launchSave(exportZipName(System.currentTimeMillis()))
+                withOwnedArchive({ buildFile(parts) }) { file ->
+                    pending.replace(file)
+                    try {
+                        launchSave(exportZipName(System.currentTimeMillis()))
+                    } catch (error: Exception) {
+                        pending.take()?.delete()
+                        throw error
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                pending = null
-                body.delete()
-                if (error is CancellationException) throw error
                 toast(context.getString(R.string.export_failed, error.message ?: ""))
             }
         }
@@ -220,50 +222,45 @@ private class DeviceExport(
 
     override fun share(parts: Set<ArchivePart>) {
         scope.launch {
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    val file = buildFile(parts)
-                    FileProvider.getUriForFile(context, context.packageName + ".exports", file)
+            try {
+                withOwnedArchive({ buildFile(parts) }) { file ->
+                    val uri = FileProvider.getUriForFile(context, context.packageName + ".exports", file)
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/zip"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }
-            }
-            result.onSuccess { uri ->
-                val send = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/zip"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }.onFailure {
-                if (it is CancellationException) throw it
-                toast(context.getString(R.string.export_failed, it.message ?: ""))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                toast(context.getString(R.string.export_failed, error.message ?: ""))
             }
         }
     }
 
     fun write(uri: Uri?) {
-        val file = pending ?: return
-        pending = null
         if (uri == null) {
-            file.delete()
+            pending.cancel()
             return
         }
-        scope.launch {
-            val result = runCatching {
+        val file = pending.take() ?: return
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
                 withContext(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { out ->
-                            file.inputStream().use { it.copyTo(out) }
-                        } ?: error("无法打开目标文件")
-                    } finally {
-                        file.delete()
-                    }
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        file.inputStream().use { it.copyTo(out) }
+                    } ?: error("无法打开目标文件")
                 }
+                toast(context.getString(R.string.export_saved))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                toast(context.getString(R.string.export_failed, error.message ?: ""))
+            } finally {
+                file.delete()
             }
-            result.exceptionOrNull()?.let { if (it is CancellationException) throw it }
-            toast(
-                result.exceptionOrNull()?.let { context.getString(R.string.export_failed, it.message ?: "") }
-                    ?: context.getString(R.string.export_saved),
-            )
         }
     }
 
@@ -272,6 +269,49 @@ private class DeviceExport(
 
     private fun toast(text: String) {
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** 路径保存在 rememberSaveable；仅接受本应用 exports 目录里的现存归档。 */
+internal class PendingArchive(
+    private val dir: File,
+    private val path: () -> String?,
+    private val setPath: (String?) -> Unit,
+) {
+    private fun current(): File? {
+        val value = path() ?: return null
+        val file = runCatching { File(value).canonicalFile }.getOrNull() ?: return null
+        return file.takeIf {
+            it.parentFile == dir.canonicalFile && it.isFile &&
+                it.name.startsWith("modbus-export-") && it.name.endsWith(".zip")
+        }
+    }
+
+    fun replace(file: File) {
+        current()?.delete()
+        check(file.canonicalFile.parentFile == dir.canonicalFile && file.isFile)
+        setPath(file.canonicalPath)
+    }
+
+    fun take(): File? = current().also { setPath(null) }
+
+    fun cancel() { take()?.delete() }
+}
+
+/** 即使 IO 完成后被 prompt cancellation 拒绝交付，也保留文件引用并清理。 */
+internal suspend fun withOwnedArchive(
+    create: suspend () -> File,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    handoff: (File) -> Unit,
+) {
+    var staged: File? = null
+    var transferred = false
+    try {
+        val file = withContext(dispatcher) { create().also { staged = it } }
+        handoff(file)
+        transferred = true
+    } finally {
+        if (!transferred) staged?.delete()
     }
 }
 
@@ -295,6 +335,14 @@ internal fun exportZipName(nowMs: Long, zone: TimeZone = TimeZone.getDefault()):
     "modbus-export-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).apply { timeZone = zone }.format(Date(nowMs)) + ".zip"
 
 @Composable
+internal fun rememberPendingArchive(dir: File): PendingArchive {
+    val pendingPath = rememberSaveable { mutableStateOf<String?>(null) }
+    return remember(dir, pendingPath) {
+        PendingArchive(dir, { pendingPath.value }, { pendingPath.value = it })
+    }
+}
+
+@Composable
 internal fun rememberDeviceExport(): MineExport {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -307,12 +355,13 @@ internal fun rememberDeviceExport(): MineExport {
     val gatherer = remember(projects, slaves, history, session, store, traffic) {
         ArchiveGatherer(projects, slaves, history, session, store, traffic)
     }
+    val pending = rememberPendingArchive(File(context.cacheDir, "exports"))
     var holder: DeviceExport? = null
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) {
         holder?.write(it)
     }
-    val device = remember(gatherer, context) {
-        DeviceExport(context, scope, gatherer, launcher::launch)
+    val device = remember(gatherer, context, pending) {
+        DeviceExport(context, scope, gatherer, launcher::launch, pending)
     }
     holder = device
     return device
