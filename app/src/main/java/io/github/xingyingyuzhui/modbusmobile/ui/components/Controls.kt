@@ -79,6 +79,10 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusType
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.StrokeControl
+import androidx.compose.ui.semantics.error
 
 @Composable
 fun ModbusCard(
@@ -150,8 +154,8 @@ fun <T> SegmentedControl(
             options.forEach { option ->
                 val on = option == selected
                 val shape = RoundedCornerShape(SegItemRadius)
-                // 稿面选中块：深色 s3 + 内描边 #3A4658；浅色 s1 + 1px line 环
-                val ring = if (colors.isDark) androidx.compose.ui.graphics.Color(0xFF3A4658) else colors.line
+                // 选中块：深色 surface3 + 1dp outlineControl（§6.7，替换硬编码 #3A4658）；浅色 surface1 + 1dp line 环
+                val ring = if (colors.isDark) colors.outlineControl else colors.line
                 Box(
                     Modifier
                         .testTag(SegItemTag)
@@ -196,7 +200,9 @@ fun <T> SegmentedTextControl(
             color = if (on) colors.text else colors.muted,
             fontSize = if (small) 12.5.sp else 14.sp,
             fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-            maxLines = 1,
+            // §6.7 / G-24：分段文字允许 2 行（1.3× 时不截断）
+            maxLines = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }
@@ -321,11 +327,13 @@ fun FieldTile(
 }
 
 /**
- * 输入格。[sub] 是右侧小字（例如 40001 参考号）；获得焦点时画 1.5dp 强调色描边（稿面 .f.on）。
+ * 输入格。[sub] 是右侧小字（例如 40001 参考号）；获得焦点时画 1.5dp accent.border 描边（§6.2）。
  *
  * - 整个格子都能点（不只是文字那一行）：点格子任何位置都聚焦输入框。
  * - 聚焦时全选，键入的新数字直接替换旧值（123 不会变成 0123）。
  * - 值正好是“0”时再键入数字，丢掉前导 0（外部改值、软键盘把光标放在 0 后面的情况）。
+ * - 出错（[isError]，默认 = 有 [error] 文字）：1.5dp error 描边 + label 变 error + 下方 12sp error 文字 + semantics error（§6.0，G-02）。
+ * - 只读（[readOnly]）：底 surface2、值 muted、不能聚焦（§6.2，S1-03）。
  */
 @Composable
 fun NumberInput(
@@ -336,6 +344,71 @@ fun NumberInput(
     sub: String? = null,
     minHeight: Dp = 50.dp,
     keyboardType: KeyboardType = KeyboardType.Number,
+    isError: Boolean = error != null,
+    readOnly: Boolean = false,
+    onValue: (String) -> Unit,
+) {
+    val colors = LocalModbusColors.current
+    InputField(
+        label = label,
+        value = value,
+        modifier = modifier,
+        errorMessage = error,
+        isError = isError,
+        readOnly = readOnly,
+        sub = sub,
+        minHeight = minHeight,
+        keyboardType = keyboardType,
+        textStyle = ModbusType.monoValueM.copy(fontWeight = Mono.fontWeight, color = colors.text),
+        normalize = ::dropLeadingZero,
+        onValue = onValue,
+    )
+}
+
+/** 文本输入（§6.2 新增，S5-06）：外观同 [NumberInput]，值用 body 14 比例字体，文本键盘，不做前导 0 处理。 */
+@Composable
+fun TextInput(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    error: String? = null,
+    isError: Boolean = error != null,
+    readOnly: Boolean = false,
+    minHeight: Dp = 50.dp,
+    onValue: (String) -> Unit,
+) {
+    val colors = LocalModbusColors.current
+    InputField(
+        label = label,
+        value = value,
+        modifier = modifier,
+        errorMessage = error,
+        isError = isError,
+        readOnly = readOnly,
+        sub = null,
+        minHeight = minHeight,
+        keyboardType = KeyboardType.Text,
+        textStyle = ModbusType.body.copy(color = colors.text),
+        normalize = { _, next -> next },
+        selectAllOnFocus = false,
+        onValue = onValue,
+    )
+}
+
+@Composable
+private fun InputField(
+    label: String,
+    value: String,
+    modifier: Modifier,
+    errorMessage: String?,
+    isError: Boolean,
+    readOnly: Boolean,
+    sub: String?,
+    minHeight: Dp,
+    keyboardType: KeyboardType,
+    textStyle: androidx.compose.ui.text.TextStyle,
+    normalize: (previous: String, next: String) -> String,
+    selectAllOnFocus: Boolean = true,
     onValue: (String) -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -345,40 +418,51 @@ fun NumberInput(
     val requester = remember { FocusRequester() }
     val shape = RoundedCornerShape(FieldRadius)
     LaunchedEffect(focused) {
-        if (focused) {
+        if (focused && selectAllOnFocus) {
             // 点击落点会在聚焦之后才把光标放下，等下一帧再全选，才不会被覆盖。
             withFrameNanos { }
             field = field.copy(selection = TextRange(0, field.text.length))
         }
     }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val ring = when {
+        isError -> Modifier.border(StrokeControl, colors.error, shape)
+        focused && !readOnly -> Modifier.border(StrokeControl, colors.accentBorder, shape)
+        else -> Modifier
+    }
+    val errorText = errorMessage
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs)) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = minHeight)
                 .clip(shape)
                 .background(colors.surface2, shape)
-                .then(if (focused) Modifier.border(1.5.dp, colors.accent, shape) else Modifier)
-                .pointerInput(Unit) { detectTapGestures { requester.requestFocus() } }
+                .then(ring)
+                .then(if (readOnly) Modifier else Modifier.pointerInput(Unit) { detectTapGestures { requester.requestFocus() } })
                 .padding(horizontal = 10.dp, vertical = 7.dp),
         ) {
-            Text(label, color = colors.muted, fontSize = 11.sp, maxLines = 1)
-            Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.Bottom) {
+            Text(label, color = if (isError) colors.error else colors.muted, style = ModbusType.caption, maxLines = 1)
+            Row(Modifier.fillMaxWidth().padding(top = LocalSpacing.current.xxs), verticalAlignment = Alignment.Bottom) {
                 BasicTextField(
                     value = field,
                     onValueChange = { next ->
-                        val text = dropLeadingZero(field.text, next.text)
+                        val text = normalize(field.text, next.text)
                         field = if (text == next.text) next else TextFieldValue(text, TextRange(text.length))
                         if (text != value) onValue(text)
                     },
-                    textStyle = Mono.copy(color = colors.text, fontSize = 17.sp),
+                    textStyle = if (readOnly) textStyle.copy(color = colors.muted) else textStyle,
                     singleLine = true,
+                    readOnly = readOnly,
+                    enabled = !readOnly,
                     keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                     cursorBrush = SolidColor(colors.accent),
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(requester)
-                        .semantics { contentDescription = label }
+                        .semantics {
+                            contentDescription = label
+                            if (isError) error(errorText ?: label)
+                        }
                         .onFocusChanged { focused = it.isFocused },
                 )
                 if (sub != null) {
@@ -386,8 +470,8 @@ fun NumberInput(
                 }
             }
         }
-        if (error != null) {
-            Text(error, color = colors.error, fontSize = 12.sp)
+        if (errorText != null) {
+            Text(errorText, color = colors.error, style = ModbusType.label)
         }
     }
 }
@@ -441,24 +525,43 @@ const val SwitchVisualTag = "switch-visual"
 
 enum class SettingTrailing { SWITCH, CHEVRON, LOCKED, NONE }
 
-/** 稿面开关：42×24 轨道，20dp 白色滑块（G#5）。只负责画，点击由所在行处理（整行 ≥48dp 可点）。 */
+/** 开关视觉尺寸：42×24 轨道，20dp 滑块，内边距 2（§6.7 沿用尺寸）。 */
+private val SwitchTrackWidth = 42.dp
+private val SwitchTrackHeight = 24.dp
+private val SwitchThumb = 20.dp
+
+/**
+ * 开关（§6.7，G-08）：开 = accent.fill 轨道 + 白滑块；关 = surface3 轨道 + 1.5dp outlineControl 描边 + outlineControl 滑块；
+ * 禁用 = surface3 轨道 + dim 滑块（不用 alpha）。只负责画，点击由所在行处理（整行 ≥48dp 可点）。
+ */
 @Composable
-fun ModbusSwitchVisual(checked: Boolean, modifier: Modifier = Modifier) {
+fun ModbusSwitchVisual(checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val colors = LocalModbusColors.current
+    val track = when {
+        !enabled -> colors.surface3
+        checked -> colors.accent
+        else -> colors.surface3
+    }
+    val thumb = when {
+        !enabled -> colors.dim
+        checked -> androidx.compose.ui.graphics.Color.White
+        else -> colors.outlineControl
+    }
     Box(
         modifier
             .testTag(SwitchVisualTag)
-            .size(width = 42.dp, height = 24.dp)
+            .size(width = SwitchTrackWidth, height = SwitchTrackHeight)
             .clip(CircleShape)
-            .background(if (checked) colors.accent else colors.surface3),
+            .background(track)
+            .then(if (!checked || !enabled) Modifier.border(StrokeControl, if (enabled) colors.outlineControl else colors.line, CircleShape) else Modifier),
     ) {
         Box(
             Modifier
                 .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
-                .padding(2.dp)
-                .size(20.dp)
+                .padding(LocalSpacing.current.xxs)
+                .size(SwitchThumb)
                 .clip(CircleShape)
-                .background(androidx.compose.ui.graphics.Color.White),
+                .background(thumb),
         )
     }
 }
@@ -578,7 +681,7 @@ fun ColorSwatchRow(
                         Modifier
                             .size(26.dp)
                             .clip(CircleShape)
-                            .background(androidx.compose.ui.graphics.Color(accent.argb.toInt())),
+                            .background(androidx.compose.ui.graphics.Color(accent.tones(colors.isDark).fill.toInt())),
                     )
                 }
             }
@@ -633,6 +736,10 @@ private fun ControlsDark() = ControlsPreview(true)
 @Composable
 private fun ControlsLight() = ControlsPreview(false)
 
+@Preview(name = "浅色 1.3x", fontScale = 1.3f)
+@Composable
+private fun ControlsLarge() = ControlsPreview(false)
+
 @Composable
 private fun ControlsPreview(dark: Boolean) {
     ModbusTheme(UiSettings(theme = if (dark) ThemeMode.DARK else ThemeMode.LIGHT)) {
@@ -640,6 +747,16 @@ private fun ControlsPreview(dark: Boolean) {
             SegmentedControl(listOf("主站", "从站"), "主站", {}) { Text(it, fontWeight = FontWeight.SemiBold) }
             ChipRow(listOf("9600 8N1", "19200 8N1"), { it.startsWith("9600") }, { it }, {})
             FieldTile("起始地址", "0", "40001")
+            NumberInput(stringResource(R.string.input_preview_address), "0", sub = "40001") {}
+            NumberInput(stringResource(R.string.input_preview_address), "70000", error = stringResource(R.string.input_preview_address_error)) {}
+            NumberInput(stringResource(R.string.input_preview_address), "0", readOnly = true) {}
+            TextInput(stringResource(R.string.input_preview_name), stringResource(R.string.input_preview_name_value)) {}
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ModbusSwitchVisual(true)
+                ModbusSwitchVisual(false)
+                ModbusSwitchVisual(true, enabled = false)
+                ModbusSwitchVisual(false, enabled = false)
+            }
             SettingRow("屏幕常亮", trailing = SettingTrailing.SWITCH, checked = true)
             SettingRow("主题", trailing = SettingTrailing.CHEVRON)
             SettingRow("写入前确认", trailing = SettingTrailing.LOCKED)

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- T-20261018-and-09（CL-04）工作台：写入在途 + 结果条 + 回读。文案公式见规范 §10.4：{发生了什么}，{怎么办}。 -->
+<resources>
+    <!-- 在途（§6.1 / §7.4） -->
+    <string name="wb_writing">正在写入…</string>
+    <string name="wb_reading">正在读取…</string>
+    <string name="wb_busy_hint">等这次请求结束再操作</string>
+
+    <!-- 写入结果条（§6.9 / §10.3） -->
+    <string name="wb_write_ok">已写入 %1$s，设备已确认</string>
+    <string name="wb_write_sent">广播已发送，从站不回应，需要时逐个回读确认</string>
+    <string name="wb_write_unknown">设备可能已执行，先回读再决定</string>
+    <string name="wb_write_exception">设备拒绝写入（%1$s），检查地址和值后重试</string>
+    <string name="wb_write_disconnected">连接已断开，写入可能没有发出，重新连接后回读确认</string>
+    <string name="wb_readback_match">回读一致：%1$s</string>
+    <string name="wb_readback_mismatch">回读值是 %1$s，与写入值不同，确认设备状态后再写</string>
+    <string name="wb_readback_failed">回读没有成功（%1$s），稍后再点回读</string>
+    <string name="wb_reason_no_answer">设备没有回应</string>
+    <string name="wb_reason_invalid">响应无法解析</string>
+    <string name="wb_values">%1$s</string>
+    <string name="wb_values_more">%1$s 等 %2$d 个</string>
+
+    <!-- 读取失败（ErrorBanner：原因 + 怎么办 + 详情） -->
+    <string name="wb_read_timeout">设备没有回应，检查接线和站号后重试</string>
+    <string name="wb_read_exception">设备拒绝读取（%1$s），检查地址和数量后重试</string>
+    <string name="wb_read_disconnected">连接已断开，重新连接后再读取</string>
+    <string name="wb_read_invalid">收到的响应无法解析，检查波特率和校验位后重试</string>
+    <string name="wb_last_ok">上次成功 %1$s</string>
+
+    <!-- 字段级错误（§6.2 / §10.4） -->
+    <string name="wb_err_range">%1$s应在 %2$d–%3$d 之间</string>
+    <string name="wb_err_span">起始地址 + 数量不能超过 65536</string>
+    <string name="wb_err_request_invalid">请求参数超出范围，检查 Unit、地址和数量</string>
+
+    <!-- 空态（§7.1，S2-06 / S2-07） -->
+    <string name="wb_no_result">填好地址和数量后点读取，结果显示在这里。</string>
+    <string name="wb_empty_title">未连接设备</string>
+    <string name="wb_empty_body">工作台要先有会话：去连接页选择串口，进入主站或从站。</string>
+    <string name="wb_go_connect">去连接</string>
+
+    <!-- 多值确认（S2-08） -->
+    <string name="wb_confirm_show_all">还有 %1$d 个，展开</string>
+    <string name="wb_confirm_collapse">收起</string>
+</resources>
