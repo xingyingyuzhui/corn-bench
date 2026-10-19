@@ -60,3 +60,10 @@
 
 - 两项完整CI均成功：39110230148（PR）/39110227707（push），均验证源码1d37136。之后0a63240只有文档；PR #20已在北京时间16:17普通merge至main，合并提交35d364b，带skip ci。
 - 本地已切回main并同步；远端无尚未进入main的支线提交。相关main-base PR自动标记合并；堆叠PR #12/13/16/17/18在确认head为main祖先后关闭，原分支保留。最后只补文档收口，不重复源码检查。
+
+## 2026-10-19 · 本地ADB恢复
+
+- 用户要求继续修复离线，并询问QEMU图标及MCP是否为原因。图标是正常模拟器进程；不把MCP存在当作根因。
+- 官方SDK已备份并更新，但旧数据仍offline；同AVD/端口用独立数据镜像恢复。随后完整备份原AVD，将可用镜像放入默认路径，保留旧数据，不删除备份。具体坏文件/设置未定位。
+- 已核对默认路径正常冷启动、adbd running、ADB device、qtwindow；最新APK安装/启动、MCP截图/UI树通过。Android reboot和完整停止再冷启动后APK及测试文件均保留；停止前sync。MCP保持manual/ready、automatic_shutdown=false。
+- 仅环境与文档变更，无项目源码变更；完整交互和硬件回归仍按后续计划补。详见docs/adb-recovery.md。
