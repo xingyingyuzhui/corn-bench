@@ -1,6 +1,6 @@
 # 当前完成状态
 
-更新：2026-10-18（北京时间）。依据：源码、远端分支、PR/Actions、本地构建报告及 `docs/integration-20261018.md`。测试结果只适用于明确列出的提交与范围。
+更新：2026-10-24（北京时间）；导入与云端 redroid 验收见下方「archive-import 分支」。原记录更新于 2026-10-18。依据：源码、远端分支、PR/Actions、本地构建报告及 `docs/integration-20261018.md`。测试结果只适用于明确列出的提交与范围。
 
 ## 当前版本与整合
 
@@ -8,6 +8,16 @@
 - 用户已在聊天明确授权本次修复及合并。本地和两项云端验证通过后已执行；核对远端分支，没有尚未进入 main 的提交。PR #11/14/15/19 随整合自动标记合并；已包含代码的堆叠 PR #12/13/16/17/18 关闭为被本次整合接续，原分支保留。
 - 整合范围：从站模拟规则 UI、本机虚拟 RTU、Room 历史、“我的”与 ZIP 导出、日志并发越界修复、应用作用域主站轮询、CL-01/02/03/16 主题控件反馈布局，以及 CL-04 工作台读写 WIP 的修复与验证。
 - 此前 PR #11–19 的单分支检查结果已由本次整合版本验证接续；不能再用旧分支失败数量描述整合版本。旧检查记录见 `board.md`。
+
+## archive-import 分支（2026-10-24，未合 main）
+
+- **导入配置**：「我的 → 导入配置」选导出 ZIP → 预览 → 勾选 → 确认替换。只认根目录 `default.json` / `slave.json`；ZIP 读取上限 256 MB、单个配置解压后 4 MB；两份都找到即停止读取。原文写入（未知组件 / 字段逐字保留），替换前另存 `*.before-import-<毫秒>`。更新版本文件拒绝导入。有会话时拒绝；导入后不连接、不写设备、不启动从站；已打开的面板自动重读并丢弃进行中的编辑。规则见 `docs/project-format.md`。
+- **向导校验滚动**：下一步 / 完成没通过时，把第一个出错的输入框滚进可见区域（redroid 上发现：名称在首屏外，按钮看起来没反应）。
+- **云编译修复**：Room 的 KSP 校验器把 sqlite-jdbc 原生库解压到 `/tmp` 加载，云编译机 `/tmp` 不能映射可执行代码，Room 引入后云端构建全部失败。`app/build.gradle.kts` 把 `org.sqlite.tmpdir` 指到 `build/`，云端 `assembleDebug` 恢复（构建 `72eadd0a5da44281`）。
+- **云端单测限制**：云编译机是 Linux ARM64，Robolectric 初始化 Conscrypt 时没有 `linux-aarch_64` 原生库，Compose/Robolectric 测试在那里不能跑；单测以本地与 GitHub CI（x86）为准，云端只出 APK。
+- 验证：本地 `:modbus-core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease` 通过（core 58 + app 914，0 失败）；GitHub CI [39977846474](https://github.com/xingyingyuzhui/modbus_android/actions/runs/39977846474) 成功（`e6ea940`）。
+- **redroid 真机验收**（Oracle ARM64 redroid Android 16，`127.0.0.1:5555`，云构建 APK）：建面板 → 导出到 Downloads（SAF）→ 删掉组件并保存 → 导入：预览显示「我的工程」1 面板 / 1 组件 / 1 点位与从站 Unit 1；导入后已打开的面板立即恢复组件；强停重启后仍在。仅含从站的 ZIP 预览只列从站并标出不导入的 `points.csv, history.csv`。主站连接中点导入：提示先断开，不打开文件选择器。
+- 旧 redroid 上的应用签名与云构建不同，已卸载重装（测试设备，丢弃的是旧测试数据）。
 
 ## 已有功能（整合版本）
 
@@ -63,7 +73,7 @@
 
 ## 尚未完成与限制
 
-- 导入未实现：仍需大小上限、校验、预览、新建/替换，导入后不自动连接、写入或启动从站。
+- 导入已在 archive-import 分支实现并在 redroid 验收，待合 main；目前只有一个工程槽，导入即替换（有 before-import 备份）。
 - 历史落库入口来自主站面板点位轮询；从站可记录会话，没有从站点位采样入口。曲线内存环和完整通信帧未持久化。
 - 250 MB 历史库端到端压力与真实设备长时间导出未实测；已验证分页、迁移、流式内容和失败边界。
 - CRC 丢弃计数未接报文统计；从站外部/模拟写入不单独触发配置保存。
