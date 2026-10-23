@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,6 +94,8 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.JetBrainsMono
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.MinTouch
+import io.github.xingyingyuzhui.modbusmobile.ui.components.LocalErrorReveal
+import io.github.xingyingyuzhui.modbusmobile.ui.components.rememberErrorReveal
 
 data class WizardActions(
     val onKind: (String) -> Unit = {},
@@ -174,22 +177,24 @@ fun PanelWizard(
                 .padding(start = pageStart(), end = spacing.page, top = 4.dp, bottom = spacing.s),
             verticalArrangement = Arrangement.spacedBy(spacing.s),
         ) {
-            val curve = wizard.curve
-            val sheetSeries = wizard.sheet?.let { curve?.series?.getOrNull(it) }
-            when {
-                wizard.pointPage && sheetSeries != null && curve != null -> SeriesPointPage(
-                    wizard, sheetSeries, seriesSnapshots[sheetSeries.pointId], live,
-                ) { transform -> actions.onCurve(curve.updateSeries(wizard.sheet!!, transform)) }
-                wizard.step == 1 -> KindPicker(
-                    (if (wizard.curve != null) WidgetKinds.CURVE else wizard.form.kind).takeIf { wizard.editingWidgetId != null }, actions.onKind,
-                )
-                curve != null && curveResult != null -> if (wizard.step == 2) {
-                    CurveConfigStep(wizard, curveResult, previewHistory, live, actions.onCurve, actions.onAddSeries, actions.onOpenSeries)
-                } else {
-                    CurveLookStep(wizard, curveResult, previewHistory, live, actions.onCurve)
+            CompositionLocalProvider(LocalErrorReveal provides rememberErrorReveal(wizard.errorAttempt)) {
+                val curve = wizard.curve
+                val sheetSeries = wizard.sheet?.let { curve?.series?.getOrNull(it) }
+                when {
+                    wizard.pointPage && sheetSeries != null && curve != null -> SeriesPointPage(
+                        wizard, sheetSeries, seriesSnapshots[sheetSeries.pointId], live,
+                    ) { transform -> actions.onCurve(curve.updateSeries(wizard.sheet!!, transform)) }
+                    wizard.step == 1 -> KindPicker(
+                        (if (wizard.curve != null) WidgetKinds.CURVE else wizard.form.kind).takeIf { wizard.editingWidgetId != null }, actions.onKind,
+                    )
+                    curve != null && curveResult != null -> if (wizard.step == 2) {
+                        CurveConfigStep(wizard, curveResult, previewHistory, live, actions.onCurve, actions.onAddSeries, actions.onOpenSeries)
+                    } else {
+                        CurveLookStep(wizard, curveResult, previewHistory, live, actions.onCurve)
+                    }
+                    wizard.step == 2 -> ConfigStep(wizard, result, previewSnapshot, live, actions.onForm, seriesSnapshots)
+                    else -> LookStep(wizard, result, previewSnapshot, live, actions.onForm, seriesSnapshots)
                 }
-                wizard.step == 2 -> ConfigStep(wizard, result, previewSnapshot, live, actions.onForm, seriesSnapshots)
-                else -> LookStep(wizard, result, previewSnapshot, live, actions.onForm, seriesSnapshots)
             }
         }
         if (wizard.pointPage) {

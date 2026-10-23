@@ -432,7 +432,7 @@ private fun InputField(
         else -> Modifier
     }
     val errorText = errorMessage
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs)) {
+    Column(modifier.revealOnError(isError), verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs)) {
         Column(
             Modifier
                 .fillMaxWidth()

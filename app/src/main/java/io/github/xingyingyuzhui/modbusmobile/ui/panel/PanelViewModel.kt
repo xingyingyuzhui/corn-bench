@@ -71,6 +71,8 @@ data class WizardState(
     val sheet: Int? = null,
     /** 曲线：系列的“数据点位”页（从弹窗进入）。 */
     val pointPage: Boolean = false,
+    /** 下一步 / 完成没通过校验的次数；界面据此把第一个错误滚进可见区域。 */
+    val errorAttempt: Int = 0,
 ) {
     val dirty: Boolean get() = if (curve != null) originalCurve == null || curve != originalCurve else original == null || form != original
 
@@ -345,7 +347,7 @@ class PanelViewModel(
             1 -> Unit
             2 -> {
                 val ok = if (w.curve != null) w.curveResult().ok else w.result().ok
-                _wizard.value = if (ok) w.copy(step = 3, showErrors = false) else w.copy(showErrors = true)
+                _wizard.value = if (ok) w.copy(step = 3, showErrors = false) else w.copy(showErrors = true, errorAttempt = w.errorAttempt + 1)
             }
             else -> commitWizard()
         }
@@ -373,7 +375,7 @@ class PanelViewModel(
         val w = _wizard.value ?: return
         val widget = if (w.curve != null) w.curveResult().widget else w.result().widget
         if (widget == null) {
-            _wizard.value = w.copy(step = 2, showErrors = true)
+            _wizard.value = w.copy(step = 2, showErrors = true, errorAttempt = w.errorAttempt + 1)
             return
         }
         if (w.editingWidgetId == null) {

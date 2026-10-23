@@ -14,6 +14,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -141,6 +142,19 @@ class PanelWizardFlowTest {
         type("wiz-address", "100")
         type("wiz-scale", "0.1")
         type("wiz-decimals", "1")
+    }
+
+    @Test fun nextWithAMissingNameScrollsTheNameFieldIntoView() {
+        // 名称在表单下方、首屏之外；按下一步没通过时要滚过去，不能看起来“没反应”。
+        show(repoWith(emptyProject()))
+        openWizardFromEmpty()
+        tap("wiz-kind-number")
+        waitTag("wiz-name")
+        compose.onNodeWithTag("wiz-name", useUnmergedTree = true).assertIsNotDisplayed()
+        compose.onNodeWithTag("wiz-next", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
+        step().assertTextContains("2 / 3", substring = true)
+        compose.onNodeWithTag("wiz-name", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun emptyPanelAddNumberWidgetThenSaveShowsPolledValueAndWritesFile() {
