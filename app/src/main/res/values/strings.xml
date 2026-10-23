@@ -275,6 +275,8 @@
     <string name="panel_wiz_sec_poll">采集</string>
     <string name="panel_wiz_preview_none">需要主站连接才能显示实时数据；配置照常保存，连上主站后面板会开始读取。</string>
     <string name="panel_wiz_preview_invalid">填完整后这里显示实时读数</string>
+    <string name="panel_wiz_preview_unnamed">未命名组件</string>
+    <string name="panel_wiz_preview_badge">预览</string>
     <string name="panel_wiz_field_unit">Unit</string>
     <string name="panel_wiz_field_address">地址</string>
     <string name="panel_wiz_field_bit">位（0–15）</string>
@@ -444,8 +446,12 @@
     <string name="action_confirm_broadcast">发送广播</string>
     <string name="confirm_badge_broadcast">广播 · 所有从站</string>
     <string name="confirm_address">地址</string>
-    <string name="confirm_current_age_read">来自 %1$d 秒前的读取</string>
-    <string name="confirm_current_age_write">来自 %1$d 秒前的写入</string>
+    <string name="confirm_current_age_read">来自 %1$s前的读取</string>
+    <string name="confirm_current_age_write">来自 %1$s前的写入</string>
+    <string name="age_seconds">%1$d 秒</string>
+    <string name="age_minutes">%1$d 分钟</string>
+    <string name="age_hours">%1$d 小时</string>
+    <string name="age_days">%1$d 天</string>
     <string name="confirm_warning_broadcast">所有从站都会执行，且不会有回应，结果只能标为已发送</string>
     <string name="confirm_warning_broadcast_coil">所有从站都会执行，且不会有回应，结果只能标为已发送。线圈可能直接驱动执行器，确认现场允许后再发送。</string>
     <string name="badge_sent">已发送</string>

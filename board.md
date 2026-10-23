@@ -67,3 +67,10 @@
 - 官方SDK已备份并更新，但旧数据仍offline；同AVD/端口用独立数据镜像恢复。随后完整备份原AVD，将可用镜像放入默认路径，保留旧数据，不删除备份。具体坏文件/设置未定位。
 - 已核对默认路径正常冷启动、adbd running、ADB device、qtwindow；最新APK安装/启动、MCP截图/UI树通过。Android reboot和完整停止再冷启动后APK及测试文件均保留；停止前sync。MCP保持manual/ready、automatic_shutdown=false。
 - 仅环境与文档变更，无项目源码变更；完整交互和硬件回归仍按后续计划补。详见docs/adb-recovery.md。
+
+## 2026-10-24 · 导入合并 main + UI 细化第 1 轮
+
+- 云编译恢复：Room KSP 的 sqlite-jdbc 原生库改解压到 `build/`（云端 `/tmp` 不能映射可执行代码），云端 `assembleDebug` 成功（72eadd0a5da44281）。云端 ARM64 没有 Conscrypt 原生库，Robolectric 测试只在本地和 GitHub CI 跑。
+- archive-import：ZIP 导入（预览、替换、before-import 备份、会话中拒绝）+ 向导校验失败滚到第一个错误。本地 core58+app914、lint、debug/release APK、offline 检查通过；GitHub CI 39977846474（e6ea940）/ 39997662014（ac542b9）成功。redroid（Oracle ARM64 Android 16）导出 → 导入 → 面板即时恢复 → 强停重启仍在；连接中导入被拒绝。
+- 老板在聊天明确「跑完这个」允许合 main：main 快进到 f3fa90c（最后一个提交为文档，带 skip ci），origin/main 已核对。
+- UI 细化第 1 轮（分支 ui-polish-r1）：写入确认的“来自 N 秒前”按秒/分钟/小时/天显示；向导预览占位卡带“预览”徽标、未命名写“未命名组件”；导出浮层在交给系统保存/分享后收起。每项都有去掉修复会失败的断言。云端 MCP 本轮连不上，这三项未做设备验收（未验证）。

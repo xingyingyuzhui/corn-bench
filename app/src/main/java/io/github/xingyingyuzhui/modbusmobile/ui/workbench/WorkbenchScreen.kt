@@ -831,9 +831,8 @@ private fun ConfirmValues(pending: PendingWrite, onCoil: (Boolean) -> Unit, word
     val plan = pending.plan
     val coil = plan.area == RegisterArea.COIL
     val unknown = stringResource(R.string.confirm_current_unknown)
-    val ageSeconds = pending.currentAgeMs?.let { (it / 1000L).toInt() }
-    val ageText = ageSeconds?.let {
-        stringResource(if (pending.currentFromRead) R.string.confirm_current_age_read else R.string.confirm_current_age_write, it)
+    val ageText = pending.currentAgeMs?.let {
+        stringResource(if (pending.currentFromRead) R.string.confirm_current_age_read else R.string.confirm_current_age_write, elapsedText(it))
     }
     fun show(value: Int?, isCoil: Boolean): String = when {
         value == null -> "—"
@@ -954,3 +953,16 @@ internal const val WorkbenchLastGoodTag = "workbench-last-good"
 internal const val WorkbenchEmptyTag = "workbench-empty"
 internal const val WorkbenchGoConnectTag = "workbench-go-connect"
 internal const val WorkbenchConfirmExpandTag = "workbench-confirm-expand"
+
+/** “74 秒” / “12 分钟” / “3 小时” / “6 天”（单位规则见 [ElapsedAge]）。 */
+@Composable
+internal fun elapsedText(elapsedMs: Long): String {
+    val age = io.github.xingyingyuzhui.modbusmobile.application.ElapsedAge.of(elapsedMs)
+    val amount = age.amount.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    return when (age.unit) {
+        io.github.xingyingyuzhui.modbusmobile.application.AgeUnit.SECONDS -> stringResource(R.string.age_seconds, amount)
+        io.github.xingyingyuzhui.modbusmobile.application.AgeUnit.MINUTES -> stringResource(R.string.age_minutes, amount)
+        io.github.xingyingyuzhui.modbusmobile.application.AgeUnit.HOURS -> stringResource(R.string.age_hours, amount)
+        io.github.xingyingyuzhui.modbusmobile.application.AgeUnit.DAYS -> stringResource(R.string.age_days, amount)
+    }
+}

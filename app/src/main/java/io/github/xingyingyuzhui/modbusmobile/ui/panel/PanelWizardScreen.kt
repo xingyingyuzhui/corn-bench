@@ -612,10 +612,20 @@ internal fun PreviewCard(
                 WidgetCard(widget, if (live) snapshot else null, Modifier.fillMaxWidth(), borderColor = colors.accent, snapshots = if (live) snapshots else emptyMap())
             } else {
                 CardFrame(Modifier.fillMaxWidth(), "wiz-preview-placeholder", borderColor = colors.accent) {
-                    Text(
-                        wizard.form.name.ifBlank { stringResource(R.string.panel_wiz_name) },
-                        color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp,
-                    )
+                    // 稿面：名称行右侧是“实时预览”徽标。没填名称时写“未命名组件”而不是“名称”，
+                    // 否则这张卡看起来像一个输入框（redroid 上实测会被当成名称输入框去点）。
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            wizard.form.name.ifBlank { stringResource(R.string.panel_wiz_preview_unnamed) },
+                            color = if (wizard.form.name.isBlank()) colors.dim else colors.muted,
+                            fontSize = 12.5.sp, lineHeight = 17.sp, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).testTag("wiz-preview-name"),
+                        )
+                        io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge(
+                            stringResource(R.string.panel_wiz_preview_badge), colors.muted, Modifier.testTag("wiz-preview-badge"),
+                        )
+                    }
                     Text("—", color = colors.dim, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, fontFamily = JetBrainsMono, modifier = Modifier.padding(top = 4.dp))
                     Text(stringResource(R.string.panel_wiz_preview_invalid), color = colors.dim, fontSize = 10.5.sp, lineHeight = 14.sp)
                 }

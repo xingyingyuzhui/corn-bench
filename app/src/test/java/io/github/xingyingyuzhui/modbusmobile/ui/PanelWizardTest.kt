@@ -1,5 +1,6 @@
 package io.github.xingyingyuzhui.modbusmobile.ui
 
+import androidx.compose.ui.test.hasText
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -318,6 +319,14 @@ class PanelWizardTest {
         show(wizardState(2, WidgetForm.forKind(WidgetKinds.NUMBER).copy(name = "", address = "")))
         assertEquals(1, count("wiz-preview-placeholder"))
         compose.onNodeWithText("填完整后这里显示实时读数", useUnmergedTree = true).assertIsDisplayed()
+        // 占位卡要看得出是预览：带“预览”徽标，没名称时写“未命名组件”，不写像输入框标签的“名称”。
+        compose.onNodeWithTag("wiz-preview-badge", useUnmergedTree = true).assertTextContains("预览")
+        compose.onNodeWithTag("wiz-preview-name", useUnmergedTree = true).assertTextContains("未命名组件")
+        assertEquals(
+            "卡片里没有“名称”这个像标签的字",
+            0,
+            compose.onAllNodes(hasText("名称") and hasAnyAncestor(hasTestTag("wiz-preview-placeholder")), useUnmergedTree = true).fetchSemanticsNodes().size,
+        )
     }
 
     // ---- 校验与导航 ----
