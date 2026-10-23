@@ -5,6 +5,13 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Room 的 KSP 校验器会把 sqlite-jdbc 原生库解压到 java.io.tmpdir 再加载；云编译机的 /tmp 不允许映射可执行代码
+// （failed to map segment from shared object）。KSP 跑在 Gradle 进程里，这里把解压目录换到构建目录，本地构建不受影响。
+System.setProperty(
+    "org.sqlite.tmpdir",
+    layout.buildDirectory.dir("sqlite-native").get().asFile.apply { mkdirs() }.absolutePath,
+)
+
 android {
     namespace = "io.github.xingyingyuzhui.modbusmobile"
     compileSdk {
