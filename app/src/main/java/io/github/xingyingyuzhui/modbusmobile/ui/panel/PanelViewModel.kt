@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -121,15 +122,17 @@ class PanelViewModel(
     }
 
     init {
-        viewModelScope.launch {
-            val result = if (repository == null) ProjectLoad.Loaded(Project.empty()) else withContext(io) { repository.load() }
-            _state.value = when (result) {
-                is ProjectLoad.Loaded -> {
-                    runtime?.apply(result.project)
-                    PanelUiState.Ready(result.project, result.warnings, result.readOnly)
-                }
-                is ProjectLoad.Corrupt -> PanelUiState.Corrupt(result.reason, result.corruptCopy != null)
+        viewModelScope.launch { loadProject() }
+    }
+
+    private suspend fun loadProject() {
+        val result = if (repository == null) ProjectLoad.Loaded(Project.empty()) else withContext(io) { repository.load() }
+        _state.value = when (result) {
+            is ProjectLoad.Loaded -> {
+                runtime?.apply(result.project)
+                PanelUiState.Ready(result.project, result.warnings, result.readOnly)
             }
+            is ProjectLoad.Corrupt -> PanelUiState.Corrupt(result.reason, result.corruptCopy != null)
         }
     }
 
@@ -414,6 +417,20 @@ class PanelViewModel(
 
     override fun onCleared() {
         previewInstance?.close()
+    }
+
+    // 放在类末尾：用到的编辑 / 写入状态都已初始化。
+    init {
+        // 「我的 → 导入」替换了工程文件：丢掉编辑和待确认的写入，按新文件重读（导入前已提示）。
+        repository?.revision?.let { revision ->
+            viewModelScope.launch {
+                revision.drop(1).collect {
+                    writer?.dismiss()
+                    cancelEdit()
+                    loadProject()
+                }
+            }
+        }
     }
 
     private companion object {

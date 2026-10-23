@@ -426,15 +426,24 @@ private fun CheckRow(
     subtitle: String,
     selected: Set<ArchivePart>,
     onToggle: (ArchivePart) -> Unit,
+) = CheckRow("export-part-" + part.name, title, subtitle, part in selected) { onToggle(part) }
+
+/** 勾选行：导出和导入共用。 */
+@Composable
+internal fun CheckRow(
+    tag: String,
+    title: String,
+    subtitle: String,
+    on: Boolean,
+    onToggle: () -> Unit,
 ) {
     val colors = LocalModbusColors.current
-    val on = part in selected
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .testTag("export-part-" + part.name)
-            .toggleable(value = on, role = Role.Checkbox, onValueChange = { onToggle(part) })
+            .testTag(tag)
+            .toggleable(value = on, role = Role.Checkbox, onValueChange = { onToggle() })
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

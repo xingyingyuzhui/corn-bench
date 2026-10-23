@@ -15,6 +15,16 @@ interface SlaveSetupStore {
 
     /** 导出用的 JSON。文件实现优先返回磁盘上能读懂的原文。 */
     fun exportJson(): String = SlaveSetupJson.encode(load())
+
+    /**
+     * 用导入的配置替换已保存的从站配置。解析失败或来自更新版本返回 false，什么都不改。
+     * 只改保存的配置：运行中的从站不受影响，下次启动才按新配置装载。
+     */
+    fun importJson(text: String): Boolean {
+        val parsed = runCatching { SlaveSetupJson.decode(text) }.getOrNull() ?: return false
+        if (parsed.version > SlaveSetupJson.FORMAT_VERSION) return false
+        return save(parsed.setup)
+    }
 }
 
 class MemorySlaveSetupStore(initial: SlaveSetup = SlaveSetup.default()) : SlaveSetupStore {
@@ -91,18 +101,39 @@ class FileSlaveSetupStore(
     override fun save(setup: SlaveSetup): Boolean {
         if (readOnly) return false
         return try {
-            dir.mkdirs()
-            FileOutputStream(temp).use { out ->
-                out.write(SlaveSetupJson.encode(setup, preserved).toByteArray(Charsets.UTF_8))
-                out.flush()
-                out.fd.sync()
-            }
-            if (main.exists()) Files.copy(main.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            Files.move(temp.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            replaceMain(SlaveSetupJson.encode(setup, preserved))
             true
         } catch (e: Exception) {
             false
         }
+    }
+
+    /** 原文写入（读不懂的字段逐字保留），先另存 `slave.json.before-import-<时间>`，再重新读一遍刷新只读与保留状态。 */
+    @Synchronized
+    override fun importJson(text: String): Boolean {
+        val parsed = runCatching { SlaveSetupJson.decode(text) }.getOrNull() ?: return false
+        if (parsed.version > SlaveSetupJson.FORMAT_VERSION) return false
+        return try {
+            dir.mkdirs()
+            val current = main.takeIf { it.exists() } ?: backup.takeIf { it.exists() }
+            current?.let { Files.copy(it.toPath(), File(dir, "slave.json.before-import-${clock()}").toPath()) }
+            replaceMain(text)
+            load()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun replaceMain(text: String) {
+        dir.mkdirs()
+        FileOutputStream(temp).use { out ->
+            out.write(text.toByteArray(Charsets.UTF_8))
+            out.flush()
+            out.fd.sync()
+        }
+        if (main.exists()) Files.copy(main.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        Files.move(temp.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     }
 
     private fun readTextIfDecodable(file: File): String? {

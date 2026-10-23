@@ -115,8 +115,8 @@ class MinePageTest {
         compose.onNodeWithText("本地存储").assertIsDisplayed()
         compose.onNodeWithText("0 个").assertIsDisplayed()
         compose.onNodeWithTag("mine-recording").assertTextContains("未在记录", substring = true)
-        // 导入还没有实现，不画入口
-        compose.onNodeWithText("导入").assertDoesNotExist()
+        compose.onNodeWithTag("mine-import").assertIsDisplayed()
+        compose.onNodeWithText("导入配置").assertIsDisplayed()
     }
 
     @Test

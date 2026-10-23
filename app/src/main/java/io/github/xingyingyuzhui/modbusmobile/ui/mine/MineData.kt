@@ -70,6 +70,7 @@ internal fun MineDataSection(
     onExport: () -> Unit,
     onHistory: () -> Unit,
     onStorage: () -> Unit,
+    onImport: () -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     val colors = LocalModbusColors.current
@@ -81,6 +82,13 @@ internal fun MineDataSection(
                 Modifier.testTag("mine-export"),
                 icon = { StrokeIcon(colors.accentText, IconKind.EXPORT) },
                 onClick = onExport,
+            )
+            RowDivider()
+            SettingRow(
+                stringResource(R.string.mine_import),
+                Modifier.testTag("mine-import"),
+                icon = { StrokeIcon(colors.accentText, IconKind.IMPORT) },
+                onClick = onImport,
             )
             RowDivider()
             SettingRow(
@@ -367,6 +375,12 @@ private fun StrokeIcon(color: Color, kind: IconKind) {
                 drawLine(color, Offset(s * 0.72f, s * 0.38f), Offset(s * 0.5f, s * 0.16f), stroke, StrokeCap.Round)
                 drawLine(color, Offset(s * 0.2f, s * 0.84f), Offset(s * 0.8f, s * 0.84f), stroke, StrokeCap.Round)
             }
+            IconKind.IMPORT -> {
+                drawLine(color, Offset(s * 0.5f, s * 0.16f), Offset(s * 0.5f, s * 0.66f), stroke, StrokeCap.Round)
+                drawLine(color, Offset(s * 0.28f, s * 0.44f), Offset(s * 0.5f, s * 0.66f), stroke, StrokeCap.Round)
+                drawLine(color, Offset(s * 0.72f, s * 0.44f), Offset(s * 0.5f, s * 0.66f), stroke, StrokeCap.Round)
+                drawLine(color, Offset(s * 0.2f, s * 0.84f), Offset(s * 0.8f, s * 0.84f), stroke, StrokeCap.Round)
+            }
             IconKind.LINES -> {
                 listOf(0.28f, 0.5f, 0.72f).forEach { y ->
                     drawLine(color, Offset(s * 0.18f, s * y), Offset(s * 0.82f, s * y), stroke, StrokeCap.Round)
@@ -376,4 +390,4 @@ private fun StrokeIcon(color: Color, kind: IconKind) {
     }
 }
 
-private enum class IconKind { EXPORT, LINES }
+private enum class IconKind { EXPORT, IMPORT, LINES }

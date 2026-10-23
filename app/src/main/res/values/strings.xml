@@ -721,6 +721,23 @@
     <string name="export_privacy">导出文件含报文，可能有现场数据。文件留在本机，除非你用系统分享发出去。</string>
     <string name="export_saved">已保存</string>
     <string name="export_failed">导出失败：%1$s</string>
+    <string name="mine_import">导入配置</string>
+    <string name="import_title">导入配置</string>
+    <string name="import_project">工程配置</string>
+    <string name="import_project_sub">「%1$s」· %2$d 个面板 · %3$d 个组件 · %4$d 个点位</string>
+    <string name="import_slave">从站配置</string>
+    <string name="import_slave_sub">Unit %1$s · %2$d 个地址段 · %3$d 条模拟规则</string>
+    <string name="import_skipped">不导入：%1$s（派生数据）</string>
+    <string name="import_replace_note">导入会替换当前配置，原文件另存为 *.before-import-时间，可找回。导入后不会自动连接、写入设备或启动从站；面板未保存的编辑会被丢弃。</string>
+    <string name="import_confirm">导入</string>
+    <string name="import_cancel">取消</string>
+    <string name="import_close">关闭</string>
+    <string name="import_nothing_changed">当前配置没有任何改动</string>
+    <string name="import_open_failed">无法打开所选文件</string>
+    <string name="import_blocked">请先断开连接（停止主站或从站）再导入</string>
+    <string name="import_done">已导入</string>
+    <string name="import_partial">工程配置已导入，%1$s</string>
+    <string name="import_failed">导入失败：%1$s</string>
 
     <!-- 曲线组件（P7） -->
     <string name="curve_window_seconds">%1$d 秒</string>

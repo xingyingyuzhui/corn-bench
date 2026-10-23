@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -69,6 +70,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
+import kotlinx.coroutines.launch
 
 /** 「我的」里的页面。HOME 是入口；SETTINGS 是把所有分组按顺序排在一页的完整设置页（稿面 b3-2）。 */
 enum class MinePage { HOME, SETTINGS, APPEARANCE, DISPLAY, SECURITY, COMM, ABOUT, HISTORY, STORAGE }
@@ -87,6 +89,8 @@ fun MineScreen() {
     val recording by model.recording.collectAsStateWithLifecycle()
     val deviceExport = rememberDeviceExport()
     val export = LocalMineExport.current ?: deviceExport
+    val importer = rememberDeviceImport()
+    val importScope = rememberCoroutineScope()
     val landscape = LocalShellMode.current == ShellMode.LANDSCAPE
     var pageName by rememberSaveable { mutableStateOf(MinePage.HOME.name) }
     val page = MinePage.entries.firstOrNull { it.name == pageName } ?: MinePage.HOME
@@ -104,13 +108,21 @@ fun MineScreen() {
     Box(Modifier.fillMaxSize()) {
         if (landscape) {
             val detail = page.takeIf { it in GroupPages || it == MinePage.HISTORY || it == MinePage.STORAGE } ?: MinePage.APPEARANCE
-            MineLandscape(model, settings, overview, recording, detail, go, { showExport = true }, onDelete)
+            MineLandscape(model, settings, overview, recording, detail, go, { showExport = true }, importer::pick, onDelete)
         } else {
-            BackHandler(enabled = page != MinePage.HOME && !showExport && pendingDelete == null) { pageName = MinePage.HOME.name }
-            MinePortrait(model, settings, overview, recording, page, go, { showExport = true }, onDelete)
+            BackHandler(enabled = page != MinePage.HOME && !showExport && importer.read == null && pendingDelete == null) { pageName = MinePage.HOME.name }
+            MinePortrait(model, settings, overview, recording, page, go, { showExport = true }, importer::pick, onDelete)
         }
         if (showExport) {
             ExportSheet(pointCount, export::save, export::share) { showExport = false }
+        }
+        importer.read?.let { read ->
+            ImportSheet(
+                read,
+                importer.busy,
+                onImport = { preview, parts -> importScope.launch { importer.apply(preview, parts) } },
+                onDismiss = importer::dismiss,
+            )
         }
         val deleting = pendingDelete
         if (deleting != null) {
@@ -136,6 +148,7 @@ private fun MinePortrait(
     page: MinePage,
     go: (MinePage) -> Unit,
     onExport: () -> Unit,
+    onImport: () -> Unit,
     onDelete: (HistorySession) -> Unit,
 ) {
     val spacing = LocalSpacing.current
@@ -151,7 +164,7 @@ private fun MinePortrait(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
                 verticalArrangement = Arrangement.spacedBy(spacing.s),
             ) {
-                MineDataSection(settings, overview, recording, null, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) })
+                MineDataSection(settings, overview, recording, null, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) }, onImport)
                 SectionLabel(stringResource(R.string.mine_section_settings))
                 GroupList(settings, selected = null, onSelect = go)
             }
@@ -188,6 +201,7 @@ private fun MineLandscape(
     page: MinePage,
     go: (MinePage) -> Unit,
     onExport: () -> Unit,
+    onImport: () -> Unit,
     onDelete: (HistorySession) -> Unit,
 ) {
     val spacing = LocalSpacing.current
@@ -199,7 +213,7 @@ private fun MineLandscape(
                 Modifier.weight(0.4f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
                 verticalArrangement = Arrangement.spacedBy(spacing.s),
             ) {
-                MineDataSection(settings, overview, recording, page, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) })
+                MineDataSection(settings, overview, recording, page, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) }, onImport)
                 GroupList(settings, selected = page, onSelect = go)
             }
             Column(

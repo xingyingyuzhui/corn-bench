@@ -4,6 +4,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 sealed interface ProjectLoad {
     /** [readOnly]：文件来自更新版本的 App，这个版本只读、不覆盖它。 */
@@ -41,6 +44,11 @@ class ProjectRepository(
     @Volatile
     private var readOnly = false
 
+    private val _revision = MutableStateFlow(0)
+
+    /** 文件被导入替换时加一；已经读过工程的页面据此重新读取。普通保存不变（页面自己就是来源）。 */
+    val revision: StateFlow<Int> = _revision.asStateFlow()
+
     @Synchronized
     fun load(): ProjectLoad {
         readOnly = false
@@ -65,19 +73,48 @@ class ProjectRepository(
     fun save(project: Project): ProjectSave {
         if (readOnly) return ProjectSave.ReadOnly
         return try {
-            dir.mkdirs()
-            val text = ProjectJson.encode(project)
-            FileOutputStream(temp).use { out ->
-                out.write(text.toByteArray(Charsets.UTF_8))
-                out.flush()
-                out.fd.sync()
-            }
-            if (main.exists()) Files.copy(main.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            Files.move(temp.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            replaceMain(ProjectJson.encode(project))
             ProjectSave.Saved
         } catch (e: Exception) {
             ProjectSave.Failed(e.message ?: e.javaClass.simpleName)
         }
+    }
+
+    /**
+     * 用导入的原文替换工程文件（原文写入，读不懂的组件也逐字保留）。先另存一份
+     * `<id>.json.before-import-<时间>`：`.bak` 下次保存就会被覆盖，这份不会，导错了能找回。
+     * 更新版本写的文件不导入（[ProjectSave.ReadOnly]）；解析失败什么都不改。
+     */
+    @Synchronized
+    fun importJson(text: String): ProjectSave {
+        val parsed = try {
+            ProjectJson.decode(text)
+        } catch (e: Exception) {
+            return ProjectSave.Failed(e.message ?: "格式错误")
+        }
+        if (parsed.version > Project.FORMAT_VERSION) return ProjectSave.ReadOnly
+        return try {
+            dir.mkdirs()
+            val current = main.takeIf { it.exists() } ?: backup.takeIf { it.exists() }
+            current?.let { Files.copy(it.toPath(), File(dir, "$projectId.json.before-import-${clock()}").toPath()) }
+            replaceMain(text)
+            readOnly = false
+            _revision.value = _revision.value + 1
+            ProjectSave.Saved
+        } catch (e: Exception) {
+            ProjectSave.Failed(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    private fun replaceMain(text: String) {
+        dir.mkdirs()
+        FileOutputStream(temp).use { out ->
+            out.write(text.toByteArray(Charsets.UTF_8))
+            out.flush()
+            out.fd.sync()
+        }
+        if (main.exists()) Files.copy(main.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        Files.move(temp.toPath(), main.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     }
 
     private sealed interface Attempt {
