@@ -96,6 +96,12 @@
 - 打 annotated tag `v0.1.0`（指向 a61ffcf）并推送；GitHub Release（非 draft）：https://github.com/xingyingyuzhui/modbus_android/releases/tag/v0.1.0
 - 附件：`Corn-Modbus-0.1.0.apk`（约 11.0 MiB，sha256 ac15b1e2ee60b46160d46a067ab17529ccbe4917a1c348e84ee47305700205f8）、`Corn-Modbus-0.1.0-debug.apk`（约 16.3 MiB，sha256 eec73ebdedcaa66ad7057b1dddb5c3888fdd3a894f78efa4675945ddd0d90be9）。APK 未入库（`.gitignore`）。
 
+## 2026-10-24 · README 界面预览
+
+- 从已入库的 Roborazzi 浅色竖屏基线复制 6 张到 `docs/readme/`（连接、工作台、面板、曲线、日志、我的）。字节与 `ShellScreenshotTest.*_light_portrait.png` 相同。未新录基线，未使用实机或模拟器截图。审阅目录里的组件图仍是旧标题「Modbus」，没有放进 README。
+- README 增加界面预览、功能一览，以及 Release v0.1.0 两个 APK 的下载说明。PolyForm Noncommercial 声明和作者署名保持原样。未改应用代码、包名、版本和许可证正文。
+- 文档与图片副本，不跑本地构建。提交 `4582fff` 带 `[skip ci]`。PR #23：https://github.com/xingyingyuzhui/modbus_android/pull/23 ，不合并 main。
+
 ## 2026-10-24 · 状态栏跟随 App 主题 + 仓库改名 corn-modbus（分支 status-bar-follow-theme）
 
 - 老板反馈：系统浅色、App 手动深色时，状态栏（时间 / 电量）看不见。原因：`enableEdgeToEdge()` 默认只看系统深浅色。新增 `SystemBarsFollowTheme()` 按 App 深浅重新设置状态栏 / 导航栏图标；`SystemBarsThemeTest` 3 例（去掉修复时 2 例失败）。
