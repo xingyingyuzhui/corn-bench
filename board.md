@@ -144,3 +144,12 @@
 - 数值第 2 步：换算摘要补上小数位（`× 0.1 + 0 · 1 位小数`）；16 位类型不再画字序分段，只留一句「字序只在 32 / 64 位类型时出现」。
 - 测试：`PanelCurveWizardTest` 轴标签断言换成新 tag 并新增「行内不出现 px」、曲线预览徽标；`PanelWizardTest` 断言换算摘要带小数位、无字序控件 + 提示。本地 `:app:testDebugUnitTest` 全绿。
 - 渲染图更新到 `docs/review/ui-pr-v3-3/`（`wizard_*` / `panel_wizard_*`，33 张）。
+
+## 2026-10-25 · 合并面板 UI v3（#25–#28）+ 发布 v0.1.2
+
+- 老板确认整体 review 通过后合并发版。普通 merge：#25 设计稿 → #26 主页 → #27 编辑 → #28 向导，合并提交均带 [skip ci]。
+- versionName 0.1.2 / versionCode 3；README 下载链接改为 v0.1.2。
+- 已知未挡发版：向导未做真机/redroid；开关/按钮/寄存器表向导未逐张对稿。
+- 本地 `./gradlew test :app:lintDebug :app:assembleRelease :app:assembleDebug` 通过（BUILD SUCCESSFUL）；offline APK 校验通过。
+- annotated tag `v0.1.2` → 合并后的发版提交。GitHub Release（非 draft）：https://github.com/xingyingyuzhui/corn-modbus/releases/tag/v0.1.2
+- 附件：`Corn-Modbus-0.1.2.apk`（release，zipalign + 本机 Android Debug 密钥签名，与 0.1.0/0.1.1 同钥可覆盖升级；sha256 f7689dfefbf83ebf2dcb2161edecb33460b475607a2a04123c231567cb24c99d）、`Corn-Modbus-0.1.2-debug.apk`（sha256 74a2f6629c9759186ccd72dbc68489ec6dc9311d1861423583c6bc202b9498ee）。APK 不入库。
