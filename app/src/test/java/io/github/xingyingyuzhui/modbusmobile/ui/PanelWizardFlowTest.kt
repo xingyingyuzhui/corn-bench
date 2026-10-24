@@ -42,6 +42,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertContentDescriptionContains
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PointPreview
 import androidx.compose.ui.test.onFirst
 import org.junit.After
@@ -135,25 +136,44 @@ class PanelWizardFlowTest {
         waitTag("wiz-kind-number")
     }
 
+    /** 第 2 步「数据」：地址 + 换算（v3 把这些折叠成一行，点开再填）。 */
+    private fun fillData(address: String = "100", scale: String = "0.1") {
+        waitTag("wiz-address")
+        type("wiz-address", address)
+        // 状态文本 / 灯这类不换算的组件没有“换算”块
+        if (count("wiz-convert-toggle") > 0) {
+            tap("wiz-convert-toggle")
+            type("wiz-scale", scale)
+        }
+    }
+
+    /** 数值向导：第 2 步读 100 / ×0.1，第 3 步起名、设 1 位小数。 */
     private fun fillTemperature() {
         tap("wiz-kind-number")
-        waitTag("wiz-name")
+        fillData()
+        tap("wiz-next")
+        waitTag("wiz-look-preview")
         type("wiz-name", "供水温度")
-        type("wiz-address", "100")
-        type("wiz-scale", "0.1")
         type("wiz-decimals", "1")
     }
 
-    @Test fun nextWithAMissingNameScrollsTheNameFieldIntoView() {
-        // 名称在表单下方、首屏之外；按下一步没通过时要滚过去，不能看起来“没反应”。
+    // 小屏：第 3 步的名称框在首屏之外，才能看出“没通过时滚过去”
+    @Test @Config(sdk = [33], qualifiers = "w360dp-h400dp")
+    fun nextWithAMissingNameScrollsTheNameFieldIntoView() {
+        // 名称在第 3 步、首屏之外；按“添加到面板”没通过时要滚过去，不能看起来“没反应”。
         show(repoWith(emptyProject()))
         openWizardFromEmpty()
         tap("wiz-kind-number")
-        waitTag("wiz-name")
+        fillData()
+        tap("wiz-next")
+        waitTag("wiz-look-preview")
+        step().assertContentDescriptionContains("第 3 步", substring = true)
+        // 先滚到页面底部：名称框在首屏之上，看不到
+        compose.onNodeWithTag("wiz-size-note", useUnmergedTree = true).performScrollTo()
         compose.onNodeWithTag("wiz-name", useUnmergedTree = true).assertIsNotDisplayed()
         compose.onNodeWithTag("wiz-next", useUnmergedTree = true).performClick()
         compose.waitForIdle()
-        step().assertTextContains("2 / 3", substring = true)
+        step().assertContentDescriptionContains("第 3 步", substring = true)
         compose.onNodeWithTag("wiz-name", useUnmergedTree = true).assertIsDisplayed()
     }
 
@@ -161,14 +181,17 @@ class PanelWizardFlowTest {
         val repo = repoWith(emptyProject())
         show(repo)
         openWizardFromEmpty()
-        step().assertTextContains("1 / 3", substring = true)
+        step().assertContentDescriptionContains("第 1 步", substring = true)
         assertEquals("向导期间草稿还没写盘", 0, reloaded().panels[0].widgets.size)
-        fillTemperature()
-        // 第 2 步底部有实时预览：轮询读到 234 → 23.4
+        tap("wiz-kind-number")
+        fillData()
+        // 第 2 步顶部的一行预览：轮询读到 234 → 23.4
         waitText("23.4")
         tap("wiz-next")
         waitTag("wiz-look-preview")
-        step().assertTextContains("3 / 3", substring = true)
+        step().assertContentDescriptionContains("第 3 步", substring = true)
+        type("wiz-name", "供水温度")
+        type("wiz-decimals", "1")
         tap("wiz-next")
         waitTag("edit-grid")
         compose.onAllNodes(tagStarting("edit-card-"), useUnmergedTree = true).assertCountEquals(1)
@@ -194,14 +217,13 @@ class PanelWizardFlowTest {
         show(repo)
         openWizardFromEmpty()
         tap("wiz-kind-status_text")
-        waitTag("wiz-name")
+        fillData(address = "120", scale = "1")
+        tap("wiz-next")
+        waitTag("wiz-look-preview")
         type("wiz-name", "运行模式")
-        type("wiz-address", "120")
         tap("wiz-state-add")
         type("wiz-state-value-0", "2")
         type("wiz-state-label-0", "制冷")
-        tap("wiz-next")
-        waitTag("wiz-look-preview")
         tap("wiz-next")
         waitTag("edit-grid")
         tap("edit-done")
@@ -218,9 +240,10 @@ class PanelWizardFlowTest {
         show(repo)
         openWizardFromEmpty()
         tap("wiz-kind-number")
-        waitTag("wiz-name")
+        waitTag("wiz-address")
+        type("wiz-address", "")
         tap("wiz-next")
-        step().assertTextContains("2 / 3", substring = true)
+        step().assertContentDescriptionContains("第 2 步", substring = true)
         compose.onAllNodesWithText("必填", useUnmergedTree = true).onFirst().assertExists()
     }
 
@@ -230,10 +253,12 @@ class PanelWizardFlowTest {
         show(repo)
         openWizardFromEmpty()
         fillTemperature()
+        tap("wiz-prev")   // 3 → 2
+        waitTag("wiz-address")
         tap("wiz-prev")   // 2 → 1
         waitTag("wiz-kind-number")
         compose.waitForIdle()
-        step().assertTextContains("1 / 3", substring = true)
+        step().assertContentDescriptionContains("第 1 步", substring = true)
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }   // 第 1 步按返回：退出向导，回到编辑页
         waitTag("edit-empty")
         compose.onAllNodes(tagStarting("edit-card-"), useUnmergedTree = true).assertCountEquals(0)
@@ -247,11 +272,11 @@ class PanelWizardFlowTest {
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
         tap("edit-card-w-temp"); tap("edit-configure")
-        waitTag("wiz-name")
-        step().assertTextContains("2 / 3", substring = true)
-        type("wiz-name", "回水温度")
+        waitTag("wiz-address")
+        step().assertContentDescriptionContains("第 2 步", substring = true)
         tap("wiz-next")
         waitTag("wiz-look-preview")
+        type("wiz-name", "回水温度")
         tap("wiz-next")           // 保存修改
         waitTag("edit-grid")
         tap("edit-done")
@@ -268,8 +293,8 @@ class PanelWizardFlowTest {
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
         tap("edit-card-w-temp"); tap("edit-configure")
-        waitTag("wiz-name")
-        type("wiz-name", "改了名")
+        waitTag("wiz-address")
+        type("wiz-address", "101")
         tap("wiz-prev")
         waitTag("wiz-discard-confirm")
         tap("wiz-discard-confirm")
@@ -301,7 +326,9 @@ class PanelWizardFlowTest {
         show(repo)
         openWizardFromEmpty()
         assertEquals("向导是全屏子页，不显示底部导航", 0, count("dock"))
-        fillTemperature()
+        tap("wiz-kind-number")
+        fillData()
+        // 第 2 步顶部的一行预览写原因，不画假数值
         waitTag("wiz-preview-none")
         assertTrue("未连接时预览不发任何请求", session.requests.isEmpty())
     }

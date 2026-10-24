@@ -119,7 +119,7 @@ class PanelRegisterTableWizardTest {
 
     @Test fun configHasRowsHintAndAWritableSwitchThatDefaultsOff() {
         show(wizardState(2, table()))
-        compose.onNodeWithText("寄存器表组件", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("寄存器表 · 数据", useUnmergedTree = true).assertIsDisplayed()
         assertEquals(1, count("wiz-table-rows"))
         compose.onNodeWithTag("wiz-table-hint", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         assertEquals("只读，默认关", false, form().tableWritable)

@@ -121,11 +121,13 @@ class PanelWriteWizardTest {
         show(wizardState(1))
         for (kind in listOf("switch", "button", "register_table")) {
             val t = touch("wiz-kind-$kind")
-            assertTrue("$kind 卡高 ${t.height / dp}", t.height >= 117.5f * dp)
+            assertTrue("$kind 卡高 ${t.height / dp}", t.height >= 61.5f * dp)
         }
         assertEquals("没有“后续版本”的占位说明", 0, count("wiz-more-later"))
-        compose.onNodeWithText("切换线圈 / 寄存器位 · 会写设备", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("一键写入预设值 · 会写设备", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        // v3：开关 / 按钮在“控制设备 · 会写设备”分组里
+        compose.onNodeWithText("线圈 / 寄存器位", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("一键写预设值", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("wiz-group-control-tag", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("wiz-kind-switch", useUnmergedTree = true).performScrollTo().performClick()
         assertEquals(listOf("kind:switch"), calls)
     }
@@ -134,7 +136,7 @@ class PanelWriteWizardTest {
 
     @Test fun switchConfigOnlyOffersWritableAreasAndBitForRegisters() {
         show(wizardState(2, WidgetForm.forKind(WidgetKinds.SWITCH).copy(name = "压缩机")))
-        compose.onNodeWithText("开关组件", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("开关 · 数据", useUnmergedTree = true).assertIsDisplayed()
         assertEquals("线圈 / 保持各一个", listOf(1, 1), listOf(countText("线圈"), countText("保持")))
         assertEquals("输入类区域只读，不给选", 0, countText("输入") + countText("离散"))
         compose.onNodeWithTag("wiz-write-note", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
@@ -143,8 +145,8 @@ class PanelWriteWizardTest {
         assertEquals(RegisterArea.HOLDING_REGISTER, form().area)
         assertEquals("寄存器里只能是某一位", DataType.BIT, form().type)
         compose.onNodeWithTag("wiz-bit-note", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
-        assertEquals("轮询周期仍可设（开关要读状态）", 1, count("wiz-poll"))
-        assertEquals("亮 / 灭文字", 1, count("wiz-on-label"))
+        assertEquals("轮询周期仍可设（开关要读状态）", 1, count("wiz-poll-block"))
+        assertEquals("亮 / 灭文字在第 3 步", 0, count("wiz-on-label"))
     }
 
     @Test fun switchRejectsUnitZero() {
@@ -155,26 +157,32 @@ class PanelWriteWizardTest {
 
     // ---- 按钮 ----
 
-    @Test fun buttonConfigHasCaptionValueAndNoPollSection() {
+    @Test fun buttonDataStepHasValueAndNoPollSectionAndCaptionIsOnTheDisplayStep() {
         show(wizardState(2, WidgetForm.forKind(WidgetKinds.BUTTON).copy(name = "启动压缩机")))
-        compose.onNodeWithText("按钮组件", useUnmergedTree = true).assertIsDisplayed()
-        assertEquals(1, count("wiz-button-label"))
+        compose.onNodeWithText("按钮 · 数据", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals("按钮文字在第 3 步", 0, count("wiz-button-label"))
         assertEquals("线圈按钮的预设值是 OFF / ON 分段", 1, count("wiz-write-coil"))
-        assertEquals("按钮不读设备，没有轮询周期", 0, count("wiz-poll"))
+        assertEquals("按钮不读设备，没有轮询周期", 0, count("wiz-poll-block"))
+        assertEquals("按钮不读设备，没有实时预览", 0, count("wiz-preview-bar"))
         assertEquals(0, count("wiz-preview-none"))
-        type("wiz-button-label", "启动")
-        assertEquals("启动", form().buttonLabel)
         compose.onNodeWithText("OFF", useUnmergedTree = true).performScrollTo().performClick()
         assertEquals("0", form().writeValue)
         compose.onNodeWithText("ON", useUnmergedTree = true).performScrollTo().performClick()
         assertEquals("1", form().writeValue)
+        compose.activityRule.scenario.recreate()
+        show(wizardState(3, WidgetForm.forKind(WidgetKinds.BUTTON).copy(name = "启动压缩机")))
+        type("wiz-button-label", "启动")
+        assertEquals("启动", form().buttonLabel)
     }
 
     @Test fun registerButtonTakesANumberAndValidatesItAgainstTheType() {
         show(wizardState(2, WidgetForm.forKind(WidgetKinds.BUTTON).withArea(RegisterArea.HOLDING_REGISTER).copy(name = "设定", writeValue = "500")))
         assertEquals(1, count("wiz-write-value"))
         assertEquals(0, count("wiz-write-coil"))
-        assertEquals("按钮只能写 5 种类型（64 位 / 位 / ASCII 灰掉）", 5, listOf("U16", "S16", "U32", "S32", "F32").count { count("wiz-type-$it") == 1 })
+        // 按钮只能写 5 种类型：外面 4 种常用，S32 在“更多”里；64 位 / 位 / ASCII 根本不画
+        compose.onNodeWithTag("wiz-type-more", useUnmergedTree = true).performScrollTo().performClick()
+        assertEquals(5, listOf("U16", "S16", "U32", "S32", "F32").count { count("wiz-type-$it") == 1 })
+        assertEquals(0, listOf("U64", "S64", "F64", "BIT", "ASCII").sumOf { count("wiz-type-$it") })
         type("wiz-write-value", "70000")
         assertEquals("70000", form().writeValue)
         compose.onNodeWithText("超出该类型的范围", substring = true, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
@@ -189,7 +197,7 @@ class PanelWriteWizardTest {
     }
 
     @Test fun previewButtonIsNotInteractive() {
-        show(wizardState(2, WidgetForm.forKind(WidgetKinds.BUTTON).copy(name = "启动压缩机", buttonLabel = "启动")))
+        show(wizardState(3, WidgetForm.forKind(WidgetKinds.BUTTON).copy(name = "启动压缩机", buttonLabel = "启动")))
         // 预览卡里只画了按钮的样子，没有可点击的按钮
         assertEquals(1, count("panel-button-visual-w-new"))
         compose.onNodeWithTag("panel-button-visual-w-new", useUnmergedTree = true).performClick()

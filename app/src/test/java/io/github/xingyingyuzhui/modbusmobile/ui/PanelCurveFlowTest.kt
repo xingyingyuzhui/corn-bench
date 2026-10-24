@@ -41,6 +41,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertContentDescriptionContains
 import io.github.xingyingyuzhui.modbusmobile.application.panel.PointPreview
 import androidx.compose.ui.test.onFirst
 import io.github.xingyingyuzhui.modbusmobile.application.panel.Conversion
@@ -164,7 +165,7 @@ class PanelCurveFlowTest {
         val before = File(dir, "default.json").readText()
         show(repo)
         openCurveWizardFromEmpty()
-        step().assertTextContains("2 / 3", substring = true)
+        step().assertContentDescriptionContains("第 2 步", substring = true)
         addSeries("供水温度", "100", "0.1", "1")
         addSeries("供水压力", "101", "0.01", "2")
         // 向导里的预览曲线：两个系列都读到值
@@ -175,7 +176,7 @@ class PanelCurveFlowTest {
         assertEquals("向导期间不写盘", before, File(dir, "default.json").readText())
         tap("wiz-next")
         waitTag("wiz-look-preview")
-        step().assertTextContains("3 / 3", substring = true)
+        step().assertContentDescriptionContains("第 3 步", substring = true)
         tap("wiz-next")
         waitTag("edit-grid")
         compose.onAllNodes(tagStarting("edit-card-"), useUnmergedTree = true).assertCountEquals(1)
@@ -210,7 +211,7 @@ class PanelCurveFlowTest {
         show(repo)
         openCurveWizardFromEmpty()
         tap("wiz-next")
-        step().assertTextContains("2 / 3", substring = true)
+        step().assertContentDescriptionContains("第 2 步", substring = true)
         compose.onAllNodesWithText("至少", substring = true, useUnmergedTree = true).onFirst().assertExists()
         assertEquals(1, count("wiz-series-empty"))
     }
@@ -230,7 +231,7 @@ class PanelCurveFlowTest {
         assertEquals("编辑期间不画实时图", 0, count("curve-chart-w-c"))
         tap("edit-card-w-c"); tap("edit-configure")
         waitTag("wiz-series-row-1")
-        step().assertTextContains("2 / 3", substring = true)
+        step().assertContentDescriptionContains("第 2 步", substring = true)
         compose.onNodeWithTag("wiz-series-sub-1", useUnmergedTree = true).assertTextContains("HR101", substring = true)
         tap("wiz-series-row-1")
         waitTag("wiz-series-delete")

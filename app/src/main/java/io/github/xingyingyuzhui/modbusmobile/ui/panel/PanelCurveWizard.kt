@@ -85,25 +85,6 @@ private val WindowChoices = listOf(60, 300, 600, 3600)
 
 // ---- 选类型卡里的小图示（稿面 b2-3：橙 + 蓝两条折线）----
 
-@Composable
-internal fun CurveIllustration() {
-    val colors = LocalModbusColors.current
-    val amber = seriesColor(0, colors.isDark)
-    val blue = seriesColor(1, colors.isDark)
-    Canvas(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 14.dp)) {
-        fun line(color: Color, ys: List<Float>) {
-            val p = Path()
-            ys.forEachIndexed { i, y ->
-                val x = size.width * i / (ys.size - 1)
-                if (i == 0) p.moveTo(x, size.height * y) else p.lineTo(x, size.height * y)
-            }
-            drawPath(p, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-        }
-        line(blue, listOf(0.55f, 0.5f, 0.6f, 0.45f, 0.5f, 0.35f))
-        line(amber, listOf(0.85f, 0.7f, 0.75f, 0.5f, 0.55f, 0.25f))
-    }
-}
-
 // ---- 2/3 曲线配置（b2-5）----
 
 @Composable
@@ -117,14 +98,20 @@ internal fun CurveConfigStep(
     onOpenSeries: (Int) -> Unit,
 ) {
     val curve = wizard.curve ?: return
+    // v3 3-4：第 2 步只管“画哪些点、多长时间”：预览、系列、时间窗口、采样与内存（折叠）；坐标轴 / 图例 / 缺测 / 游标在第 3 步
     CurvePreviewCard(curve, history, live)
     SeriesList(wizard, result, onAddSeries, onOpenSeries)
-    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_time))
-    ModbusCard(Modifier.fillMaxWidth()) { TimeSection(wizard, result, onCurve) }
-    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_axes))
-    ModbusCard(Modifier.fillMaxWidth()) { AxesSection(wizard, result, onCurve) }
-    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_display))
-    ModbusCard(Modifier.fillMaxWidth()) { DisplaySection(curve, onCurve) }
+    ModbusCard(Modifier.fillMaxWidth()) { WindowSection(wizard, result, onCurve) }
+    val memoryError = wizard.showErrors && (result.errors[CurveField.RETENTION] != null || result.errors[CurveField.MAX_POINTS] != null)
+    CollapsibleBlock(
+        stringResource(R.string.panel_wiz_curve_sampling_memory),
+        stringResource(
+            R.string.panel_wiz_curve_sampling_summary,
+            stringResource(if (curve.sampling == SamplingMode.EVERY_SAMPLE) R.string.panel_wiz_curve_sampling_every else R.string.panel_wiz_curve_sampling_snapshot),
+            curve.retentionHours.ifBlank { "—" },
+        ),
+        tag = "wiz-sampling-block", forceOpen = memoryError,
+    ) { SamplingSection(wizard, result, onCurve) }
 }
 
 /** 预览：真实的曲线卡（强调色描边）；还没有能成立的系列时画只有标题的占位。 */
@@ -171,18 +158,20 @@ private fun SeriesList(wizard: WizardState, result: CurveResult, onAdd: () -> Un
             stringResource(R.string.panel_wiz_curve_series, curve.series.size, CurveConfig.MAX_SERIES),
             color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f).testTag("wiz-series-title"),
         )
-        if (curve.series.size < CurveConfig.MAX_SERIES) {
-            val add = stringResource(R.string.panel_wiz_curve_add_series)
-            Box(
-                Modifier
-                    .minimumInteractiveComponentSize()
-                    .semantics { contentDescription = add; role = Role.Button }
-                    .clickable(onClick = onAdd)
-                    .padding(horizontal = 6.dp)
-                    .testTag("wiz-series-add"),
-                contentAlignment = Alignment.Center,
-            ) { Text("＋ $add", color = colors.accentText, fontSize = 13.5.sp, fontWeight = FontWeight.Medium) }
-        }
+    }
+    val canAdd = curve.series.size < CurveConfig.MAX_SERIES
+    val add = stringResource(R.string.panel_wiz_curve_add_series)
+    val addRow: @Composable () -> Unit = {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .semantics { contentDescription = add; role = Role.Button }
+                .clickable(onClick = onAdd)
+                .padding(horizontal = 12.dp)
+                .testTag("wiz-series-add"),
+            contentAlignment = Alignment.CenterStart,
+        ) { Text("＋ $add", color = colors.accentText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
     }
     if (curve.series.isEmpty()) {
         val need = wizard.showErrors && result.errors[CurveField.SERIES] != null
@@ -191,6 +180,7 @@ private fun SeriesList(wizard: WizardState, result: CurveResult, onAdd: () -> Un
             color = if (need) colors.error else colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
             modifier = Modifier.testTag("wiz-series-empty"),
         )
+        if (canAdd) SettingsCard { addRow() }
         return
     }
     SettingsCard {
@@ -198,6 +188,7 @@ private fun SeriesList(wizard: WizardState, result: CurveResult, onAdd: () -> Un
             if (index > 0) RowDivider()
             SeriesRow(index, s, wizard.showErrors && index in result.badSeries) { onOpen(index) }
         }
+        if (canAdd) { RowDivider(); addRow() }
     }
 }
 
@@ -255,7 +246,7 @@ internal fun seriesSubline(s: SeriesForm): String {
 }
 
 @Composable
-private fun TimeSection(wizard: WizardState, result: CurveResult, onCurve: (CurveForm) -> Unit) {
+private fun WindowSection(wizard: WizardState, result: CurveResult, onCurve: (CurveForm) -> Unit) {
     val colors = LocalModbusColors.current
     val curve = wizard.curve ?: return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -283,6 +274,14 @@ private fun TimeSection(wizard: WizardState, result: CurveResult, onCurve: (Curv
                 sub = stringResource(R.string.panel_wiz_curve_minutes_unit), error = curveError(wizard, result, CurveField.WINDOW),
             ) { onCurve(curve.copy(customMinutes = it.filter(Char::isDigit).take(4))) }
         }
+    }
+}
+
+@Composable
+private fun SamplingSection(wizard: WizardState, result: CurveResult, onCurve: (CurveForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    val curve = wizard.curve ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.panel_wiz_curve_sampling), color = colors.muted, fontSize = 12.sp)
         SegmentedTextControl(
             SamplingMode.entries, curve.sampling, { onCurve(curve.copy(sampling = it)) }, Modifier.testTag("wiz-sampling"), small = true,
@@ -658,6 +657,10 @@ internal fun CurveLookStep(
             SegmentedTextControl(CurveSizes, curve.spanRows, { onCurve(curve.copy(spanRows = it)) }, Modifier.testTag("wiz-size"), small = true) { "2 × $it" }
         }
     }
+    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_axes))
+    ModbusCard(Modifier.fillMaxWidth()) { AxesSection(wizard, result, onCurve) }
+    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_display))
+    ModbusCard(Modifier.fillMaxWidth()) { DisplaySection(curve, onCurve) }
     Text(
         stringResource(R.string.panel_wiz_curve_size_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
         modifier = Modifier.testTag("wiz-size-note"),
