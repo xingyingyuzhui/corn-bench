@@ -121,11 +121,11 @@
     <string name="traffic_ambiguous">方向不明</string>
     <string name="traffic_dropped">丢弃</string>
 
-    <string name="panel_empty_title">还没有组件</string>
-    <string name="panel_empty_body">面板用来显示你配置的寄存器点位，比如温度、状态灯、进度。这里不放假数据，避免和真实读数混淆。</string>
+    <string name="panel_empty_title">这个面板还是空的</string>
+    <string name="panel_empty_body">把常看的寄存器做成组件：数值、指示灯、曲线、开关……面板只显示从设备读到的真实数值。</string>
     <string name="panel_button_default">写入</string>
-    <string name="panel_button_target">写 %1$s = %2$s · U%3$d</string>
-    <string name="panel_button_target_broadcast">写 %1$s = %2$s · 广播（所有从站）</string>
+    <string name="panel_button_target">%1$s ← %2$s</string>
+    <string name="panel_button_target_broadcast">%1$s ← %2$s · Unit 0，无回应</string>
     <string name="panel_write_busy">正在读取 / 写入…</string>
     <string name="panel_write_slave">从站模式不能写设备</string>
     <string name="panel_write_no_master">未连接主站，不能写设备</string>
@@ -156,12 +156,7 @@
     <string name="panel_wiz_table_readonly_sub">输入类区域（输入寄存器 / 离散输入）只读，不能修改</string>
     <string name="panel_wiz_table_note">编辑模式和这里的预览都不会写设备；从站模式不能写。每次修改只写这一行，单独确认。</string>
     <string name="panel_wiz_table_look_note">寄存器表固定占满一行宽度，高度随行数变化（最多 16 行），不能改尺寸。</string>
-    <string name="panel_table_head_addr">地址</string>
-    <string name="panel_table_head_value">值 · %1$s</string>
-    <string name="panel_table_head_hex">HEX</string>
     <string name="panel_table_edit_desc">修改 %1$s</string>
-    <string name="panel_table_meta">U%1$d · %2$s–%3$s</string>
-    <string name="panel_table_meta_time">U%1$d · %2$s–%3$s · %4$s</string>
     <string name="panel_table_edit_summary">%1$d 行 · %2$s–%3$s · %4$s</string>
     <string name="panel_table_mode_rw">允许修改</string>
     <string name="panel_table_mode_ro">只读</string>
@@ -178,21 +173,8 @@
     <string name="panel_row_err_conversion">换算系数无效，无法反算</string>
     <string name="panel_write_ctx_row">寄存器表 · %1$s 第 %2$d 行 · %3$s → %4$s</string>
     <string name="panel_write_bit_warning">位 %1$d 的写入是「先读整字 → 只改这一位 → FC06 写回」，不是原子操作：确认时会再读一次，整字变了就不发，用新的值重新确认。</string>
-    <string name="panel_poll_idle">未轮询：需要主站连接，且页面在前台</string>
-    <string name="panel_strip_polling">主站 · 轮询中</string>
-    <string name="panel_strip_paused">主站 · 轮询已暂停</string>
-    <string name="panel_strip_detail">设定 %1$d ms · 实际 %2$s</string>
-    <string name="panel_strip_actual_none">—</string>
-    <string name="panel_strip_actual">%1$d ms</string>
-    <string name="panel_strip_paused_detail">显示的是暂停前读到的值</string>
-    <string name="panel_pause">暂停</string>
-    <string name="panel_resume">继续</string>
-    <string name="panel_land_polling">轮询 %1$d ms</string>
-    <string name="panel_land_paused">已暂停</string>
-    <string name="panel_land_idle">未轮询</string>
     <string name="panel_flag_on">开</string>
     <string name="panel_flag_off">关</string>
-    <string name="panel_badge_ok">正常</string>
     <string name="panel_badge_warn">预警</string>
     <string name="panel_badge_alert">告警</string>
     <string name="panel_badge_stale">过期</string>
@@ -208,6 +190,33 @@
     <string name="panel_meta_state_value">%1$s = %2$d</string>
     <string name="panel_state_undefined">未定义（%1$d）</string>
     <string name="panel_chips_description">面板</string>
+    <!-- v3 面板主页：页签 + 轮询胶囊、只标异常、控制卡 ⚡、空状态引导 -->
+    <string name="panel_unit_label">U%1$d</string>
+    <string name="panel_broadcast_tag">广播（所有从站）</string>
+    <string name="panel_writes_device">会写设备</string>
+    <string name="panel_read_only">只读</string>
+    <string name="panel_meta_stale_age">读取失败 · %1$s前的值</string>
+    <string name="panel_threshold_ge">≥ %1$s</string>
+    <string name="panel_threshold_lt">&lt; %1$s</string>
+    <string name="panel_threshold_range">%1$s – %2$s</string>
+    <string name="panel_pill_polling">%1$d ms</string>
+    <string name="panel_pill_starting">轮询中</string>
+    <string name="panel_pill_paused">已暂停</string>
+    <string name="panel_pill_offline">未连接</string>
+    <string name="panel_pill_slave">从站模式</string>
+    <string name="panel_pill_master">主站</string>
+    <string name="panel_pill_cd_polling">主站轮询中，实际周期 %1$d 毫秒，设定 %2$d 毫秒</string>
+    <string name="panel_pill_cd_paused">轮询已暂停，显示的是暂停前读到的值</string>
+    <string name="panel_pill_cd_offline">未连接，点一下去连接页</string>
+    <string name="panel_pill_cd_slave">从站模式，面板不轮询</string>
+    <string name="panel_pause_cd">暂停轮询</string>
+    <string name="panel_resume_cd">继续轮询</string>
+    <string name="panel_empty_step_add">添加组件，填 Unit 和地址</string>
+    <string name="panel_empty_step_connect">在「连接」页以主站连接</string>
+    <string name="panel_empty_step_connected">已以主站连接</string>
+    <string name="panel_empty_step_poll">回到面板，自动开始轮询</string>
+    <string name="panel_empty_go_connect">去连接 ›</string>
+    <string name="panel_table_head_info">U%1$d · %2$s</string>
     <string name="panel_edit_open">编辑面板</string>
     <string name="panel_edit_title">编辑面板</string>
     <string name="panel_edit_done">完成</string>
@@ -235,6 +244,7 @@
     <string name="panel_edit_error_save">保存失败，修改还在，请重试</string>
     <string name="panel_edit_error_readonly">工程文件来自更新版本，当前版本不能保存</string>
     <string name="panel_add_widget">添加组件</string>
+    <string name="panel_add_widget_plus">＋ 添加组件</string>
     <string name="panel_edit_open_widget">配置“%1$s”</string>
     <string name="panel_wiz_title_pick">添加组件</string>
     <string name="panel_wiz_step">%1$d / 3</string>

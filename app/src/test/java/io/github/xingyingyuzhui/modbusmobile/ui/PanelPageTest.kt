@@ -6,6 +6,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.MemorySettingsRepository
@@ -115,7 +117,7 @@ class PanelPageTest {
         show(ProjectRepository(File(tmp.root, "projects")))
         waitTag("panel-empty")
         compose.onNodeWithTag("panel-empty").assertIsDisplayed()
-        compose.onNodeWithText("还没有组件").assertIsDisplayed()
+        compose.onNodeWithText("这个面板还是空的").assertIsDisplayed()
         for (gone in listOf("示例", "26.4", "压缩机", "阀门", "1.20")) {
             assertEquals(gone, 0, compose.onAllNodesWithText(gone, substring = true).fetchSemanticsNodes().size)
         }
@@ -141,7 +143,7 @@ class PanelPageTest {
         show(ProjectRepository(File(tmp.root, "projects")))
         waitTag("panel-empty")
         compose.onNodeWithTag("panel-empty").assertIsDisplayed()
-        compose.onNodeWithText("还没有组件").assertIsDisplayed()
+        compose.onNodeWithText("这个面板还是空的").assertIsDisplayed()
     }
 
     private fun point(id: String, type: DataType = DataType.S16, unit: String = "°C") = PointDefinition(
@@ -172,8 +174,12 @@ class PanelPageTest {
             compose.onNodeWithTag("panel-value-w1", useUnmergedTree = true).assertTextEquals("80.0")
             compose.onNodeWithText("温度 a", useUnmergedTree = true).assertIsDisplayed()
             compose.waitUntil(8_000) { session.requests >= 3 }
-            compose.onNodeWithText("设定 100 ms", substring = true, useUnmergedTree = true).assertIsDisplayed()
-            compose.onNodeWithText("主站 · 轮询中", useUnmergedTree = true).assertIsDisplayed()
+            // 轮询胶囊写实际周期（“NNN ms”）
+            compose.waitUntil(8_000) {
+                compose.onAllNodesWithTag("panel-pill-text", useUnmergedTree = true).fetchSemanticsNodes()
+                    .firstOrNull()?.config?.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)
+                    ?.joinToString()?.matches(Regex("\\d+ ms")) == true
+            }
         } finally {
             scope.cancel()
         }

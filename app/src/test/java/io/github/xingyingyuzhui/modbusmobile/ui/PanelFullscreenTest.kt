@@ -327,7 +327,7 @@ class PanelFullscreenTest {
         assertTouch("panel-expand")
         val edit = bounds("panel-edit")
         val expand = bounds("panel-expand")
-        assertTrue("⤢ 在 ✎ 右边（稿面 b2-1）", expand.left >= edit.right - 0.5.dp)
+        assertTrue("⤢ 在 ✎ 左边（v3 1-1）", expand.right <= edit.left + 0.5.dp)
         compose.onNodeWithTag("panel-expand", useUnmergedTree = true).performClick()
         assertEquals(listOf("w-curve"), opened)
     }

@@ -61,15 +61,24 @@ import io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetWrites
 import io.github.xingyingyuzhui.modbusmobile.application.modiconLabel
 import io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusSwitchVisual
-import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.CardRadius
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.compositionLocalOf
+import io.github.xingyingyuzhui.modbusmobile.ui.components.BoltIcon
+import io.github.xingyingyuzhui.modbusmobile.ui.components.LockIcon
+import io.github.xingyingyuzhui.modbusmobile.ui.components.PencilIcon
+import io.github.xingyingyuzhui.modbusmobile.ui.components.TonalButton
+import io.github.xingyingyuzhui.modbusmobile.ui.components.TonalButtonHeight
+import io.github.xingyingyuzhui.modbusmobile.ui.curve.LocalWallClock
+import io.github.xingyingyuzhui.modbusmobile.ui.workbench.elapsedText
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+
 
 /**
  * 开关 / 按钮卡能不能点：[enabled] 为 false 时控件置灰并在 meta 行写 [reason]；[busy] = 正在读整字 / 写入。
@@ -81,14 +90,23 @@ data class CardWrite(
     val busy: Boolean,
     val onSwitch: (Boolean) -> Unit,
     val onButton: () -> Unit,
-    /** 寄存器表某一行的 ✎（行号从 0 起）。 */
+    /** 寄存器表某一行（行号从 0 起）。 */
     val onRow: (Int) -> Unit = {},
 )
 
 /**
- * 面板组件卡（稿面 b2-1 `.w`）：圆角 16、1px 边、内边距 10/12（border-box，内容离外缘 13/11）、
- * 名称 12.5 muted + 右上 badge、值 mono 26/600 + 单位 12、meta mono 10.5 dim。
- * 质量态：过期 = 值 muted；超时 / 错误 = 值 dim + 红色删除线 + 红 badge + 失败说明（取代 meta）。
+ * “现在”（墙钟毫秒）：过期卡写“12 秒前的值”用。面板页在有过期卡时每秒更新一次；为 null 时直接读 [LocalWallClock]。
+ */
+val LocalPanelNow = compositionLocalOf<Long?> { null }
+
+/** 卡片外观的强调：预警 = 琥珀描边，告警 = 红描边 + 红色浅底（v3 · 只有异常才出声）。 */
+internal enum class CardTone { NONE, WARN, ALERT }
+
+/**
+ * 面板组件卡（v3，`docs/design/panel-v3.html` `.x`）：圆角 16、1px 边、内边距 10/12（border-box，内容离外缘 13/11）、
+ * 名称 13 muted（控制卡前面有 ⚡）、值 mono 28/600 + 单位 13、底行 meta mono 10.5 dim（左地址、右阈值 / 量程 / Unit）。
+ * 正常时不打标签、不写时间；只有预警 / 告警 / 过期 / 超时 / 错误才在名称行右侧打标签。
+ * 质量态：过期 = 值 muted + “读取失败 · N 秒前的值”；超时 / 错误 = 值 dim + 红色删除线 + 失败说明（红）。
  */
 @Composable
 fun WidgetCard(
@@ -105,9 +123,9 @@ fun WidgetCard(
 ) {
     val point = widget.point ?: return
     // 编辑模式（稿面 b2-2）：名称前加 ⠿，不显示 badge 和 meta（值还是实时的）。
-    val look = rememberLook(widget, point, snapshot).let { if (editing) it.copy(badge = null, meta = "") else it }
+    val look = rememberLook(widget, point, snapshot).let { if (editing) it.copy(badge = null, meta = "", metaRight = null, tone = CardTone.NONE) else it }
     val name = (if (editing) "⠿ " else "") + widget.displayName(point)
-    CardFrame(modifier, "panel-card-${widget.id}", borderColor) {
+    CardFrame(modifier, "panel-card-${widget.id}", borderColor, look.tone) {
         when (widget.kind) {
             WidgetKinds.LAMP -> LampBody(widget, point, name, snapshot, look)
             WidgetKinds.STATUS_TEXT -> StatusBody(widget, point, name, snapshot, look)
@@ -122,15 +140,27 @@ fun WidgetCard(
 }
 
 @Composable
-internal fun CardFrame(modifier: Modifier, tag: String, borderColor: Color? = null, content: @Composable ColumnScope.() -> Unit) {
+internal fun CardFrame(
+    modifier: Modifier,
+    tag: String,
+    borderColor: Color? = null,
+    tone: CardTone = CardTone.NONE,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val colors = LocalModbusColors.current
     val shape = RoundedCornerShape(CardRadius)
+    val border = borderColor ?: when (tone) {
+        CardTone.WARN -> colors.txText.copy(alpha = 0.6f)
+        CardTone.ALERT -> colors.error.copy(alpha = 0.65f)
+        CardTone.NONE -> colors.line
+    }
     Column(
         modifier
             .fillMaxSize()
             .testTag(tag)
             .background(colors.surface1, shape)
-            .border(1.dp, borderColor ?: colors.line, shape)
+            .then(if (tone == CardTone.ALERT) Modifier.background(colors.wash(colors.error), shape) else Modifier)
+            .border(1.dp, border, shape)
             // 稿面 border-box：边框在内边距之外占位，Compose 的 border 不占位，补 1dp。
             .padding(1.dp)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -138,7 +168,7 @@ internal fun CardFrame(modifier: Modifier, tag: String, borderColor: Color? = nu
     )
 }
 
-/** 一张卡的“怎么画”：badge、值的颜色、是否划线、meta 文字。 */
+/** 一张卡的“怎么画”：标签（只有异常才有）、值的颜色、是否划线、底行左右两段、卡片强调。 */
 internal data class Look(
     val badge: Pair<String, Color>?,
     val valueColor: Color,
@@ -146,6 +176,8 @@ internal data class Look(
     val meta: String,
     val metaProblem: Boolean,
     val hasValue: Boolean,
+    val metaRight: String? = null,
+    val tone: CardTone = CardTone.NONE,
 )
 
 @Composable
@@ -154,11 +186,13 @@ internal fun rememberLook(widget: Widget, point: PointDefinition, snapshot: Poin
     val quality = snapshot?.quality ?: Quality.NO_DATA
     val hasValue = snapshot?.raw != null
     val addr = addressLabel(point)
+    val level = if (quality == Quality.OK) snapshot?.level ?: ThresholdLevel.NORMAL else ThresholdLevel.NORMAL
+    // 正常不打标签：只有预警 / 告警 / 过期 / 超时 / 错误才说话
     val badge: Pair<String, Color>? = when (quality) {
-        Quality.OK -> when (snapshot?.level) {
+        Quality.OK -> when (level) {
             ThresholdLevel.ALERT -> stringResource(R.string.panel_badge_alert) to colors.error
             ThresholdLevel.WARN -> stringResource(R.string.panel_badge_warn) to colors.txText
-            else -> stringResource(R.string.panel_badge_ok) to colors.rxLocal
+            else -> null
         }
         Quality.STALE -> stringResource(R.string.panel_badge_stale) to colors.dropped
         Quality.TIMEOUT -> stringResource(R.string.panel_badge_timeout) to colors.error
@@ -166,7 +200,7 @@ internal fun rememberLook(widget: Widget, point: PointDefinition, snapshot: Poin
         Quality.NO_DATA -> null
     }
     val valueColor = when (quality) {
-        Quality.OK -> when (snapshot?.level) {
+        Quality.OK -> when (level) {
             ThresholdLevel.ALERT -> colors.error
             ThresholdLevel.WARN -> colors.txText
             else -> colors.text
@@ -175,13 +209,16 @@ internal fun rememberLook(widget: Widget, point: PointDefinition, snapshot: Poin
         else -> colors.dim
     }
     val failures = snapshot?.failures ?: 0
+    val now = LocalPanelNow.current ?: LocalWallClock.current()
     val problem = when (quality) {
         Quality.OK -> null
         Quality.NO_DATA -> when (snapshot?.error?.kind) {
             null -> null
             else -> stringResource(R.string.panel_meta_failed, failures)
         }
-        Quality.STALE -> stringResource(R.string.panel_meta_stale)
+        Quality.STALE -> snapshot?.updatedWallMs
+            ?.let { stringResource(R.string.panel_meta_stale_age, elapsedText((now - it).coerceAtLeast(0))) }
+            ?: stringResource(R.string.panel_meta_stale)
         Quality.TIMEOUT -> stringResource(R.string.panel_meta_timeout, failures)
         Quality.ERROR -> when (snapshot?.error?.kind) {
             ErrorKind.EXCEPTION -> stringResource(R.string.panel_meta_exception, snapshot.error.code ?: 0)
@@ -189,58 +226,109 @@ internal fun rememberLook(widget: Widget, point: PointDefinition, snapshot: Poin
             else -> stringResource(R.string.panel_meta_invalid)
         }
     }
-    val okMeta = when (widget.kind) {
-        WidgetKinds.PROGRESS -> "$addr · ${rangeLabel(point)}"
-        else -> listOfNotNull(addr, snapshot?.updatedWallMs?.let(::clock)).joinToString(" · ")
-    }
     val meta = when {
         problem != null -> problem
         quality == Quality.NO_DATA -> stringResource(R.string.panel_meta_waiting, addr)
-        else -> okMeta
+        else -> addr
+    }
+    // 底行右侧：进度条写量程；预警 / 告警写命中的阈值（“≥ 0.80”）
+    val right = when {
+        problem != null || quality == Quality.NO_DATA -> null
+        widget.kind == WidgetKinds.PROGRESS -> rangeLabel(point)
+        level != ThresholdLevel.NORMAL -> thresholdLabel(point, level, snapshot?.engineering)
+        else -> null
+    }
+    val tone = when (level) {
+        ThresholdLevel.ALERT -> CardTone.ALERT
+        ThresholdLevel.WARN -> CardTone.WARN
+        else -> CardTone.NONE
     }
     val strike = (quality == Quality.TIMEOUT || quality == Quality.ERROR) && hasValue
-    return Look(badge, valueColor, strike, meta, problem != null && quality != Quality.NO_DATA, hasValue)
+    return Look(badge, valueColor, strike, meta, problem != null && quality != Quality.NO_DATA && quality != Quality.STALE, hasValue, right, tone)
+}
+
+/** 命中的阈值区间写成“≥ 0.80”/“< 10”/“10 – 20”。 */
+@Composable
+private fun thresholdLabel(point: PointDefinition, level: ThresholdLevel, value: Double?): String? {
+    val band = point.thresholds.firstOrNull { it.level == level && (value == null || it.contains(value)) } ?: return null
+    val min = band.min?.let { ValueCodec.format(it, point.conversion.decimals) }
+    val max = band.max?.let { ValueCodec.format(it, point.conversion.decimals) }
+    return when {
+        min != null && max != null -> stringResource(R.string.panel_threshold_range, min, max)
+        min != null -> stringResource(R.string.panel_threshold_ge, min)
+        max != null -> stringResource(R.string.panel_threshold_lt, max)
+        else -> null
+    }
 }
 
 // ---- 各类型卡片 ----
 
+/** 名称行：[leading]（⚡ / 🔒）+ 名称 13 muted + 右侧标签或 [trailing]。 */
 @Composable
-private fun NameRow(title: String, badge: Pair<String, Color>?, trailing: (@Composable () -> Unit)? = null) {
+private fun NameRow(
+    title: String,
+    badge: Pair<String, Color>?,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val colors = LocalModbusColors.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 18.dp),
+        // 固定最小高 22：有标签（高 18 + 内边距）和没标签的卡，名称在同一条线上
+        Modifier.fillMaxWidth().heightIn(min = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        leading?.invoke()
+        Text(
+            title, color = colors.muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).testTag("panel-name"),
+        )
+        if (trailing != null) trailing() else if (badge != null) ToneBadge(badge.first, badge.second, Modifier.testTag("panel-badge"))
+    }
+}
+
+/** ⚡：这张卡会写设备（开关 / 按钮 / 可修改的寄存器表）。广播用红色。 */
+@Composable
+private fun WritesDeviceMark(danger: Boolean = false) {
+    val colors = LocalModbusColors.current
+    val desc = stringResource(R.string.panel_writes_device)
+    BoltIcon(
+        if (danger) colors.error else colors.dim,
+        Modifier.testTag("panel-writes-mark").semantics { contentDescription = desc },
+    )
+}
+
+/** 底行：左 [Look.meta]（出问题时红色）、右 [Look.metaRight]；推到卡片底部，同行卡片底行对齐。 */
+@Composable
+private fun ColumnScope.MetaRow(look: Look, topPadding: Int = 4, right: String? = look.metaRight) {
+    if (look.meta.isEmpty() && right == null) return
+    val colors = LocalModbusColors.current
+    val style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp)
+    Spacer(Modifier.weight(1f))
+    Row(
+        Modifier.fillMaxWidth().padding(top = topPadding.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            title, color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, maxLines = 1,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            look.meta, style = style, color = if (look.metaProblem) colors.error else colors.dim,
+            modifier = Modifier.weight(1f).testTag("panel-meta"),
         )
-        if (trailing != null) trailing() else if (badge != null) ToneBadge(badge.first, badge.second)
+        if (right != null) {
+            Text(right, style = style, color = colors.dim, maxLines = 1, modifier = Modifier.testTag("panel-meta-right"))
+        }
     }
 }
 
 @Composable
-private fun Meta(look: Look, topPadding: Int = 2) {
-    if (look.meta.isEmpty()) return
-    val colors = LocalModbusColors.current
-    Text(
-        look.meta,
-        style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp),
-        color = if (look.metaProblem) colors.error else colors.dim,
-        modifier = Modifier.padding(top = topPadding.dp).testTag("panel-meta"),
-    )
-}
-
-@Composable
-private fun NumberBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
+private fun ColumnScope.NumberBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
     NameRow(name, look.badge)
     val text = if (snapshot?.raw == null) "—" else snapshot.text ?: flagText(snapshot)
-    Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
             text,
-            style = Mono.copy(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.SemiBold),
+            style = Mono.copy(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold),
             color = look.valueColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -250,14 +338,14 @@ private fun NumberBody(widget: Widget, point: PointDefinition, name: String, sna
                 .then(if (look.strike) Modifier.redStrike(colors.error) else Modifier),
         )
         if (point.unitLabel.isNotBlank() && snapshot?.raw != null) {
-            Text(point.unitLabel, color = colors.muted, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.alignByBaseline())
+            Text(point.unitLabel, color = colors.muted, fontSize = 13.sp, lineHeight = 16.sp, modifier = Modifier.alignByBaseline())
         }
     }
-    Meta(look)
+    MetaRow(look)
 }
 
 @Composable
-private fun LampBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
+private fun ColumnScope.LampBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
     NameRow(name, look.badge)
     val known = snapshot?.raw != null
@@ -267,27 +355,27 @@ private fun LampBody(widget: Widget, point: PointDefinition, name: String, snaps
         on -> widget.onLabel.ifBlank { stringResource(R.string.panel_flag_on) }
         else -> widget.offLabel.ifBlank { stringResource(R.string.panel_flag_off) }
     }
-    Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Lamp(on = on && snapshot?.quality == Quality.OK, dim = on)
         Text(
             label,
-            fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold,
+            fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold,
             color = if (snapshot?.quality == Quality.OK) (if (on) colors.text else colors.muted) else look.valueColor,
             modifier = Modifier.testTag("panel-value-${widget.id}"),
         )
     }
-    Meta(look, topPadding = 6)
+    MetaRow(look, topPadding = 6)
 }
 
 /**
- * 开关卡：名称 + badge、当前状态文字、右侧 42×24 开关（稿面 .tg，点击区 ≥48×48）。
+ * 开关卡：⚡ 名称 + 标签、当前状态文字 17 粗、右侧 42×24 开关（稿面 .tg，点击区 ≥48×48）、底行“地址 · U1”。
  * 点开关**不会**直接写：它只是请求“切到相反状态”，确认弹窗里才发（见 [PanelWriteController]）。
- * 状态未知 / 过期、非主站、正在读写时置灰；编辑模式 / 向导预览（[write] 为 null）只画不响应。
+ * 状态未知 / 过期、非主站、正在读写时置灰，原因写在底行；编辑模式 / 向导预览（[write] 为 null）只画不响应。
  */
 @Composable
-private fun SwitchBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look, write: CardWrite?) {
+private fun ColumnScope.SwitchBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look, write: CardWrite?) {
     val colors = LocalModbusColors.current
-    NameRow(name, look.badge)
+    NameRow(name, look.badge, leading = { WritesDeviceMark() })
     val known = snapshot?.raw != null && snapshot.quality == Quality.OK
     val on = snapshot?.raw != null && (snapshot.engineering ?: 0.0) != 0.0
     val label = when {
@@ -296,10 +384,10 @@ private fun SwitchBody(widget: Widget, point: PointDefinition, name: String, sna
         else -> widget.offLabel.ifBlank { stringResource(R.string.panel_flag_off) }
     }
     val usable = write != null && write.enabled && !write.busy && known
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             label,
-            fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold,
+            fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold,
             color = if (known) (if (on) colors.text else colors.muted) else look.valueColor,
             modifier = Modifier.weight(1f).testTag("panel-value-${widget.id}"),
         )
@@ -326,36 +414,43 @@ private fun SwitchBody(widget: Widget, point: PointDefinition, name: String, sna
         else -> null
     }
     if (note != null) {
+        Spacer(Modifier.weight(1f))
         Text(
             note, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp), color = colors.dim,
             modifier = Modifier.padding(top = 2.dp).testTag("panel-write-note"),
         )
     } else {
-        Meta(look)
+        MetaRow(look, right = if (look.metaProblem || look.meta.isEmpty()) look.metaRight else stringResource(R.string.panel_unit_label, point.unitId))
     }
 }
 
 /**
- * 按钮卡：名称 + 整宽按钮（稿面 .btn.pri.xs，触控 ≥48dp）+ 一行说明“写什么、写到哪”（广播红色）。
- * 按钮的点位不轮询；点按钮只是请求写预设值，确认弹窗里才发。
+ * 按钮卡：⚡ 名称（广播：红 ⚡ + 红标签“广播 · 所有从站”）+ 整宽浅底描边按钮（视觉 44、触控 ≥48；广播红色）
+ * + 底行“C5 ← ON”与“U1”。按钮的点位不轮询；点按钮只是请求写预设值，确认弹窗里才发。
  */
 @Composable
-private fun ButtonBody(widget: Widget, point: PointDefinition, name: String, editing: Boolean, write: CardWrite?) {
+private fun ColumnScope.ButtonBody(widget: Widget, point: PointDefinition, name: String, editing: Boolean, write: CardWrite?) {
     val colors = LocalModbusColors.current
-    NameRow(name, null)
     val broadcast = point.unitId == 0
+    NameRow(name, null, leading = { WritesDeviceMark(danger = broadcast) })
+    if (broadcast) {
+        // 一列宽的卡里名称和标签挤不下：广播标签单独一行（规范 54：卡上红字写明广播）
+        ToneBadge(stringResource(R.string.panel_broadcast_tag), colors.error, Modifier.padding(top = 4.dp).testTag("panel-broadcast-${widget.id}"))
+    }
     val label = widget.buttonLabel.ifBlank { stringResource(R.string.panel_button_default) }
     val usable = write != null && write.enabled && !write.busy
-    Box(Modifier.fillMaxWidth().padding(top = 2.dp).testTag("panel-button-${widget.id}")) {
+    Box(Modifier.fillMaxWidth().padding(top = 4.dp).testTag("panel-button-${widget.id}")) {
         if (write != null) {
-            SmallButton(label, onClick = write.onButton, Modifier.fillMaxWidth(), primary = true, enabled = usable)
+            TonalButton(label, onClick = write.onButton, Modifier.fillMaxWidth(), danger = broadcast, enabled = usable)
         } else {
             // 编辑模式 / 向导预览：只画样子（尺寸和真按钮一致），没有任何点击处理，也不挡住“点卡片打开向导”
             Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
                 Box(
-                    Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(10.dp)).background(colors.surface3).testTag("panel-button-visual-${widget.id}"),
+                    Modifier.fillMaxWidth().height(TonalButtonHeight).clip(RoundedCornerShape(12.dp))
+                        .background(colors.surface2).border(1.dp, colors.line, RoundedCornerShape(12.dp))
+                        .testTag("panel-button-visual-${widget.id}"),
                     contentAlignment = Alignment.Center,
-                ) { Text(label, color = colors.dim, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold) }
+                ) { Text(label, color = colors.dim, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
             }
         }
     }
@@ -364,7 +459,7 @@ private fun ButtonBody(widget: Widget, point: PointDefinition, name: String, edi
     }.orEmpty()
     val target = stringResource(
         if (broadcast) R.string.panel_button_target_broadcast else R.string.panel_button_target,
-        addressLabel(point), value, point.unitId,
+        addressLabel(point), value,
     )
     val note = when {
         editing || write == null -> target
@@ -372,21 +467,23 @@ private fun ButtonBody(widget: Widget, point: PointDefinition, name: String, edi
         !write.enabled -> write.reason ?: target
         else -> target
     }
-    Text(
-        note, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp),
-        color = if (broadcast && (write == null || write.enabled) && !editing) colors.error else colors.dim,
-        modifier = Modifier.padding(top = 2.dp).testTag("panel-button-note-${widget.id}"),
-    )
+    Spacer(Modifier.weight(1f))
+    Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        val style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp)
+        Text(note, style = style, color = colors.dim, modifier = Modifier.weight(1f).testTag("panel-button-note-${widget.id}"))
+        if (!broadcast && note == target) Text(stringResource(R.string.panel_unit_label, point.unitId), style = style, color = colors.dim, maxLines = 1)
+    }
 }
 
 /**
- * 寄存器表卡（我自己的设计，稿面只有选类型页的一张缩略图）：名称 + 汇总 badge、表头（地址 | 值 · 类型 | HEX | ✎）、
- * 每行 = 地址（mono 13 + 参考号 10 dim）、值（mono 15）、HEX（mono 11 dim，线路字序）、可写时右侧 48dp 的 ✎。
- * 行高：只读 40、可写 48（✎ 触控 ≥48）。✎ 只是请求，点了先看写入帧、确认才写（见 [PanelWriteController]）。
+ * 寄存器表卡（v3）：表头一行 = ⚡（可修改）/ 🔒（只读）+ 名称 + 异常标签 + “U1 · U16 · ℃”；
+ * 每行 = 左地址（mono 13.5 + 参考号 10 dim）、右值（mono 17 粗，HEX 小字在值下面）、可修改时右侧一个灰色 ✎ 提示。
+ * 行高 ≥48；可修改时整行可点（只是请求：先看写入帧、确认才写，见 [PanelWriteController]）。
+ * 底行只在有问题 / 有原因时出现（读取失败、正在写、不能写的原因、等待数据）。
  * 编辑模式只画摘要；向导预览（[write] 为 null）画出 ✎ 但不响应。
  */
 @Composable
-private fun TableBody(widget: Widget, name: String, editing: Boolean, snapshots: Map<String, PointSnapshot>, write: CardWrite?) {
+private fun ColumnScope.TableBody(widget: Widget, name: String, editing: Boolean, snapshots: Map<String, PointSnapshot>, write: CardWrite?) {
     val colors = LocalModbusColors.current
     val rows = widget.tablePoints
     if (rows.isEmpty()) return
@@ -395,12 +492,21 @@ private fun TableBody(widget: Widget, name: String, editing: Boolean, snapshots:
     // 范围写到最后一个寄存器（32 位行占 2 个）：HR100–HR107，而不是最后一行的起始地址
     val endLabel = addressLabel(last.copy(address = last.address + last.quantity - 1))
     val range = addressLabel(first) + if (endLabel != addressLabel(first)) "–$endLabel" else ""
+    val writable = widget.tableWritable
+    val mark: @Composable () -> Unit = {
+        if (writable) {
+            WritesDeviceMark()
+        } else {
+            val desc = stringResource(R.string.panel_read_only)
+            LockIcon(colors.dim, Modifier.testTag("panel-readonly-mark").semantics { contentDescription = desc })
+        }
+    }
     if (editing) {
-        NameRow(name, null)
+        NameRow(name, null, leading = mark)
         Text(
             stringResource(
                 R.string.panel_table_edit_summary, rows.size, addressLabel(first), endLabel,
-                stringResource(if (widget.tableWritable) R.string.panel_table_mode_rw else R.string.panel_table_mode_ro),
+                stringResource(if (writable) R.string.panel_table_mode_rw else R.string.panel_table_mode_ro),
             ),
             color = colors.dim, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp).testTag("panel-table-summary-${widget.id}"),
         )
@@ -410,26 +516,39 @@ private fun TableBody(widget: Widget, name: String, editing: Boolean, snapshots:
     val worst = snaps.withIndex().maxByOrNull { (_, s) -> qualityRank(s?.quality) }
     val look = rememberLook(widget, rows[worst?.index ?: 0], worst?.value)
     val badge = if (snaps.all { it?.raw == null && (it?.quality ?: Quality.NO_DATA) == Quality.NO_DATA }) null else look.badge
-    NameRow(name, badge)
-    val writable = widget.tableWritable
     val isBits = first.isBitArea
     val usable = write != null && write.enabled && !write.busy
     val unit = first.unitLabel.takeIf { it.isNotBlank() }
-    val head = first.type.name + (unit?.let { " · $it" } ?: "")
-    Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
-        val style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp, color = colors.dim)
-        Text(stringResource(R.string.panel_table_head_addr), style = style, modifier = Modifier.width(TABLE_ADDR_W))
-        Text(stringResource(R.string.panel_table_head_value, head), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        if (!isBits) Text(stringResource(R.string.panel_table_head_hex), style = style, modifier = Modifier.width(TABLE_HEX_W))
-        if (writable) Box(Modifier.width(TABLE_EDIT_W))
+    val info = stringResource(R.string.panel_table_head_info, first.unitId, first.type.name) + (unit?.let { " · $it" } ?: "")
+    NameRow(name, null, leading = mark) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (badge != null) ToneBadge(badge.first, badge.second, Modifier.testTag("panel-badge"))
+            Text(info, style = Mono.copy(fontSize = 11.sp, lineHeight = 14.sp), color = colors.dim, maxLines = 1, modifier = Modifier.testTag("panel-table-info-${widget.id}"))
+        }
     }
-    val rowHeight = if (writable) 48.dp else 40.dp
+    Spacer(Modifier.height(4.dp))
     rows.forEachIndexed { i, row ->
         val snap = snaps[i]
-        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).heightIn(min = rowHeight).testTag("panel-row-${widget.id}-$i"), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.width(TABLE_ADDR_W)) {
-                Text(addressLabel(row), style = Mono.copy(fontSize = 13.sp, lineHeight = 16.sp), color = colors.text, maxLines = 1)
+        val desc = stringResource(R.string.panel_table_edit_desc, addressLabel(row))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rowLine))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = TABLE_ROW_MIN)
+                .alpha(if (!writable || usable || write == null) 1f else 0.6f)
+                .then(
+                    if (writable && write != null) {
+                        Modifier.semantics { contentDescription = desc }
+                            .clickable(enabled = usable, role = Role.Button) { write.onRow(i) }
+                    } else {
+                        Modifier
+                    },
+                )
+                .testTag("panel-row-${widget.id}-$i"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(addressLabel(row), style = Mono.copy(fontSize = 13.5.sp, lineHeight = 17.sp), color = colors.text, maxLines = 1)
                 Text(modiconLabel(row.area, row.address), style = Mono.copy(fontSize = 10.sp, lineHeight = 12.sp), color = colors.dim, maxLines = 1)
             }
             val quality = snap?.quality ?: Quality.NO_DATA
@@ -449,69 +568,56 @@ private fun TableBody(widget: Widget, name: String, editing: Boolean, snapshots:
                 else -> snap?.text ?: "—"
             }
             val strike = (quality == Quality.TIMEOUT || quality == Quality.ERROR) && has
-            // 删除线只画在文字上（外面的 Box 占满列宽，文字自己包内容）
-            Box(Modifier.weight(1f)) {
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 8.dp)) {
                 Text(
-                    text, style = Mono.copy(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold), color = color,
+                    text, style = Mono.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold), color = color,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("panel-row-value-${widget.id}-$i").then(if (strike) Modifier.redStrike(colors.error) else Modifier),
                 )
-            }
-            if (!isBits) {
-                val words = WidgetWrites.wordsOf(row, snap?.raw)
-                Text(
-                    words?.joinToString(" ") { "%04X".format(it) } ?: "—",
-                    style = Mono.copy(fontSize = 11.sp, lineHeight = 14.sp), color = colors.dim, maxLines = 1,
-                    modifier = Modifier.width(TABLE_HEX_W).testTag("panel-row-hex-${widget.id}-$i"),
-                )
+                if (!isBits) {
+                    val words = WidgetWrites.wordsOf(row, snap?.raw)
+                    Text(
+                        words?.joinToString(" ") { "%04X".format(it) } ?: "—",
+                        style = Mono.copy(fontSize = 10.sp, lineHeight = 12.sp), color = colors.dim, maxLines = 1,
+                        modifier = Modifier.testTag("panel-row-hex-${widget.id}-$i"),
+                    )
+                }
             }
             if (writable) {
-                val desc = stringResource(R.string.panel_table_edit_desc, addressLabel(row))
-                Box(
-                    Modifier
-                        .width(TABLE_EDIT_W).fillMaxHeight()
-                        .alpha(if (usable || write == null) 1f else 0.45f)
-                        .then(
-                            if (write != null) {
-                                Modifier.semantics { contentDescription = desc }
-                                    .clickable(enabled = usable, role = Role.Button) { write.onRow(i) }
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .testTag("panel-row-edit-${widget.id}-$i"),
-                    contentAlignment = Alignment.Center,
-                ) { Text("✎", color = colors.accentText, fontSize = 17.sp) }
+                // 灰色 ✎ 只是提示整行可点；点的是整行（≥48dp）
+                Box(Modifier.width(TABLE_EDIT_W).testTag("panel-row-edit-${widget.id}-$i"), contentAlignment = Alignment.CenterEnd) {
+                    PencilIcon(colors.dim, size = 13.dp)
+                }
             }
         }
     }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
-    val updated = snaps.mapNotNull { it?.updatedWallMs }.maxOrNull()
     val anyData = snaps.any { it?.raw != null }
-    val meta = when {
-        look.metaProblem -> look.meta
-        !anyData -> stringResource(R.string.panel_meta_waiting, range)
-        updated != null -> stringResource(R.string.panel_table_meta_time, first.unitId, addressLabel(first), endLabel, clock(updated))
-        else -> stringResource(R.string.panel_table_meta, first.unitId, addressLabel(first), endLabel)
-    }
     val note = when {
         write == null || !writable -> null
         write.busy -> stringResource(R.string.panel_write_busy)
         !write.enabled -> write.reason
         else -> null
     }
-    Text(
-        note ?: meta, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp),
-        color = if (note == null && look.metaProblem) colors.error else colors.dim,
-        modifier = Modifier.padding(top = 4.dp).testTag(if (note != null) "panel-table-note-${widget.id}" else "panel-table-meta-${widget.id}"),
-    )
+    val footer = when {
+        note != null -> note
+        look.meta.isNotEmpty() && (look.metaProblem || look.badge?.first == stringResource(R.string.panel_badge_stale)) -> look.meta
+        !anyData -> stringResource(R.string.panel_meta_waiting, range)
+        else -> null
+    }
+    if (footer != null) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rowLine))
+        Text(
+            footer, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 14.sp),
+            color = if (note == null && look.metaProblem) colors.error else colors.dim,
+            modifier = Modifier.padding(top = 6.dp).testTag(if (note != null) "panel-table-note-${widget.id}" else "panel-table-meta-${widget.id}"),
+        )
+    }
 }
 
-private val TABLE_ADDR_W = 72.dp
-private val TABLE_HEX_W = 84.dp
-private val TABLE_EDIT_W = 48.dp
+private val TABLE_ROW_MIN = 48.dp
+private val TABLE_EDIT_W = 26.dp
 
-/** 越大越“糟”：错误 > 超时 > 过期 > 正常 > 没数据，卡片 badge / 说明跟最糟的那一行走。 */
+/** 越大越“糟”：错误 > 超时 > 过期 > 正常 > 没数据，卡片标签 / 说明跟最糟的那一行走。 */
 private fun qualityRank(q: Quality?): Int = when (q) {
     Quality.ERROR -> 4
     Quality.TIMEOUT -> 3
@@ -520,7 +626,7 @@ private fun qualityRank(q: Quality?): Int = when (q) {
     else -> 0
 }
 
-/** 14dp 灯，亮 = 绿 + 光晕（稿面 box-shadow 0 0 10px）；灭 / 无数据 = surface3；有值但读取失败（过期）= 绿色减淡，无光晕。 */
+/** 18dp 灯，亮 = 绿 + 4dp 浅圈 + 光晕；灭 / 无数据 = surface3；有值但读取失败（过期）= 绿色减淡，无光晕。 */
 @Composable
 private fun Lamp(on: Boolean, dim: Boolean) {
     val colors = LocalModbusColors.current
@@ -531,27 +637,31 @@ private fun Lamp(on: Boolean, dim: Boolean) {
     }
     Box(
         Modifier
-            .size(14.dp)
+            .size(LAMP_SIZE)
             .drawBehind {
                 if (on) {
                     drawCircle(
                         Brush.radialGradient(
-                            0.45f to colors.rxLocal.copy(alpha = 0.55f),
+                            0.5f to colors.rxLocal.copy(alpha = 0.5f),
                             1f to Color.Transparent,
                             center = center,
-                            radius = 12.dp.toPx(),
+                            radius = 16.dp.toPx(),
                         ),
-                        radius = 12.dp.toPx(),
+                        radius = 16.dp.toPx(),
                     )
+                    drawCircle(colors.wash(colors.rxLocal), radius = size.minDimension / 2f + 4.dp.toPx())
                 }
             }
             .clip(CircleShape)
-            .background(base),
+            .background(base)
+            .testTag("panel-lamp"),
     )
 }
 
+internal val LAMP_SIZE = 18.dp
+
 @Composable
-private fun StatusBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
+private fun ColumnScope.StatusBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
     NameRow(name, look.badge)
     val key: Long? = when (val raw = snapshot?.raw) {
@@ -569,17 +679,17 @@ private fun StatusBody(widget: Widget, point: PointDefinition, name: String, sna
     }
     Text(
         text,
-        fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, color = color, maxLines = 1,
+        fontSize = 24.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = color, maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(top = 8.dp).testTag("panel-value-${widget.id}")
+        modifier = Modifier.padding(top = 6.dp).testTag("panel-value-${widget.id}")
             .then(if (look.strike) Modifier.redStrike(colors.error) else Modifier),
     )
     val meta = if (ok && key != null) stringResource(R.string.panel_meta_state_value, addressLabel(point), key.toInt()) else look.meta
-    if (look.meta.isNotEmpty()) Meta(look.copy(meta = meta))
+    if (look.meta.isNotEmpty()) MetaRow(look.copy(meta = meta))
 }
 
 @Composable
-private fun ProgressBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
+private fun ColumnScope.ProgressBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
     val min = point.rangeMin ?: 0.0
     val max = point.rangeMax ?: 100.0
@@ -587,27 +697,32 @@ private fun ProgressBody(widget: Widget, point: PointDefinition, name: String, s
     val fraction = if (value == null || snapshot.raw == null) 0f else ((value - min) / (max - min)).coerceIn(0.0, 1.0).toFloat()
     val valueText = if (snapshot?.raw == null) "—" else (snapshot.text ?: "") + point.unitLabel.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
     NameRow(name, look.badge) {
-        Text(
-            valueText,
-            style = Mono.copy(fontSize = 13.sp, lineHeight = 17.sp),
-            color = if (snapshot?.quality == Quality.OK) colors.txText else look.valueColor,
-            modifier = Modifier.testTag("panel-value-${widget.id}")
-                .then(if (look.strike) Modifier.redStrike(colors.error) else Modifier),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (look.badge != null) ToneBadge(look.badge.first, look.badge.second, Modifier.testTag("panel-badge"))
+            Text(
+                valueText,
+                style = Mono.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
+                color = look.valueColor,
+                modifier = Modifier.testTag("panel-value-${widget.id}")
+                    .then(if (look.strike) Modifier.redStrike(colors.error) else Modifier),
+            )
+        }
     }
     val fill = when {
         snapshot?.quality != Quality.OK -> colors.dim
         snapshot.level == ThresholdLevel.ALERT -> colors.error
         else -> colors.tx
     }
-    val barShape = RoundedCornerShape(4.dp)
-    Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(8.dp).clip(barShape).background(colors.surface2).testTag("panel-bar-${widget.id}")) {
+    val barShape = RoundedCornerShape(5.dp)
+    Box(Modifier.padding(top = 10.dp).fillMaxWidth().height(PROGRESS_BAR_H).clip(barShape).background(colors.surface2).testTag("panel-bar-${widget.id}")) {
         if (fraction > 0f) {
-            Box(Modifier.fillMaxWidth(fraction).height(8.dp).clip(barShape).background(fill))
+            Box(Modifier.fillMaxWidth(fraction).height(PROGRESS_BAR_H).clip(barShape).background(fill))
         }
     }
-    Meta(look, topPadding = 6)
+    MetaRow(look, topPadding = 7)
 }
+
+internal val PROGRESS_BAR_H = 10.dp
 
 /**
  * 仪表（半圆）：8dp 底轨 + 值弧（正常 = tx、预警 = 琥珀、告警 = 红、非正常数据 = 灰）；
@@ -615,7 +730,7 @@ private fun ProgressBody(widget: Widget, point: PointDefinition, name: String, s
  * 值在量程外：弧停在端点（读数仍显示真实值）。没有数据时只画底轨和分段。
  */
 @Composable
-private fun GaugeBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
+private fun ColumnScope.GaugeBody(widget: Widget, point: PointDefinition, name: String, snapshot: PointSnapshot?, look: Look) {
     val colors = LocalModbusColors.current
     NameRow(name, look.badge)
     val min = point.rangeMin ?: 0.0
@@ -689,7 +804,7 @@ private fun GaugeBody(widget: Widget, point: PointDefinition, name: String, snap
             }
         }
     }
-    Meta(look, topPadding = 4)
+    MetaRow(look, topPadding = 4)
 }
 
 // ---- 工具 ----

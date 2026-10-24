@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.Mono
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -170,23 +171,19 @@ fun CurveCardBody(
     val colors = LocalModbusColors.current
     Box(modifier) {
     CardFrame(Modifier, "panel-card-$id", borderColor) {
-        // 标题（过长只截名称，“· 1 分钟”保留）和图例放同一个 FlowRow：放得下就同一行（图例靠右），放不下图例换到下一行。
-        FlowRow(
-            Modifier.fillMaxWidth().padding(end = if (onFullscreen != null) 30.dp else 0.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
+        // v3：标题（过长只截名称，“· 1 分钟”保留）单独一行，⤢ 在卡内右上；图例另起一行并带当前值。
+        Row(
+            Modifier.fillMaxWidth().padding(end = if (onFullscreen != null) 30.dp else 0.dp).testTag("curve-title-$id"),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(Modifier.testTag("curve-title-$id"), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    title, color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false).testTag("curve-title-text-$id"),
-                )
-                Text(" · ${windowLabel(config.windowSec)}", color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, maxLines = 1, softWrap = false)
-            }
-            if (config.legend == LegendPosition.TOP) {
-                CurveLegend(config, Modifier.testTag("curve-legend-$id"))
-            }
+            Text(
+                title, color = colors.muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).testTag("curve-title-text-$id"),
+            )
+            Text(" · ${windowLabel(config.windowSec)}", color = colors.muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1, softWrap = false)
+        }
+        if (config.legend == LegendPosition.TOP) {
+            CurveLegend(config, Modifier.padding(top = 4.dp).testTag("curve-legend-$id"), frame)
         }
         CurveChart(
             config, frame,
@@ -194,7 +191,7 @@ fun CurveCardBody(
             tag = "curve-chart-$id",
         )
         if (config.legend == LegendPosition.BOTTOM) {
-            CurveLegend(config, Modifier.padding(top = 4.dp).testTag("curve-legend-$id"))
+            CurveLegend(config, Modifier.padding(top = 4.dp).testTag("curve-legend-$id"), frame)
         }
     }
     if (onFullscreen != null) {
@@ -229,16 +226,24 @@ fun CurveEditCard(widget: Widget, modifier: Modifier = Modifier) {
 
 private val CHART_MIN_HEIGHT = 96.dp
 
-/** 图例：线样本（实 / 虚 / 点）+ 名称，11sp。 */
+/** 图例：线样本（实 / 虚 / 点）+ 名称 11.5sp；给了 [frame] 时名称后面跟该系列的最新值（mono 粗，没有就不写）。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CurveLegend(config: CurveConfig, modifier: Modifier = Modifier) {
+fun CurveLegend(config: CurveConfig, modifier: Modifier = Modifier, frame: CurveMath.Frame? = null) {
     val colors = LocalModbusColors.current
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        config.series.forEach { s ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        config.series.forEachIndexed { i, s ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 LineSample(s, colors.isDark)
-                Text(s.point.name, color = colors.muted, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 96.dp))
+                Text(s.point.name, color = colors.muted, fontSize = 11.5.sp, lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 96.dp))
+                val latest = frame?.series?.getOrNull(i)?.latest
+                if (latest != null && latest.isFinite()) {
+                    Text(
+                        ValueCodec.format(latest, s.point.conversion.decimals).orEmpty(),
+                        style = Mono.copy(fontSize = 11.5.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold),
+                        color = colors.text, maxLines = 1, modifier = Modifier.testTag("curve-legend-value-$i"),
+                    )
+                }
             }
         }
     }

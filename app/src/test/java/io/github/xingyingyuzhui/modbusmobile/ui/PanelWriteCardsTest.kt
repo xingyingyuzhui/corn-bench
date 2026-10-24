@@ -18,6 +18,7 @@ import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
@@ -189,9 +190,12 @@ class PanelWriteCardsTest {
     @Test fun buttonNoteSaysWhatWillBeWrittenAndWhere() {
         show()
         scrollTo("panel-button-note-b-coil")
-        assertEquals("写 C5 = ON · U1", text("panel-button-note-b-coil"))
-        assertEquals("写 C9 = OFF · 广播（所有从站）", text("panel-button-note-b-bcast"))
-        assertEquals("写 HR20 = 500 · U1", text("panel-button-note-b-reg"))
+        // v3：写入目标写成“地址 ← 值”，Unit 靠右；广播在名称行有红色标签
+        assertEquals("C5 ← ON", text("panel-button-note-b-coil"))
+        assertEquals("C9 ← OFF · Unit 0，无回应", text("panel-button-note-b-bcast"))
+        assertEquals("HR20 ← 500", text("panel-button-note-b-reg"))
+        compose.onNodeWithTag("panel-broadcast-b-bcast", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals("规范 54：卡上红字写明广播（所有从站）", "广播（所有从站）", text("panel-broadcast-b-bcast"))
     }
 
     @Test fun slaveAndIdleDisableAllWriteControlsWithAReason() {

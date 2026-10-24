@@ -144,7 +144,7 @@ class PanelEditFlowTest {
         compose.onNode(hasSetTextAction(), useUnmergedTree = true).performTextReplacement("机房 B")
         compose.onNodeWithContentDescription("新建面板", useUnmergedTree = true).performClick()
         tap("edit-done")
-        waitTag("panel-chips")
+        waitTag("panel-tabs")
         val saved = reloaded()
         assertEquals(listOf("机房 B", "冷站", "面板 1"), saved.panels.map { it.name })
         // 新建面板成为当前面板：点“机房 B”回去后能看到它的组件

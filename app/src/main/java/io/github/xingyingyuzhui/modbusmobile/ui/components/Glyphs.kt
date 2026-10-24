@@ -267,3 +267,22 @@ fun ExpandIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) {
         drawLine(color, Offset(w * 0.2f, h * 0.8f), Offset(w * 0.5f, h * 0.8f), stroke, StrokeCap.Round)
     }
 }
+
+/** ⚡ 会写设备：闪电轮廓（面板 v3 控制卡名称前、向导「控制设备」分组）。 */
+@Composable
+fun BoltIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val path = Path().apply {
+            moveTo(w * 0.56f, h * 0.06f)
+            lineTo(w * 0.16f, h * 0.58f)
+            lineTo(w * 0.46f, h * 0.58f)
+            lineTo(w * 0.40f, h * 0.94f)
+            lineTo(w * 0.84f, h * 0.42f)
+            lineTo(w * 0.54f, h * 0.42f)
+            close()
+        }
+        drawPath(path, color, style = Stroke(this.size.minDimension * 0.11f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    }
+}

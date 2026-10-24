@@ -20,6 +20,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import io.github.xingyingyuzhui.modbusmobile.ui.LocalOpenConnection
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,7 +44,6 @@ import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalPanelRuntime
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalProjectRepository
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
-import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PencilIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PrimaryButton
@@ -50,9 +52,6 @@ import io.github.xingyingyuzhui.modbusmobile.ui.LocalOpenWizard
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalReportCurveTarget
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusCard
 import io.github.xingyingyuzhui.modbusmobile.ui.components.PageHeader
-import io.github.xingyingyuzhui.modbusmobile.ui.components.SessionStrip
-import io.github.xingyingyuzhui.modbusmobile.ui.components.SmallButton
-import io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalDockInsets
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
@@ -119,9 +118,8 @@ fun PanelScreen() {
 }
 
 /**
- * 面板页（稿面 b2-1 / b4-3）。竖屏：页头 + 会话条（主站 · 轮询中 / 设定 · 实际 + 暂停）+ 面板 chip + 2 列网格；
- * 横屏：一行页头（面板 16/700 + chip xs + 轮询 badge + 暂停）+ 4 列网格，无会话条。
- * ✎ 进入编辑模式（P5，见 PanelEditScreen）；⤢ 全屏曲线、＋ 添加组件在后续 PR，没有功能的入口不画。
+ * 面板页（v3，docs/design/panel-v3.html ①）。竖屏：页头（⤢ ✎）+ 一行「面板页签 · 轮询胶囊」+ 2 列网格；
+ * 横屏：一行页头（面板 + 页签 + 胶囊 + ⤢ ✎）+ 4 列网格。没有组件时是空状态引导。没有功能的入口不画。
  */
 @Composable
 fun PanelContent(
@@ -170,52 +168,51 @@ fun PanelContent(
     val editEntry: (() -> Unit)? = if (ready != null && !ready.readOnly && panels.isNotEmpty()) onEdit else null
 
     writer?.let { w -> w.pending?.let { PanelWriteSheet(it, w) } }
+    val openConnection = LocalOpenConnection.current
+    val pill = pollPillState(masterRunning, slaveRunning, anyPolled, stats, paused)
+    // 有过期卡时每秒更新“现在”，卡片上的“读取失败 · 12 秒前的值”跟着走
+    val anyStale = snapshots.values.any { it.quality == io.github.xingyingyuzhui.modbusmobile.application.panel.Quality.STALE }
+    val now = rememberPanelNow(anyStale, snapshots)
     Box(Modifier.fillMaxSize()) {
+      CompositionLocalProvider(LocalPanelNow provides now) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Column(Modifier.padding(start = pageStart(), end = spacing.page)) {
                 if (landscape) {
-                    LandscapeHeader(panels, current, stats, paused, masterRunning && anyPolled, onSelectPanel, onTogglePause, editEntry, expandEntry)
+                    LandscapeHeader(panels, current, pill, stats, onSelectPanel, onTogglePause, openConnection, editEntry, expandEntry)
                 } else {
                     PageHeader(stringResource(R.string.title_panel)) {
-                        if (editEntry != null) EditEntryButton(editEntry)
                         if (expandEntry != null) ExpandEntryButton(expandEntry)
+                        if (editEntry != null) EditEntryButton(editEntry)
                     }
-                    val polling = masterRunning && anyPolled && stats != null && !paused
-                    val title = when {
-                        masterRunning && anyPolled && paused -> stringResource(R.string.panel_strip_paused)
-                        polling -> stringResource(R.string.panel_strip_polling)
-                        else -> null
-                    }
-                    val detail = when {
-                        masterRunning && anyPolled && paused -> stringResource(R.string.panel_strip_paused_detail)
-                        polling && stats != null -> stringResource(
-                            R.string.panel_strip_detail,
-                            stats.configuredMs,
-                            stats.actualMs?.let { stringResource(R.string.panel_strip_actual, it) } ?: stringResource(R.string.panel_strip_actual_none),
-                        )
-                        else -> null
-                    }
-                    SessionStrip(
-                        Modifier.padding(bottom = spacing.s).testTag("panel-strip"),
-                        title = title,
-                        detail = detail,
-                        trailing = if (masterRunning && anyPolled) {
-                            { PauseButton(paused, onTogglePause) }
-                        } else {
-                            null
-                        },
-                    )
-                    if (panels.size > 1) {
-                        PanelChips(panels, current, false, onSelectPanel, Modifier.padding(bottom = spacing.s))
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(spacing.s),
+                    ) {
+                        Box(Modifier.weight(1f)) {
+                            if (panels.isNotEmpty()) PanelTabs(panels, current, onSelectPanel)
+                        }
+                        PollPill(pill, stats, onTogglePause, openConnection)
                     }
                 }
             }
-            Column(
+            val emptyState = state is PanelUiState.Ready && !anyWidgets && state.warnings.isEmpty() && writer?.notice == null
+            if (emptyState) {
+                PanelEmptyState(
+                    masterRunning = masterRunning,
+                    onAdd = if (onAdd != null && !(state as PanelUiState.Ready).readOnly) onAdd else null,
+                    onOpenConnection = openConnection,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(start = pageStart(), end = spacing.page, bottom = dockClearance()),
+                )
+            } else Column(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = pageStart(), end = spacing.page, bottom = dockClearance()),
+                    .padding(start = pageStart(), end = spacing.page, top = 2.dp, bottom = dockClearance()),
                 verticalArrangement = Arrangement.spacedBy(spacing.s),
             ) {
                 when (state) {
@@ -232,26 +229,13 @@ fun PanelContent(
                         state.warnings.forEach { NoticeCard(title = null, body = it, tag = "panel-warning") }
                         writer?.let { w -> w.notice?.let { WriteNotice(it, w::clearNotice) } }
                         if (!anyWidgets) {
-                            NoticeCard(
-                                title = stringResource(R.string.panel_empty_title),
-                                body = stringResource(R.string.panel_empty_body),
-                                tag = "panel-empty",
-                                action = if (onAdd != null && !state.readOnly) {
-                                    { PrimaryButton(stringResource(R.string.panel_add_widget), onAdd, Modifier.padding(top = 10.dp).testTag("panel-empty-add"), compact = true) }
-                                } else {
-                                    null
-                                },
+                            PanelEmptyState(
+                                masterRunning = masterRunning,
+                                onAdd = if (onAdd != null && !state.readOnly) onAdd else null,
+                                onOpenConnection = openConnection,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 420.dp),
                             )
                         } else {
-                            if (stats == null && !paused && anyPolled) {
-                                Text(
-                                    stringResource(R.string.panel_poll_idle),
-                                    color = colors.muted,
-                                    fontSize = 12.sp,
-                                    lineHeight = 17.sp,
-                                    modifier = Modifier.testTag("panel-poll-hint"),
-                                )
-                            }
                             PanelGrid(
                                 columns = columns,
                                 spans = widgets.map { it.spanColumns },
@@ -278,80 +262,44 @@ fun PanelContent(
                 }
             }
         }
+      }
         writer?.entry?.let { RowEntrySheet(it, writer) }
     }
 }
 
-@Composable
-private fun PauseButton(paused: Boolean, onToggle: () -> Unit) {
-    SmallButton(
-        stringResource(if (paused) R.string.panel_resume else R.string.panel_pause),
-        onToggle,
-        Modifier.testTag("panel-pause"),
-    )
-}
-
-@Composable
-private fun PanelChips(
-    panels: List<Panel>,
-    current: Panel?,
-    xs: Boolean,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ChipRow(
-        options = panels,
-        isSelected = { it.id == current?.id },
-        label = { it.name },
-        onToggle = { onSelect(it.id) },
-        modifier = modifier.fillMaxWidth().testTag("panel-chips"),
-        scroll = true,
-        xs = xs,
-    )
-}
-
-/** b4-3：面板 16/700 + 面板 chip(xs) + 轮询 badge + 暂停；一行，没有会话条。 */
+/** 横屏页头（v3 1-6）：「面板」18/700 + 页签 + 轮询胶囊 + ⤢ ✎ 收进一行（热区 48），与竖屏同一套组件。 */
 @Composable
 private fun LandscapeHeader(
     panels: List<Panel>,
     current: Panel?,
+    pill: PollPillState,
     stats: PollStats?,
-    paused: Boolean,
-    canPause: Boolean,
     onSelect: (String) -> Unit,
     onTogglePause: () -> Unit,
+    onOpenConnection: () -> Unit,
     onEdit: (() -> Unit)?,
     onExpand: (() -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
     Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+        Modifier.fillMaxWidth().padding(top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             stringResource(R.string.title_panel),
             color = colors.text,
-            fontSize = 16.sp,
-            lineHeight = 22.sp,
+            fontSize = 18.sp,
+            lineHeight = 24.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier,
+            modifier = Modifier.padding(end = 6.dp),
         )
-        Row(Modifier.weight(1f)) {
-            if (panels.size > 1) PanelChips(panels, current, true, onSelect)
+        Box(Modifier.weight(1f)) {
+            if (panels.isNotEmpty()) PanelTabs(panels, current, onSelect)
         }
-        when {
-            paused && canPause -> ToneBadge(stringResource(R.string.panel_land_paused), colors.dropped, Modifier.testTag("panel-badge"))
-            stats != null && canPause -> ToneBadge(
-                stringResource(R.string.panel_land_polling, (stats.actualMs ?: stats.configuredMs).toInt()),
-                colors.rxLocal,
-                Modifier.testTag("panel-badge"),
-            )
-            canPause -> ToneBadge(stringResource(R.string.panel_land_idle), colors.dropped, Modifier.testTag("panel-badge"))
-        }
-        if (canPause) PauseButton(paused, onTogglePause)
-        if (onEdit != null) EditEntryButton(onEdit)
+        PollPill(pill, stats, onTogglePause, onOpenConnection)
         if (onExpand != null) ExpandEntryButton(onExpand)
+        if (onEdit != null) EditEntryButton(onEdit)
     }
 }
 
