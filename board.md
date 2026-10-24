@@ -87,3 +87,11 @@
 
 - 设备验收通过（redroid，build 38ad9086964447ff，f5111f9）。
 - 已合进 main。
+
+## 2026-10-24 · 发布 v0.1.0
+
+- 老板要求发布安装包，版本定位 0.1.0（versionName 已是 0.1.0 / versionCode 1，未抬版本）。
+- 本地 `./gradlew :app:assembleRelease :app:assembleDebug` 成功；`tools/verify_offline_apks.py` 两变体均无 INTERNET。
+- 仓库无正式 release keystore：release APK 先为 unsigned，再用本机 Android Debug 密钥 zipalign+apksigner 签名后发布（便于安装；非商店正式签名）。
+- 打 annotated tag `v0.1.0`（指向 a61ffcf）并推送；GitHub Release（非 draft）：https://github.com/xingyingyuzhui/modbus_android/releases/tag/v0.1.0
+- 附件：`Corn-Modbus-0.1.0.apk`（约 11.0 MiB，sha256 ac15b1e2ee60b46160d46a067ab17529ccbe4917a1c348e84ee47305700205f8）、`Corn-Modbus-0.1.0-debug.apk`（约 16.3 MiB，sha256 eec73ebdedcaa66ad7057b1dddb5c3888fdd3a894f78efa4675945ddd0d90be9）。APK 未入库（`.gitignore`）。
