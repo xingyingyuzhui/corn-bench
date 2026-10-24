@@ -1,5 +1,5 @@
 Required Notice: Copyright 2026 xingyingyuzhui (https://github.com/xingyingyuzhui)
-Required Notice: Corn Modbus — https://github.com/xingyingyuzhui/modbus_android
+Required Notice: Corn Modbus — https://github.com/xingyingyuzhui/corn-modbus
 
 # PolyForm Noncommercial License 1.0.0
 
