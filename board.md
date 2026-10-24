@@ -110,3 +110,9 @@
 - GitHub 仓库改名 `xingyingyuzhui/modbus_android` → `xingyingyuzhui/corn-modbus`（旧地址 301 重定向），描述改为 Corn Modbus；应用内仓库链接、LICENSE Required Notice 同步改新地址。云构建项目登记的仓库地址仍是旧 URL（靠重定向可用）。
 - 合并 main（PR #23 README 预览）进分支，board 冲突两段都保留；删掉重复的一段本分支记录。
 - 老板要求合并后升版本发新包：versionName 0.1.1 / versionCode 2，README 下载链接改为 v0.1.1 与新仓库地址。本地 `test`（982 例，0 失败）、`:app:lintDebug`、`:app:assembleRelease :app:assembleDebug` 通过，`tools/verify_offline_apks.py` 两变体通过。
+
+## 2026-10-24 · 合并 PR #24 + 发布 v0.1.1
+
+- 老板在聊天确认「搞完之后合并到 main，然后升级版本号发新包」。PR #24 CI 通过（push 40095177589 / pull_request 40095179630，5dd7855），普通 merge 进 main，合并提交 31be6ec 带 skip ci。
+- annotated tag `v0.1.1` → 31be6ec（tree 与已构建的 5dd7855 相同）。GitHub Release（非 draft）：https://github.com/xingyingyuzhui/corn-modbus/releases/tag/v0.1.1
+- 附件：`Corn-Modbus-0.1.1.apk`（release，zipalign + 本机 Android Debug 密钥签名，与 0.1.0 同钥可覆盖升级；sha256 1efadf27965c1f87e720fa042a1a06fb7dfe12243adabe5211ca8960793d8ebc）、`Corn-Modbus-0.1.1-debug.apk`（sha256 4974a96851b95dd2c119ca840dfe83ee6bed79b002d4bf3ef925572902ed7e4b）。APK 不入库。
