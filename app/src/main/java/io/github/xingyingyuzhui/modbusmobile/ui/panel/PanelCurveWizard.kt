@@ -30,9 +30,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
@@ -74,8 +77,8 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.SelectChip
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SettingRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SettingTrailing
 import io.github.xingyingyuzhui.modbusmobile.ui.components.SettingsCard
+import io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge
 import io.github.xingyingyuzhui.modbusmobile.ui.curve.CurveCardBody
-import io.github.xingyingyuzhui.modbusmobile.ui.curve.LineSample
 import io.github.xingyingyuzhui.modbusmobile.ui.curve.rememberCurveNow
 import io.github.xingyingyuzhui.modbusmobile.ui.curve.seriesColor
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.JetBrainsMono
@@ -84,25 +87,6 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 private val WindowChoices = listOf(60, 300, 600, 3600)
 
 // ---- 选类型卡里的小图示（稿面 b2-3：橙 + 蓝两条折线）----
-
-@Composable
-internal fun CurveIllustration() {
-    val colors = LocalModbusColors.current
-    val amber = seriesColor(0, colors.isDark)
-    val blue = seriesColor(1, colors.isDark)
-    Canvas(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 14.dp)) {
-        fun line(color: Color, ys: List<Float>) {
-            val p = Path()
-            ys.forEachIndexed { i, y ->
-                val x = size.width * i / (ys.size - 1)
-                if (i == 0) p.moveTo(x, size.height * y) else p.lineTo(x, size.height * y)
-            }
-            drawPath(p, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-        }
-        line(blue, listOf(0.55f, 0.5f, 0.6f, 0.45f, 0.5f, 0.35f))
-        line(amber, listOf(0.85f, 0.7f, 0.75f, 0.5f, 0.55f, 0.25f))
-    }
-}
 
 // ---- 2/3 曲线配置（b2-5）----
 
@@ -117,14 +101,20 @@ internal fun CurveConfigStep(
     onOpenSeries: (Int) -> Unit,
 ) {
     val curve = wizard.curve ?: return
+    // v3 3-4：第 2 步只管“画哪些点、多长时间”：预览、系列、时间窗口、采样与内存（折叠）；坐标轴 / 图例 / 缺测 / 游标在第 3 步
     CurvePreviewCard(curve, history, live)
     SeriesList(wizard, result, onAddSeries, onOpenSeries)
-    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_time))
-    ModbusCard(Modifier.fillMaxWidth()) { TimeSection(wizard, result, onCurve) }
-    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_axes))
-    ModbusCard(Modifier.fillMaxWidth()) { AxesSection(wizard, result, onCurve) }
-    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_display))
-    ModbusCard(Modifier.fillMaxWidth()) { DisplaySection(curve, onCurve) }
+    ModbusCard(Modifier.fillMaxWidth()) { WindowSection(wizard, result, onCurve) }
+    val memoryError = wizard.showErrors && (result.errors[CurveField.RETENTION] != null || result.errors[CurveField.MAX_POINTS] != null)
+    CollapsibleBlock(
+        stringResource(R.string.panel_wiz_curve_sampling_memory),
+        stringResource(
+            R.string.panel_wiz_curve_sampling_summary,
+            stringResource(if (curve.sampling == SamplingMode.EVERY_SAMPLE) R.string.panel_wiz_curve_sampling_every else R.string.panel_wiz_curve_sampling_snapshot),
+            curve.retentionHours.ifBlank { "—" },
+        ),
+        tag = "wiz-sampling-block", forceOpen = memoryError,
+    ) { SamplingSection(wizard, result, onCurve) }
 }
 
 /** 预览：真实的曲线卡（强调色描边）；还没有能成立的系列时画只有标题的占位。 */
@@ -139,12 +129,18 @@ internal fun CurvePreviewCard(curve: CurveForm, history: SampleHistory?, live: B
                 CurveMath.frame(config, now) { id, from -> if (live) history?.read(id, from) ?: SampleHistory.Slice.EMPTY else SampleHistory.Slice.EMPTY }
             }
             CurveCardBody(
-                config.series.joinToString(" / ") { it.point.name }, "preview", config, frame,
+                // 稿面 3-4：预览卡标题是“实时预览 · 1 分钟”，系列名在图例里
+                stringResource(R.string.panel_wiz_curve_preview_title), "preview", config, frame,
                 Modifier.fillMaxWidth().height(CurvePreviewHeight), borderColor = colors.accent,
+                // 规范 65：预览卡要一眼看出是预览
+                previewBadge = stringResource(R.string.panel_wiz_preview_badge),
             )
         } else {
             CardFrame(Modifier.fillMaxWidth().height(CurvePreviewHeight), "wiz-preview-placeholder", borderColor = colors.accent) {
-                Text(stringResource(R.string.panel_wiz_kind_curve), color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.panel_wiz_kind_curve), color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f))
+                    ToneBadge(stringResource(R.string.panel_wiz_preview_badge), colors.txText, Modifier.testTag("wiz-preview-badge"))
+                }
                 Text(
                     stringResource(R.string.panel_wiz_curve_preview_empty), color = colors.dim, fontSize = 12.sp, lineHeight = 17.sp,
                     modifier = Modifier.padding(top = 8.dp),
@@ -166,38 +162,49 @@ private val CurvePreviewHeight = 150.dp
 private fun SeriesList(wizard: WizardState, result: CurveResult, onAdd: () -> Unit, onOpen: (Int) -> Unit) {
     val colors = LocalModbusColors.current
     val curve = wizard.curve ?: return
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    val title: @Composable () -> Unit = {
+        // 稿面 v3 3-4：系列数量是块内标题（“系列 2 / 8”），不是卡片外面的小标题
         Text(
             stringResource(R.string.panel_wiz_curve_series, curve.series.size, CurveConfig.MAX_SERIES),
-            color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f).testTag("wiz-series-title"),
+            color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp).testTag("wiz-series-title"),
         )
-        if (curve.series.size < CurveConfig.MAX_SERIES) {
-            val add = stringResource(R.string.panel_wiz_curve_add_series)
-            Box(
-                Modifier
-                    .minimumInteractiveComponentSize()
-                    .semantics { contentDescription = add; role = Role.Button }
-                    .clickable(onClick = onAdd)
-                    .padding(horizontal = 6.dp)
-                    .testTag("wiz-series-add"),
-                contentAlignment = Alignment.Center,
-            ) { Text("＋ $add", color = colors.accentText, fontSize = 13.5.sp, fontWeight = FontWeight.Medium) }
-        }
+    }
+    val canAdd = curve.series.size < CurveConfig.MAX_SERIES
+    val add = stringResource(R.string.panel_wiz_curve_add_series)
+    val addRow: @Composable () -> Unit = {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .semantics { contentDescription = add; role = Role.Button }
+                .clickable(onClick = onAdd)
+                .padding(horizontal = 12.dp)
+                .testTag("wiz-series-add"),
+            contentAlignment = Alignment.CenterStart,
+        ) { Text("＋ $add", color = colors.accentText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
     }
     if (curve.series.isEmpty()) {
         val need = wizard.showErrors && result.errors[CurveField.SERIES] != null
-        Text(
-            stringResource(if (need) R.string.panel_wiz_curve_series_need else R.string.panel_wiz_curve_series_empty),
-            color = if (need) colors.error else colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
-            modifier = Modifier.testTag("wiz-series-empty"),
-        )
+        // 空列表也先写“系列 0 / 8”，再写原因，最后是“＋ 添加系列”
+        SettingsCard {
+            title()
+            Text(
+                stringResource(if (need) R.string.panel_wiz_curve_series_need else R.string.panel_wiz_curve_series_empty),
+                color = if (need) colors.error else colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).testTag("wiz-series-empty"),
+            )
+            if (canAdd) { RowDivider(); addRow() }
+        }
         return
     }
     SettingsCard {
+        title()
         curve.series.forEachIndexed { index, s ->
             if (index > 0) RowDivider()
             SeriesRow(index, s, wizard.showErrors && index in result.badSeries) { onOpen(index) }
         }
+        if (canAdd) { RowDivider(); addRow() }
     }
 }
 
@@ -205,7 +212,7 @@ private fun SeriesList(wizard: WizardState, result: CurveResult, onAdd: () -> Un
 private fun SeriesRow(index: Int, s: SeriesForm, bad: Boolean, onClick: () -> Unit) {
     val colors = LocalModbusColors.current
     val axisText = stringResource(if (s.axis == YAxis.LEFT) R.string.panel_wiz_curve_axis_left else R.string.panel_wiz_curve_axis_right)
-    val sub = remember(s) { seriesSubline(s) } + " · " + axisText
+    val sub = remember(s) { seriesSubline(s) }
     val shown = s.name.ifBlank { stringResource(R.string.panel_wiz_series_unnamed) }
     Row(
         Modifier
@@ -227,17 +234,18 @@ private fun SeriesRow(index: Int, s: SeriesForm, bad: Boolean, onClick: () -> Un
                 modifier = Modifier.testTag("wiz-series-sub-$index"),
             )
         }
-        val preview = CurveSeries(PointStub, s.colorIndex, s.lineStyle, s.width, s.axis)
-        LineSample(preview, colors.isDark)
-        Text("${s.width}px", color = colors.muted, fontSize = 13.sp, fontFamily = JetBrainsMono)
+        // v3 3-4：行内不放线宽 / 线型样例（颜色圆点已经能区分系列），轴标签是独立小标签；
+        // 线型 / 粗细只在系列浮层里改。
+        Box(
+            Modifier
+                .border(1.dp, colors.line, RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 1.dp),
+        ) {
+            Text(axisText, color = colors.muted, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.testTag("wiz-series-axis-$index"))
+        }
         Text("›", color = colors.dim, fontSize = 18.sp)
     }
 }
-
-private val PointStub = io.github.xingyingyuzhui.modbusmobile.application.panel.PointDefinition(
-    "stub", "stub", 1, io.github.xingyingyuzhui.modbusmobile.core.model.RegisterArea.HOLDING_REGISTER, 0,
-    io.github.xingyingyuzhui.modbusmobile.application.panel.DataType.U16,
-)
 
 /** “U1 HR100 · S16 ×0.1 ℃”：这个系列读什么、怎么换算（表单没填完整时尽量照填的写）。 */
 internal fun seriesSubline(s: SeriesForm): String {
@@ -255,7 +263,7 @@ internal fun seriesSubline(s: SeriesForm): String {
 }
 
 @Composable
-private fun TimeSection(wizard: WizardState, result: CurveResult, onCurve: (CurveForm) -> Unit) {
+private fun WindowSection(wizard: WizardState, result: CurveResult, onCurve: (CurveForm) -> Unit) {
     val colors = LocalModbusColors.current
     val curve = wizard.curve ?: return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -283,6 +291,14 @@ private fun TimeSection(wizard: WizardState, result: CurveResult, onCurve: (Curv
                 sub = stringResource(R.string.panel_wiz_curve_minutes_unit), error = curveError(wizard, result, CurveField.WINDOW),
             ) { onCurve(curve.copy(customMinutes = it.filter(Char::isDigit).take(4))) }
         }
+    }
+}
+
+@Composable
+private fun SamplingSection(wizard: WizardState, result: CurveResult, onCurve: (CurveForm) -> Unit) {
+    val colors = LocalModbusColors.current
+    val curve = wizard.curve ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.panel_wiz_curve_sampling), color = colors.muted, fontSize = 12.sp)
         SegmentedTextControl(
             SamplingMode.entries, curve.sampling, { onCurve(curve.copy(sampling = it)) }, Modifier.testTag("wiz-sampling"), small = true,
@@ -633,19 +649,35 @@ internal fun CurveLookStep(
     val colors = LocalModbusColors.current
     val curve = wizard.curve ?: return
     val widget = result.widget
-    val spacing = io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing.current
     val sizeLabel = "2 × ${curve.spanRows}"
     val config = widget?.curve
     if (widget != null && config != null) {
-        PanelGrid(
-            columns = 2, spans = listOf(2), spanRows = listOf(curve.spanRows),
-            modifier = Modifier.fillMaxWidth().testTag("wiz-look-preview"), gap = spacing.s,
+        // 稿面 3-3：预览放在一格“假网格”里（虚线边 + 6dp 内边距），按选中尺寸显示
+        val shape = RoundedCornerShape(14.dp)
+        Box(
+            Modifier.fillMaxWidth().clip(shape).background(colors.bg)
+                .drawBehind {
+                    drawRoundRect(
+                        colors.line, cornerRadius = CornerRadius(14.dp.toPx()),
+                        style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))),
+                    )
+                }
+                .padding(6.dp)
+                .testTag("wiz-look-preview"),
         ) {
-            val now = rememberCurveNow()
-            val frame = remember(config, now, history, live) {
-                CurveMath.frame(config, now) { id, from -> if (live) history?.read(id, from) ?: SampleHistory.Slice.EMPTY else SampleHistory.Slice.EMPTY }
+            PanelGrid(
+                columns = 2, spans = listOf(2), spanRows = listOf(curve.spanRows),
+                modifier = Modifier.fillMaxWidth(), gap = 6.dp,
+            ) {
+                val now = rememberCurveNow()
+                val frame = remember(config, now, history, live) {
+                    CurveMath.frame(config, now) { id, from -> if (live) history?.read(id, from) ?: SampleHistory.Slice.EMPTY else SampleHistory.Slice.EMPTY }
+                }
+                CurveCardBody(
+                    widget.displayTitle, "look", config, frame, Modifier, borderColor = colors.accent,
+                    previewBadge = stringResource(R.string.panel_wiz_preview_badge),
+                )
             }
-            CurveCardBody(widget.displayTitle, "look", config, frame, Modifier, borderColor = colors.accent)
         }
         Text(
             stringResource(R.string.panel_wiz_actual_size, sizeLabel), color = colors.muted, fontSize = 12.sp,
@@ -658,6 +690,10 @@ internal fun CurveLookStep(
             SegmentedTextControl(CurveSizes, curve.spanRows, { onCurve(curve.copy(spanRows = it)) }, Modifier.testTag("wiz-size"), small = true) { "2 × $it" }
         }
     }
+    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_axes))
+    ModbusCard(Modifier.fillMaxWidth()) { AxesSection(wizard, result, onCurve) }
+    SectionTitle(stringResource(R.string.panel_wiz_curve_sec_display))
+    ModbusCard(Modifier.fillMaxWidth()) { DisplaySection(curve, onCurve) }
     Text(
         stringResource(R.string.panel_wiz_curve_size_note), color = colors.muted, fontSize = 12.sp, lineHeight = 17.sp,
         modifier = Modifier.testTag("wiz-size-note"),

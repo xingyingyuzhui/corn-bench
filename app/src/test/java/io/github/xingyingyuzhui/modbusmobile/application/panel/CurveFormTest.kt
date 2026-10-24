@@ -153,4 +153,13 @@ class CurveFormTest {
         assertEquals(60, c.windowSec)
         assertNotNull(form().previewConfig())
     }
+
+    @Test fun dataStepIgnoresManualAxesWhichBelongToTheDisplayStep() {
+        val f = form()
+        assertTrue(f.build("w").ok)
+        val bad = f.copy(leftAuto = false, leftMin = "30", leftMax = "10")
+        assertFalse(bad.build("w").ok)
+        assertTrue(bad.buildData("w").ok)
+        assertFalse("没有系列仍然拦在第 2 步", CurveForm().buildData("w").ok)
+    }
 }

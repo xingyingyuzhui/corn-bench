@@ -256,4 +256,35 @@ class WidgetFormTest {
         assertNull(WidgetForm.fromWidget(Widget("w", "future_kind", raw = "{}")))
         assertNotNull(WidgetForm.fromWidget(build(number()).widget!!))
     }
+
+    // ---- v3 向导：第 2 步「数据」只校验读什么 / 写什么 ----
+
+    @Test fun dataStepIgnoresDisplayFieldsButFullBuildStillNeedsThem() {
+        val f = number { copy(name = "", decimals = "x", thresholds = listOf(ThresholdRow(value = "abc"))) }
+        assertTrue("名称 / 小数位 / 阈值在第 3 步，第 2 步放行", f.buildData("w", "p").ok)
+        val full = f.build("w", "p")
+        assertFalse(full.ok)
+        assertTrue(full.errors.keys.all { it in WidgetForm.DISPLAY_FIELDS })
+    }
+
+    @Test fun dataStepStillCatchesDataErrorsIncludingSpanOverflow() {
+        assertEquals(FormError.OUT_OF_RANGE, number { copy(name = "", address = "70000") }.buildData("w", "p").errors[FormField.ADDRESS])
+        assertEquals(FormError.ZERO_SCALE, number { copy(name = "", scale = "0") }.buildData("w", "p").errors[FormField.SCALE])
+        // 越界只有在其它字段都合法时才查得到：名称为空也要查出来
+        val wide = number { copy(name = "", address = "65535", type = DataType.U32) }
+        assertEquals(FormError.SPAN_OVERFLOW, wide.buildData("w", "p").errors[FormField.ADDRESS])
+    }
+
+    @Test fun previewFormKeepsWhatToReadAndOnlyFillsDisplayPlaceholders() {
+        val f = number { copy(name = "", thresholds = listOf(ThresholdRow(value = "0.8"), ThresholdRow(value = "x"))) }
+        val p = f.forPreview()
+        assertEquals(WidgetForm.PREVIEW_NAME, p.name)
+        assertEquals(listOf(ThresholdRow(value = "0.8")), p.thresholds)
+        assertEquals(f.copy(name = p.name, thresholds = p.thresholds), p)
+        // 状态文本没有映射时，预览也能建出点位
+        val status = WidgetForm(kind = WidgetKinds.STATUS_TEXT, address = "120")
+        assertNotNull(status.forPreview().build("w", "p").widget?.point)
+        assertTrue(status.buildData("w", "p").ok)
+        assertFalse(status.build("w", "p").ok)
+    }
 }

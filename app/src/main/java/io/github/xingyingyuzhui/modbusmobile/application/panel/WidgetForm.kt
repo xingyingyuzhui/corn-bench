@@ -90,6 +90,34 @@ data class WidgetForm(
         return copy(type = value, order = if ((value.registers ?: 1) >= 2) order else ByteWordOrder.ABCD)
     }
 
+    /**
+     * 向导第 2 步「数据」用：显示类字段（名称、小数位、量程、阈值、状态映射，在第 3 步「显示」里填）没填好时换成占位，
+     * 只校验“读什么 / 写什么”。实时预览也用它，所以没起名字也能先看到读数。
+     */
+    fun forPreview(): WidgetForm {
+        val okThresholds = thresholds.filter { it.value.trim().toDoubleOrNull()?.isFinite() == true }
+        val seen = HashSet<Long>()
+        val okStates = states.filter { row ->
+            val v = row.value.trim().toLongOrNull()
+            v != null && row.label.isNotBlank() && seen.add(v)
+        }.take(MAX_STATES)
+        val min = rangeMin.trim().toDoubleOrNull()
+        val max = rangeMax.trim().toDoubleOrNull()
+        val rangeOk = (rangeMin.isBlank() || min?.isFinite() == true) && (rangeMax.isBlank() || max?.isFinite() == true) &&
+            (min == null || max == null || min < max)
+        return copy(
+            name = name.ifBlank { PREVIEW_NAME },
+            decimals = decimals.trim().takeIf { it.isEmpty() || it.toIntOrNull() in 0..10 } ?: "",
+            rangeMin = if (rangeOk) rangeMin else "",
+            rangeMax = if (rangeOk) rangeMax else "",
+            thresholds = okThresholds,
+            states = if (kind == WidgetKinds.STATUS_TEXT && okStates.isEmpty()) listOf(StateRow(Long.MIN_VALUE.toString(), PREVIEW_NAME)) else okStates,
+        )
+    }
+
+    /** 第 2 步「数据」的校验结果：显示类字段不算。 */
+    fun buildData(widgetId: String, pointId: String): FormResult = forPreview().build(widgetId, pointId)
+
     fun build(widgetId: String, pointId: String): FormResult {
         val errors = LinkedHashMap<FormField, FormError>()
         val name = name.trim().take(MAX_NAME)
@@ -217,6 +245,14 @@ data class WidgetForm(
         const val MAX_UNIT_LABEL = 8
         const val MAX_BUTTON_LABEL = 12
         const val MAX_STATES = 32
+
+        /** 预览占位名（名称在第 3 步才填）。 */
+        const val PREVIEW_NAME = "—"
+
+        /** 第 3 步「显示」管的字段；其余字段（读什么 / 写什么）在第 2 步「数据」。 */
+        val DISPLAY_FIELDS: Set<FormField> = setOf(
+            FormField.NAME, FormField.DECIMALS, FormField.RANGE_MIN, FormField.RANGE_MAX, FormField.THRESHOLD, FormField.STATE,
+        )
 
         private val numeric = listOf(
             DataType.U16, DataType.S16, DataType.U32, DataType.S32, DataType.F32, DataType.U64, DataType.S64, DataType.F64,

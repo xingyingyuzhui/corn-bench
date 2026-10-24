@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasSetTextAction
@@ -20,6 +21,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -191,12 +193,26 @@ class PanelCurveWizardTest {
 
     @Test fun configStepHasEverySectionOfTheDesign() {
         show(curveState(2, CurveForm(listOf(temp, press))))
-        compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertTextContains("2 / 3")
+        compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertContentDescriptionContains("第 2 步", substring = true)
+        // v3 3-4：第 2 步 = 预览 + 系列 + 时间窗口 + “采样与内存”（折叠）
         for (tag in listOf(
             "wiz-preview", "wiz-series-title", "wiz-series-add", "wiz-series-row-0", "wiz-series-row-1", "wiz-window-60", "wiz-window-300", "wiz-window-600",
-            "wiz-window-3600", "wiz-window-custom", "wiz-sampling", "wiz-retention", "wiz-max-points", "wiz-left-title", "wiz-right-title",
-            "wiz-grid", "wiz-legend", "wiz-gaps", "wiz-cursor",
+            "wiz-window-3600", "wiz-window-custom", "wiz-sampling-block",
         )) {
+            runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo() }
+            assertEquals(tag, 1, count(tag))
+        }
+        // 规范 65：曲线预览卡也带“预览”徽标（面板里的真卡片没有）
+        compose.onNodeWithTag("wiz-preview-badge", useUnmergedTree = true).assertTextContains("预览")
+        tap("wiz-sampling-block-toggle")
+        for (tag in listOf("wiz-sampling", "wiz-retention", "wiz-max-points")) {
+            runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo() }
+            assertEquals(tag, 1, count(tag))
+        }
+        // v3：坐标轴 / 图例 / 缺测 / 游标挪到第 3 步「显示」
+        tap("wiz-next")
+        compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertContentDescriptionContains("第 3 步", substring = true)
+        for (tag in listOf("wiz-left-title", "wiz-right-title", "wiz-grid", "wiz-legend", "wiz-gaps", "wiz-cursor")) {
             runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo() }
             assertEquals(tag, 1, count(tag))
         }
@@ -207,6 +223,7 @@ class PanelCurveWizardTest {
         compose.onNodeWithTag("wiz-series-empty", useUnmergedTree = true).assertIsDisplayed()
         assertEquals("没有系列就没有预览曲线", 0, count("curve-chart-w-new"))
         assertEquals(1, count("wiz-preview-none") + count("wiz-preview-placeholder") + count("curve-waiting").coerceAtMost(1))
+        compose.onNodeWithTag("wiz-preview-badge", useUnmergedTree = true).assertTextContains("预览")
         tap("wiz-series-add")
         assertEquals(listOf("addSeries"), calls)
         compose.onNodeWithTag("wiz-sheet", useUnmergedTree = true).assertIsDisplayed()
@@ -214,15 +231,21 @@ class PanelCurveWizardTest {
     }
 
     @Test fun rightAxisBlockOnlyAppearsWhenSomeSeriesUsesIt() {
-        show(curveState(2, CurveForm(listOf(temp))))
+        // v3：坐标轴在第 3 步「显示」
+        show(curveState(3, CurveForm(listOf(temp))))
         assertEquals(1, count("wiz-left-title"))
         assertEquals(0, count("wiz-right-title"))
+        state = curveState(3, CurveForm(listOf(temp, press)))
+        compose.waitForIdle()
+        assertEquals(1, count("wiz-right-title"))
     }
 
     @Test fun seriesRowShowsNameAndSourceAndTapOpensTheSheet() {
         show(curveState(2, CurveForm(listOf(temp, press))))
         compose.onNodeWithTag("wiz-series-sub-1", useUnmergedTree = true).assertTextContains("HR101", substring = true)
-        compose.onNodeWithTag("wiz-series-sub-1", useUnmergedTree = true).assertTextContains("右轴", substring = true)
+        // v3 3-4：轴是独立小标签，不再拼在来源行里
+        compose.onNodeWithTag("wiz-series-axis-1", useUnmergedTree = true).assertTextContains("右轴", substring = true)
+        assertEquals("行内不画线宽 / 线型样例", 0, compose.onAllNodesWithText("px", substring = true, useUnmergedTree = true).fetchSemanticsNodes().size)
         tap("wiz-series-row-1")
         assertEquals(listOf("open:1"), calls)
         compose.onNodeWithTag("wiz-sheet-title", useUnmergedTree = true).assertTextContains("供水压力", substring = true)
@@ -253,17 +276,24 @@ class PanelCurveWizardTest {
     @Test fun samplingSwitchShowsTheSnapshotNote() {
         show(curveState(2, CurveForm(listOf(temp))))
         assertEquals(0, count("wiz-snapshot-note"))
-        tap("wiz-sampling")  // 点分段控件本身落在第一个选项上；直接改表单走 UI 的第二个选项
+        // v3：“采样与内存”收进折叠块
+        tap("wiz-sampling-block-toggle")
         compose.onNodeWithTag("wiz-sampling-note", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("定时快照", useUnmergedTree = true).performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals(SamplingMode.SNAPSHOT, curve().sampling)
+        compose.onNodeWithTag("wiz-snapshot-note", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun snapshotSamplingShowsItsIntervalNote() {
         show(curveState(2, CurveForm(listOf(temp), sampling = SamplingMode.SNAPSHOT)))
+        tap("wiz-sampling-block-toggle")
         compose.onNodeWithTag("wiz-snapshot-note", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun manualAxisRangeShowsMinMaxFieldsAndValidates() {
-        show(curveState(2, CurveForm(listOf(temp), leftAuto = false), showErrors = true))
+        // v3：坐标轴在第 3 步「显示」
+        show(curveState(3, CurveForm(listOf(temp), leftAuto = false), showErrors = true))
         assertEquals(1, count("wiz-left-min"))
         assertEquals(1, count("wiz-left-max"))
         type("wiz-left-min", "30")
@@ -273,7 +303,8 @@ class PanelCurveWizardTest {
     }
 
     @Test fun legendGapsAndSwitchesWriteBackToTheForm() {
-        show(curveState(2, CurveForm(listOf(temp))))
+        // v3：图例 / 缺测 / 游标 / 网格都在第 3 步「显示」
+        show(curveState(3, CurveForm(listOf(temp))))
         tap("wiz-grid")
         assertFalse(curve().grid)
         tap("wiz-cursor")
@@ -282,7 +313,10 @@ class PanelCurveWizardTest {
 
     @Test fun configTouchTargetsAreAtLeast48dp() {
         show(curveState(2, CurveForm(listOf(temp, press))))
-        for (tag in listOf("wiz-series-add", "wiz-series-row-0", "wiz-window-60", "wiz-window-custom", "wiz-grid", "wiz-cursor")) assertTouch(tag)
+        for (tag in listOf("wiz-series-add", "wiz-series-row-0", "wiz-window-60", "wiz-window-custom")) assertTouch(tag)
+        // 第 3 步的坐标轴 / 图例 / 游标同样 ≥48dp
+        tap("wiz-next")
+        for (tag in listOf("wiz-grid", "wiz-cursor")) assertTouch(tag)
     }
 
     // ---- 系列弹窗 ----
@@ -359,10 +393,10 @@ class PanelCurveWizardTest {
 
     @Test fun lookStepShowsPreviewAndOnlyTheTwoWideSizes() {
         show(curveState(3, CurveForm(listOf(temp, press))))
-        compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertTextContains("3 / 3")
+        compose.onNodeWithTag("wiz-step", useUnmergedTree = true).assertContentDescriptionContains("第 3 步", substring = true)
         compose.onNodeWithTag("wiz-look-preview", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("wiz-size", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag("wiz-size-note", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("wiz-size-note", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         tap("wiz-size")
         assertTrue(curve().spanRows in 1..2)
         assertEquals("曲线永远 2 列宽", 2, curve().spanColumns)

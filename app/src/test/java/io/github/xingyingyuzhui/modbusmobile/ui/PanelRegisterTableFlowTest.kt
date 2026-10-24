@@ -236,7 +236,10 @@ class PanelRegisterTableFlowTest {
         assertEquals("3 行 · HR100–HR102 · 允许修改", text("panel-table-summary-t1"))
         // 点卡片 = 打开向导（改配置），向导预览里 ✎ 画出来但点不动
         tap("edit-card-t1"); tap("edit-configure")
-        waitTag("wiz-preview")
+        // v3：第 2 步顶部是一行实时预览；寄存器表的 ✎ 只在第 3 步「显示」的按尺寸预览里画
+        waitTag("wiz-preview-bar")
+        tap("wiz-next")
+        waitTag("wiz-look-preview")
         waitTag("panel-row-edit-t1-0")
         tap("panel-row-edit-t1-0")
         assertEquals(0, count("row-entry"))

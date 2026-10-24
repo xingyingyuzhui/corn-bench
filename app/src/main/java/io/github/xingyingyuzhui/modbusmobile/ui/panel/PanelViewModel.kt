@@ -81,6 +81,15 @@ data class WizardState(
 
     fun result(): FormResult = form.build(widgetId, pointId)
 
+    /** 第 2 步「数据」只校验读什么 / 写什么（名称、阈值等在第 3 步）。 */
+    fun dataResult(): FormResult = form.buildData(widgetId, pointId)
+
+    /** 当前这一步该显示的校验结果：第 2 步不算显示类字段。 */
+    fun stepResult(): FormResult = if (step == 2) dataResult() else result()
+
+    /** 有没有“数据”这一步的错误（决定完成失败时退回第 2 步还是留在第 3 步）。 */
+    val dataOk: Boolean get() = if (curve != null) curve.buildData(widgetId).ok else dataResult().ok
+
     fun curveResult(): CurveResult = (curve ?: CurveForm()).build(widgetId)
 }
 
@@ -346,8 +355,8 @@ class PanelViewModel(
         when (w.step) {
             1 -> Unit
             2 -> {
-                val ok = if (w.curve != null) w.curveResult().ok else w.result().ok
-                _wizard.value = if (ok) w.copy(step = 3, showErrors = false) else w.copy(showErrors = true, errorAttempt = w.errorAttempt + 1)
+                // v3：第 2 步只管数据；名称 / 阈值 / 坐标轴等显示类字段在第 3 步才校验
+                _wizard.value = if (w.dataOk) w.copy(step = 3, showErrors = false) else w.copy(showErrors = true, errorAttempt = w.errorAttempt + 1)
             }
             else -> commitWizard()
         }
@@ -375,7 +384,8 @@ class PanelViewModel(
         val w = _wizard.value ?: return
         val widget = if (w.curve != null) w.curveResult().widget else w.result().widget
         if (widget == null) {
-            _wizard.value = w.copy(step = 2, showErrors = true, errorAttempt = w.errorAttempt + 1)
+            // 数据有错退回第 2 步；只是显示类字段（名称、阈值……）没填好就留在第 3 步，滚到第一个错误
+            _wizard.value = w.copy(step = if (w.dataOk) 3 else 2, showErrors = true, errorAttempt = w.errorAttempt + 1)
             return
         }
         if (w.editingWidgetId == null) {
@@ -398,7 +408,8 @@ class PanelViewModel(
             } else {
                 // 按钮的点位只用来写，向导预览不读它（更不会写）
                 // 按钮的 points 为空（只用来写），预览不读它；寄存器表预览读“preview#行号”这些行点位
-                val points = form.build("preview", PREVIEW_POINT_ID).widget?.points.orEmpty()
+                // 预览只看“读什么”：名称 / 阈值等显示类字段还没填也照样读（forPreview 用占位）
+                val points = form.forPreview().build("preview", PREVIEW_POINT_ID).widget?.points.orEmpty()
                 target.setPoints(points)
                 target.setActive(points.isNotEmpty())
             }

@@ -84,6 +84,9 @@ data class CurveForm(
 
     fun usesAxis(side: YAxis): Boolean = series.any { it.axis == side }
 
+    /** 向导第 2 步「数据」的校验：坐标轴（在第 3 步「显示」里）先按自动算。 */
+    fun buildData(widgetId: String): CurveResult = copy(leftAuto = true, rightAuto = true).build(widgetId)
+
     fun build(widgetId: String): CurveResult {
         val errors = LinkedHashMap<CurveField, FormError>()
         val seriesResults = series.map { it.build() }

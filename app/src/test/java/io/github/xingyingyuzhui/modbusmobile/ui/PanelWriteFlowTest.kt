@@ -197,8 +197,11 @@ class PanelWriteFlowTest {
         waitTag("edit-grid")
         // 编辑模式里点卡片 = 打开这个组件的向导（改配置），不是操作它
         tap("edit-card-bt2"); tap("edit-configure")
-        waitTag("wiz-preview")
+        // v3：第 2 步是“写什么”，第 3 步才按实际尺寸预览按钮
+        waitTag("wiz-write-coil")
         assertEquals("编辑 / 向导里没有写确认弹窗", 0, count("confirm-title"))
+        tap("wiz-next")
+        waitTag("wiz-look-preview")
         // 向导预览里的按钮是置灰的，点了也没有任何反应
         tap("panel-button-bt2")
         assertEquals(0, count("confirm-title"))
