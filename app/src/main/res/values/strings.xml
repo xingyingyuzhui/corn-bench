@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Modbus Mobile</string>
+    <string name="app_name">Corn Modbus</string>
     <string name="session_channel">会话</string>
     <string name="session_channel_description">USB 串口会话正在运行</string>
     <string name="session_notification_title">Modbus 会话</string>
@@ -666,6 +666,10 @@
     <string name="about_privacy">隐私</string>
     <string name="about_privacy_value">不联网，不上传任何数据</string>
     <string name="about_unknown_version">—</string>
+    <string name="about_author">作者</string>
+    <string name="about_license_value">GitHub 开源 · 非商业授权</string>
+    <string name="author_credit_cd">打开作者的 GitHub 仓库</string>
+    <string name="author_signature" translatable="false">Corn Modbus · by xingyingyuzhui · https://github.com/xingyingyuzhui/modbus_android</string>
     <string name="mine_summary_comm">超时 %1$d ms</string>
     <string name="mine_summary_security">始终确认</string>
     <string name="mine_section_data">数据</string>

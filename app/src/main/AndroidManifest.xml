@@ -16,6 +16,13 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.ModbusMobile">
+        <!-- Corn Modbus · by xingyingyuzhui · PolyForm Noncommercial 1.0.0 -->
+        <meta-data
+            android:name="io.github.xingyingyuzhui.author"
+            android:value="xingyingyuzhui" />
+        <meta-data
+            android:name="io.github.xingyingyuzhui.repo"
+            android:value="https://github.com/xingyingyuzhui/modbus_android" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

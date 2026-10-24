@@ -162,4 +162,14 @@ class ProjectArchiveTest {
         }
         return out
     }
+
+    @Test
+    fun everyExportCarriesTheAuthorSignatureAsZipComment() {
+        val file = java.io.File.createTempFile("export", ".zip").apply { deleteOnExit() }
+        file.writeBytes(archiveBytes(setOf(ArchivePart.POINTS), ArchiveInput(zone = utc)))
+        java.util.zip.ZipFile(file).use { zip ->
+            assertEquals(io.github.xingyingyuzhui.modbusmobile.application.Authorship.SIGNATURE, zip.comment)
+            assertTrue(zip.comment.contains("xingyingyuzhui"))
+        }
+    }
 }

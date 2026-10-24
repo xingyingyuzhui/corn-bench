@@ -1,4 +1,4 @@
-# Modbus Mobile · UI 阶段任务说明（交给 coding agent）
+# Corn Modbus · UI 阶段任务说明（交给 coding agent）
 
 日期：2026-10-16
 

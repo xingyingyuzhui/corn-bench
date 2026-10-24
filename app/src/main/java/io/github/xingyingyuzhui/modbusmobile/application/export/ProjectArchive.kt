@@ -128,7 +128,10 @@ private fun archiveZip(out: OutputStream): ZipOutputStream = ZipOutputStream(obj
     override fun write(b: ByteArray, off: Int, len: Int) = out.write(b, off, len)
     override fun flush() = out.flush()
     override fun close() = flush()
-})
+}).apply {
+    // 每个导出 ZIP 都带一行署名（ZIP 注释，解压工具能看到），不影响内容和导入。
+    setComment(io.github.xingyingyuzhui.modbusmobile.application.Authorship.SIGNATURE)
+}
 
 private fun writeEntries(zip: ZipOutputStream, parts: Set<ArchivePart>, input: ArchiveInput) {
     if (ArchivePart.PROJECT in parts) input.projectJson?.let { zip.bytes(ArchiveNames.PROJECT, it.toByteArray(Charsets.UTF_8)) }
