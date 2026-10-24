@@ -74,3 +74,5 @@
 - archive-import：ZIP 导入（预览、替换、before-import 备份、会话中拒绝）+ 向导校验失败滚到第一个错误。本地 core58+app914、lint、debug/release APK、offline 检查通过；GitHub CI 39977846474（e6ea940）/ 39997662014（ac542b9）成功。redroid（Oracle ARM64 Android 16）导出 → 导入 → 面板即时恢复 → 强停重启仍在；连接中导入被拒绝。
 - 老板在聊天明确「跑完这个」允许合 main：main 快进到 f3fa90c（最后一个提交为文档，带 skip ci），origin/main 已核对。
 - UI 细化第 1 轮（分支 ui-polish-r1）：写入确认的“来自 N 秒前”按秒/分钟/小时/天显示；向导预览占位卡带“预览”徽标、未命名写“未命名组件”；导出浮层在交给系统保存/分享后收起。每项都有去掉修复会失败的断言。云端 MCP 本轮连不上，这三项未做设备验收（未验证）。
+- redroid 补齐 PR #21 三项设备验收（云构建 3df2645556324f70）：向导预览徽标、写入确认“来自 1 分钟前的读取”、导出保存后浮层收起（Downloads 有 modbus-export-20261024-054235.zip）均通过。每次云构建 debug 签名不同，安装前卸载旧包。
+- 老板在聊天确认合并：PR #21 普通 merge 进 main，合并提交 6972cdd，带 skip ci。
