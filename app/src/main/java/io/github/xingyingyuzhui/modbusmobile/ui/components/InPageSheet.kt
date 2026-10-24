@@ -12,6 +12,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -65,7 +70,14 @@ fun InPageSheet(
                 .border(1.dp, colors.line, shape)
                 // 吃掉面板里的点击，不让它穿到遮罩上把浮层关掉。
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
-                .imePadding()
+                // 没有 dock 时（编辑模式、全屏页）自己让开系统导航条；有 dock 时 dock.bottom 已经含导航条
+                .then(
+                    if (dock.bottom == 0.dp) {
+                        Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+                    } else {
+                        Modifier.imePadding()
+                    },
+                )
                 .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {

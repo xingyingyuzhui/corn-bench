@@ -80,6 +80,12 @@ fun PanelScreen() {
     val openWizard = LocalOpenWizard.current
     val openCurve = LocalOpenCurve.current
     val editing = edit
+    // 编辑模式隐藏 dock（v3 2-1）。离开面板页去向导时不复原：向导本来就不显示 dock，
+    // 回来时也不会先闪一下 dock；退出编辑（完成 / 放弃）时这里报 false。
+    val reportEditing = io.github.xingyingyuzhui.modbusmobile.ui.LocalReportPanelEditing.current
+    androidx.compose.runtime.LaunchedEffect(editing != null) {
+        reportEditing(editing != null)
+    }
     if (editing != null) {
         PanelEditor(
             edit = editing,

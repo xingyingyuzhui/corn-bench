@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -122,10 +124,15 @@ fun WidgetCard(
     snapshots: Map<String, PointSnapshot> = emptyMap(),
 ) {
     val point = widget.point ?: return
-    // 编辑模式（稿面 b2-2）：名称前加 ⠿，不显示 badge 和 meta（值还是实时的）。
-    val look = rememberLook(widget, point, snapshot).let { if (editing) it.copy(badge = null, meta = "", metaRight = null, tone = CardTone.NONE) else it }
-    val name = (if (editing) "⠿ " else "") + widget.displayName(point)
-    CardFrame(modifier, "panel-card-${widget.id}", borderColor, look.tone) {
+    val colors = LocalModbusColors.current
+    // 编辑模式（v3 2-1）：安静的编辑态 —— surface2 底、名称正文色、左 ⠿、右上尺寸；值灰色，没有标签；底行写“类型 · 地址”。
+    val look = rememberLook(widget, point, snapshot).let {
+        if (editing) it.copy(badge = null, meta = editMeta(widget.kind, addressLabel(point)), metaProblem = false, metaRight = null, tone = CardTone.NONE, valueColor = colors.muted, strike = false) else it
+    }
+    val name = widget.displayName(point)
+    val editSize = if (editing) stringResource(R.string.panel_edit_size_short, widget.spanColumns, widget.spanRows) else null
+    CompositionLocalProvider(LocalEditCardSize provides editSize) {
+    CardFrame(modifier, "panel-card-${widget.id}", borderColor, look.tone, fill = if (editing) colors.surface2 else null) {
         when (widget.kind) {
             WidgetKinds.LAMP -> LampBody(widget, point, name, snapshot, look)
             WidgetKinds.STATUS_TEXT -> StatusBody(widget, point, name, snapshot, look)
@@ -137,7 +144,25 @@ fun WidgetCard(
             else -> NumberBody(widget, point, name, snapshot, look)
         }
     }
+    }
 }
+
+@Composable
+private fun editMeta(kind: String, address: String): String = stringResource(
+    when (kind) {
+        WidgetKinds.LAMP -> R.string.panel_wiz_kind_lamp
+        WidgetKinds.STATUS_TEXT -> R.string.panel_wiz_kind_status
+        WidgetKinds.PROGRESS -> R.string.panel_wiz_kind_progress
+        WidgetKinds.GAUGE -> R.string.panel_wiz_kind_gauge
+        WidgetKinds.SWITCH -> R.string.panel_wiz_kind_switch
+        WidgetKinds.BUTTON -> R.string.panel_wiz_kind_button
+        WidgetKinds.REGISTER_TABLE -> R.string.panel_wiz_kind_table
+        else -> R.string.panel_wiz_kind_number
+    },
+) + " · " + address
+
+/** 编辑态卡片的尺寸标签（“1×1”）；非 null 时名称行左边画 ⠿、右边画尺寸，名称用正文色。 */
+internal val LocalEditCardSize = staticCompositionLocalOf<String?> { null }
 
 @Composable
 internal fun CardFrame(
@@ -145,6 +170,7 @@ internal fun CardFrame(
     tag: String,
     borderColor: Color? = null,
     tone: CardTone = CardTone.NONE,
+    fill: Color? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = LocalModbusColors.current
@@ -158,7 +184,7 @@ internal fun CardFrame(
         modifier
             .fillMaxSize()
             .testTag(tag)
-            .background(colors.surface1, shape)
+            .background(fill ?: colors.surface1, shape)
             .then(if (tone == CardTone.ALERT) Modifier.background(colors.wash(colors.error), shape) else Modifier)
             .border(1.dp, border, shape)
             // 稿面 border-box：边框在内边距之外占位，Compose 的 border 不占位，补 1dp。
@@ -272,18 +298,45 @@ private fun NameRow(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
+    val editSize = LocalEditCardSize.current
     Row(
         // 固定最小高 22：有标签（高 18 + 内边距）和没标签的卡，名称在同一条线上
         Modifier.fillMaxWidth().heightIn(min = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        if (editSize != null) GripDots(colors.dim)
         leading?.invoke()
         Text(
-            title, color = colors.muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1,
+            title, color = if (editSize != null) colors.text else colors.muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1,
+            fontWeight = if (editSize != null) FontWeight.SemiBold else FontWeight.Normal,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).testTag("panel-name"),
         )
-        if (trailing != null) trailing() else if (badge != null) ToneBadge(badge.first, badge.second, Modifier.testTag("panel-badge"))
+        when {
+            // 编辑态：右侧读数（进度条）照样画，后面跟尺寸标签
+            editSize != null -> { trailing?.invoke(); EditSizeTag(editSize) }
+            trailing != null -> trailing()
+            badge != null -> ToneBadge(badge.first, badge.second, Modifier.testTag("panel-badge"))
+        }
+    }
+}
+
+/** 编辑态右上角的尺寸标签：mono 10.5、1dp 描边、圆角 5。 */
+@Composable
+internal fun EditSizeTag(text: String) {
+    val colors = LocalModbusColors.current
+    Text(
+        text, style = Mono.copy(fontSize = 10.5.sp, lineHeight = 16.sp), color = colors.dim,
+        modifier = Modifier.border(1.dp, colors.line, RoundedCornerShape(5.dp)).padding(horizontal = 5.dp).testTag("edit-size-tag"),
+    )
+}
+
+/** ⠿ 拖动提示：2 × 3 个小圆点。 */
+@Composable
+internal fun GripDots(color: Color) {
+    Canvas(Modifier.size(width = 8.dp, height = 12.dp).testTag("edit-grip")) {
+        val r = 1.5.dp.toPx()
+        for (cx in listOf(r, size.width - r)) for (cy in listOf(r, size.height / 2, size.height - r)) drawCircle(color, r, Offset(cx, cy))
     }
 }
 
@@ -356,11 +409,13 @@ private fun ColumnScope.LampBody(widget: Widget, point: PointDefinition, name: S
         else -> widget.offLabel.ifBlank { stringResource(R.string.panel_flag_off) }
     }
     Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Lamp(on = on && snapshot?.quality == Quality.OK, dim = on)
+        // 编辑态安静：灯不发光（亮的灯只画减淡的绿），文字灰
+        val editing = LocalEditCardSize.current != null
+        Lamp(on = on && snapshot?.quality == Quality.OK && !editing, dim = on)
         Text(
             label,
             fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold,
-            color = if (snapshot?.quality == Quality.OK) (if (on) colors.text else colors.muted) else look.valueColor,
+            color = if (editing) colors.muted else if (snapshot?.quality == Quality.OK) (if (on) colors.text else colors.muted) else look.valueColor,
             modifier = Modifier.testTag("panel-value-${widget.id}"),
         )
     }
@@ -673,7 +728,7 @@ private fun ColumnScope.StatusBody(widget: Widget, point: PointDefinition, name:
     val ok = snapshot?.quality == Quality.OK
     val (text, color) = when {
         snapshot?.raw == null -> "—" to look.valueColor
-        mapping != null -> mapping.label to (if (ok) tone(colors, mapping.tone) else look.valueColor)
+        mapping != null -> mapping.label to (if (ok && LocalEditCardSize.current == null) tone(colors, mapping.tone) else look.valueColor)
         key != null -> stringResource(R.string.panel_state_undefined, key.toInt()) to (if (ok) colors.muted else look.valueColor)
         else -> (snapshot.text ?: "—") to look.valueColor
     }

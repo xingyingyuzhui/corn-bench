@@ -17,6 +17,8 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.unit.Density
@@ -305,7 +307,8 @@ class PanelCurveTest {
     @Test fun editCardShowsNameSummaryAndLegendButNoLiveChart() {
         showEdit()
         compose.onNodeWithTag("panel-card-w-curve", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("⠿ 供水温度 / 供水压力", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("供水温度 / 供水压力", useUnmergedTree = true).assertIsDisplayed()
+        assertTrue("编辑态曲线卡有尺寸标签", compose.onAllNodes(hasTestTag("edit-size-tag") and hasAnyAncestor(hasTestTag("edit-card-w-curve")), useUnmergedTree = true).fetchSemanticsNodes().size == 1)
         compose.onNodeWithText("2 个系列 · 1 分钟", substring = true, useUnmergedTree = true).assertIsDisplayed()
         assertEquals("编辑期间不画实时图", 0, count("curve-chart-w-curve"))
     }

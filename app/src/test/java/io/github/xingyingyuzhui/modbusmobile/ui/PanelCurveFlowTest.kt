@@ -228,7 +228,7 @@ class PanelCurveFlowTest {
         waitText("5 分钟")
         tap("panel-edit"); waitTag("edit-grid")
         assertEquals("编辑期间不画实时图", 0, count("curve-chart-w-c"))
-        tap("edit-card-w-c")
+        tap("edit-card-w-c"); tap("edit-configure")
         waitTag("wiz-series-row-1")
         step().assertTextContains("2 / 3", substring = true)
         compose.onNodeWithTag("wiz-series-sub-1", useUnmergedTree = true).assertTextContains("HR101", substring = true)

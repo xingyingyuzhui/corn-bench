@@ -4,6 +4,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -103,7 +106,7 @@ class PanelEditFlowTest {
         waitTag("panel-edit")
         tap("panel-edit")
         waitTag("edit-grid")
-        compose.onNodeWithText("编辑面板", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("编辑 · 机房 A", useUnmergedTree = true).assertIsDisplayed()
         tap("edit-done")
         waitTag("panel-grid")
         assertEquals("没改动就不重写文件", before, file.readText())
@@ -113,7 +116,7 @@ class PanelEditFlowTest {
         val repo = repoWith(PanelFixtures.project())
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-        tap("edit-delete-w-temp")
+        tap("edit-card-w-temp"); tap("edit-delete")
         waitGone("edit-card-w-temp")
         assertTrue("草稿阶段文件不变", reloaded().panels[0].widgets.any { it.id == "w-temp" })
         tap("edit-done")
@@ -128,7 +131,7 @@ class PanelEditFlowTest {
         val before = file.readText()
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-        tap("edit-delete-w-temp")
+        tap("edit-card-w-temp"); tap("edit-delete")
         tap("edit-close")
         compose.onNodeWithText("放弃修改？").assertIsDisplayed()
         compose.onNodeWithText("放弃").performClick()
@@ -137,12 +140,20 @@ class PanelEditFlowTest {
         compose.onNodeWithTag("panel-card-w-temp", useUnmergedTree = true).assertIsDisplayed()
     }
 
+    /** 点遮罩顶部关掉设置浮层（浮层很高时，遮罩中心会落在浮层面板上）。 */
+    private fun closeSheet() {
+        compose.onNodeWithTag("edit-settings-sheet-scrim", useUnmergedTree = true).performTouchInput { click(Offset(centerX, 30f)) }
+        compose.waitForIdle()
+    }
+
     @Test fun renameAndAddPanelThenDoneSavesBoth() {
         val repo = repoWith(PanelFixtures.project(Panel("p2", "冷站")))
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
+        tap("edit-settings")
         compose.onNode(hasSetTextAction(), useUnmergedTree = true).performTextReplacement("机房 B")
         compose.onNodeWithContentDescription("新建面板", useUnmergedTree = true).performClick()
+        closeSheet()
         tap("edit-done")
         waitTag("panel-tabs")
         val saved = reloaded()
@@ -156,8 +167,8 @@ class PanelEditFlowTest {
         val repo = repoWith(PanelFixtures.project())
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-        tap("edit-columns")
-        tap("edit-handle-w-temp")
+        tap("edit-settings"); compose.onNodeWithText("3 列", useUnmergedTree = true).performClick(); closeSheet()
+        tap("edit-card-w-temp"); compose.onNodeWithText("2 × 1", useUnmergedTree = true).performClick()
         tap("edit-done")
         waitTag("panel-grid")
         val panel = reloaded().panels[0]
@@ -170,6 +181,7 @@ class PanelEditFlowTest {
         val repo = repoWith(twoPanels())
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
+        tap("edit-settings")
         compose.onNodeWithTag("edit-delete-panel", useUnmergedTree = true).performScrollTo().performClick()
         compose.onNodeWithTag("edit-dialog-confirm").performClick()
         waitGone("edit-delete-panel")
@@ -187,9 +199,9 @@ class PanelEditFlowTest {
             val runtime = PanelRuntime(store, PollScheduler(session, scope, store, nowMs = { System.nanoTime() / 1_000_000 }))
             show(repo, runtime)
             waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-            tap("edit-delete-w-temp")
-            tap("edit-handle-w-press")
-            tap("edit-columns")
+            tap("edit-card-w-temp"); tap("edit-delete")
+            tap("edit-card-w-press"); compose.onNodeWithText("1 × 2", useUnmergedTree = true).performClick()
+            tap("edit-settings"); compose.onNodeWithText("3 列", useUnmergedTree = true).performClick(); closeSheet()
             tap("edit-done")
             waitTag("panel-grid")
             compose.waitUntil(8_000) { session.requests.size >= 3 }
@@ -207,7 +219,7 @@ class PanelEditFlowTest {
             val scheduler = PollScheduler(session, scope, store, nowMs = { System.nanoTime() / 1_000_000 })
             show(repo, PanelRuntime(store, scheduler))
             waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-            PanelFixtures.widgets.drop(1).forEach { tap("edit-delete-${it.id}") }
+            PanelFixtures.widgets.drop(1).forEach { tap("edit-card-${it.id}"); tap("edit-delete") }
             tap("edit-done")
             waitTag("panel-grid")
             compose.waitUntil(8_000) { session.requests.isNotEmpty() }
