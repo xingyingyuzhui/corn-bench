@@ -346,7 +346,7 @@ class MinePageTest {
         assertTrue(credit.getBoundsInRoot().top >= about.bottom)
         assertTrue("热区至少 48dp", credit.getBoundsInRoot().height >= androidx.compose.ui.unit.Dp(48f))
         credit.performClick()
-        assertEquals(listOf("https://github.com/xingyingyuzhui/modbus_android"), opened)
+        assertEquals(listOf("https://github.com/xingyingyuzhui/corn-modbus"), opened)
         // 关于页有作者行
         open("mine-row-about")
         compose.onNodeWithTag("about-author").assertTextContains("xingyingyuzhui", substring = true)

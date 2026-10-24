@@ -10,7 +10,7 @@ object Authorship {
     const val APP = "Corn Modbus"
     const val AUTHOR = "xingyingyuzhui"
     const val AUTHOR_URL = "https://github.com/xingyingyuzhui"
-    const val REPO_URL = "https://github.com/xingyingyuzhui/modbus_android"
+    const val REPO_URL = "https://github.com/xingyingyuzhui/corn-modbus"
     const val LICENSE = "PolyForm-Noncommercial-1.0.0"
 
     /** 一行完整署名：写进每个导出 ZIP 的注释，解压工具里能看到。 */

@@ -101,3 +101,12 @@
 - 从已入库的 Roborazzi 浅色竖屏基线复制 6 张到 `docs/readme/`（连接、工作台、面板、曲线、日志、我的）。字节与 `ShellScreenshotTest.*_light_portrait.png` 相同。未新录基线，未使用实机或模拟器截图。审阅目录里的组件图仍是旧标题「Modbus」，没有放进 README。
 - README 增加界面预览、功能一览，以及 Release v0.1.0 两个 APK 的下载说明。PolyForm Noncommercial 声明和作者署名保持原样。未改应用代码、包名、版本和许可证正文。
 - 文档与图片副本，不跑本地构建。提交 `4582fff` 带 `[skip ci]`。PR #23：https://github.com/xingyingyuzhui/modbus_android/pull/23 ，不合并 main。
+
+## 2026-10-24 · 状态栏跟随 App 主题 + 仓库改名 corn-modbus（分支 status-bar-follow-theme）
+
+- 老板反馈：系统浅色、App 手动深色时，状态栏（时间 / 电量）看不见。原因：`enableEdgeToEdge()` 默认只看系统深浅色。新增 `SystemBarsFollowTheme()` 按 App 深浅重新设置状态栏 / 导航栏图标；`SystemBarsThemeTest` 3 例（去掉修复时 2 例失败）。
+- 本地 `test :app:lintDebug :app:assembleDebug` 通过（core + app 共 982 例，0 失败）。
+- redroid 设备验收（云构建 b7d037cb86f4493c，43f0c62）：系统浅色下切到「深色」，状态栏立即变为白色图标、导航栏变深；强停冷启动后仍正确；「跟随系统」浅色时仍为深色图标。
+- GitHub 仓库改名 `xingyingyuzhui/modbus_android` → `xingyingyuzhui/corn-modbus`（旧地址 301 重定向），描述改为 Corn Modbus；应用内仓库链接、LICENSE Required Notice 同步改新地址。云构建项目登记的仓库地址仍是旧 URL（靠重定向可用）。
+- 合并 main（PR #23 README 预览）进分支，board 冲突两段都保留；删掉重复的一段本分支记录。
+- 老板要求合并后升版本发新包：versionName 0.1.1 / versionCode 2，README 下载链接改为 v0.1.1 与新仓库地址。本地 `test`（982 例，0 失败）、`:app:lintDebug`、`:app:assembleRelease :app:assembleDebug` 通过，`tools/verify_offline_apks.py` 两变体通过。

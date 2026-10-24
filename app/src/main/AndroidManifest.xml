@@ -22,7 +22,7 @@
             android:value="xingyingyuzhui" />
         <meta-data
             android:name="io.github.xingyingyuzhui.repo"
-            android:value="https://github.com/xingyingyuzhui/modbus_android" />
+            android:value="https://github.com/xingyingyuzhui/corn-modbus" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
