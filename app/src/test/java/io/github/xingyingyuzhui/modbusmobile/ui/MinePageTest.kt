@@ -310,6 +310,18 @@ class MinePageTest {
             setOf(ArchivePart.PROJECT, ArchivePart.SLAVE, ArchivePart.POINTS, ArchivePart.HISTORY, ArchivePart.TRAFFIC),
             saved,
         )
+        // 交给系统保存界面后浮层收起，回来不用再手动关。
+        compose.onNodeWithTag("export-sheet").assertDoesNotExist()
+    }
+
+    @Test
+    fun exportSheetClosesWhenSharing() {
+        val export = RecordingExport()
+        show(export = export)
+        open("mine-export")
+        compose.waitUntil(2_000) { compose.onAllNodesWithText("CSV · 14 个点位").fetchSemanticsNodes().isNotEmpty() }
+        open("export-share")
+        compose.onNodeWithTag("export-sheet").assertDoesNotExist()
     }
 
     // ---- 截图（Roborazzi 渲染，不是实机）----

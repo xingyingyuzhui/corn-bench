@@ -114,7 +114,12 @@ fun MineScreen() {
             MinePortrait(model, settings, overview, recording, page, go, { showExport = true }, importer::pick, onDelete)
         }
         if (showExport) {
-            ExportSheet(pointCount, export::save, export::share) { showExport = false }
+            // 保存 / 分享一开始就收起：系统界面接手后回来，不该还压着一层浮层（redroid 上实测要手动关）。
+            ExportSheet(
+                pointCount,
+                onSave = { parts -> showExport = false; export.save(parts) },
+                onShare = { parts -> showExport = false; export.share(parts) },
+            ) { showExport = false }
         }
         importer.read?.let { read ->
             ImportSheet(

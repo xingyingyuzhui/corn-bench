@@ -1,5 +1,6 @@
 package io.github.xingyingyuzhui.modbusmobile.ui
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -266,4 +267,22 @@ class PanelWriteWizardTest {
     @Test fun render_confirm_button_register_light() = sheet(
         ThemeMode.LIGHT, PendingWrite(plan(RegisterArea.HOLDING_REGISTER, 1, 20, listOf("500")), listOf(null)), "按钮“设为 500” · 设定值", name = "confirm_panel_button_register_light.png",
     )
+
+    @Test fun confirmShowsOldReadsInDaysNotHundredsOfThousandsOfSeconds() {
+        // 截图里出现过“来自 591152 秒前的读取”：旧值要换成更大的单位，才读得出有多旧。
+        sheet(
+            ThemeMode.LIGHT, PendingWrite(plan(RegisterArea.HOLDING_REGISTER, 1, 100, listOf("234")), listOf(234), 591_152_000, true),
+            "寄存器表 · 水泵参数 第 1 行", name = "confirm_old_read_light.png",
+        )
+        compose.onNodeWithText("来自 6 天前的读取", useUnmergedTree = true).assertExists()
+        compose.onAllNodesWithText("591152", substring = true, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test fun confirmKeepsSecondsForAFreshRead() {
+        sheet(
+            ThemeMode.LIGHT, PendingWrite(plan(RegisterArea.HOLDING_REGISTER, 1, 100, listOf("234")), listOf(234), 45_000, true),
+            "寄存器表 · 水泵参数 第 1 行", name = "confirm_fresh_read_light.png",
+        )
+        compose.onNodeWithText("来自 45 秒前的读取", useUnmergedTree = true).assertExists()
+    }
 }
