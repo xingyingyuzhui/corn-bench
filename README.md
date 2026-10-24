@@ -6,6 +6,38 @@ Android 离线 Modbus RTU 主站 / 从站调试器。协议侧有多站总线帧
 
 规范只看 `docs/spec.md`。`research/` 没有放进仓库。
 
+## 界面预览
+
+下面六张是 **Roborazzi UI 渲染**（浅色、竖屏），不是真机或模拟器照片。短文件名副本在 [`docs/readme/`](docs/readme/)，字节与 `app/src/test/screenshots/` 里对应的 `ShellScreenshotTest.*_light_portrait.png` 相同。深色和横屏的同组渲染仍在该测试目录，这里不重复贴。
+
+面板、曲线两张是还没配置组件时的空状态：面板显示「添加组件」；曲线页写明当前面板没有曲线。配好点位之后，面板可以放数值、曲线、指示灯等组件，有曲线时再进全屏曲线。
+
+| 连接 | 工作台 | 面板 |
+| --- | --- | --- |
+| <img src="docs/readme/connection-light.png" width="200" alt="连接页：串口参数、主站或从站、演示设备"> | <img src="docs/readme/workbench-light.png" width="200" alt="工作台：读寄存器与写入区"> | <img src="docs/readme/panel-light.png" width="200" alt="面板页：未添加组件时的空状态"> |
+| 选 USB 串口或演示设备，主站 / 从站后连接 | 主站读写信文；从站看虚拟寄存器 | 未添加组件时的空面板 |
+
+| 曲线 | 日志 | 我的 |
+| --- | --- | --- |
+| <img src="docs/readme/curve-light.png" width="200" alt="曲线页：当前面板没有曲线"> | <img src="docs/readme/log-light.png" width="200" alt="日志页：尚未记录，工具栏有开始、清除、保存"> | <img src="docs/readme/mine-light.png" width="200" alt="我的页：外观、显示与格式、安全、通信默认值、关于"> |
+| 当前面板没有曲线时只说明原因 | 默认不记录；开始后按帧看收发 | 外观、通信默认值、关于 |
+
+## 功能一览
+
+- USB 串口 Modbus RTU 主站 / 从站。同一口一次只跑一个角色。不申请 `INTERNET`，运行不联网。
+- 连接页可选「演示设备」，不需要转换器。具体初值见下方「构建」。
+- 工作台读写寄存器 / 线圈；写入前确认。
+- 面板组件、通信日志、曲线采样（样本只在内存）。日志默认不记，点「开始」才记，可保存。
+- 「我的」可看存储用量和历史会话，并导出工程、从站配置、点表、寄存器快照、采样历史和内存里的通信日志。
+- 真机 USB-RS485 和多站总线未测。
+
+## 下载
+
+安装包在 GitHub Release [v0.1.0](https://github.com/xingyingyuzhui/modbus_android/releases/tag/v0.1.0)，APK 不入库。
+
+- [`Corn-Modbus-0.1.0.apk`](https://github.com/xingyingyuzhui/modbus_android/releases/download/v0.1.0/Corn-Modbus-0.1.0.apk)：日常安装，走 USB 串口和演示设备。
+- [`Corn-Modbus-0.1.0-debug.apk`](https://github.com/xingyingyuzhui/modbus_android/releases/download/v0.1.0/Corn-Modbus-0.1.0-debug.apk)：多一条本地虚拟串口，用来和本机 PTY / PyModbus 做 RTU 联调。Release 包没有这条调试桥。做法见 [`docs/virtual-rtu-lab.md`](docs/virtual-rtu-lab.md)。
+
 ## 工具链
 
 | 项 | 版本 |
@@ -28,7 +60,8 @@ Android 离线 Modbus RTU 主站 / 从站调试器。协议侧有多站总线帧
 ```
 app/            Compose、USB、前台服务、会话
 modbus-core/    纯 JVM 协议栈，不能依赖 android.*
-docs/           V5.1 规格、路线、审阅记录、变更说明、界面计划（docs/ui-plan.md）
+docs/           规格、路线、审阅记录、变更说明、界面计划（docs/ui-plan.md）
+docs/readme/    README 界面预览用的 Roborazzi 副本（浅色竖屏）
 ```
 
 ## 构建
