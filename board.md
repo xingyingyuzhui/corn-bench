@@ -102,3 +102,10 @@
 - 本地 `test :app:lintDebug :app:assembleDebug` 通过（core + app 共 982 例，0 失败）。
 - redroid 设备验收（云构建 b7d037cb86f4493c，43f0c62）：系统浅色下切到「深色」，状态栏立即变为白色图标、导航栏变深；强停冷启动后仍正确；「跟随系统」浅色时仍为深色图标。
 - GitHub 仓库改名 `xingyingyuzhui/modbus_android` → `xingyingyuzhui/corn-modbus`（旧地址 301 重定向），描述改为 Corn Modbus；应用内仓库链接、LICENSE Required Notice 同步改新地址。云构建项目登记的仓库地址仍是旧 URL（靠重定向可用）。
+
+## 2026-10-24 · 状态栏跟随 App 主题 + 仓库改名 corn-modbus（分支 status-bar-follow-theme）
+
+- 老板反馈：系统浅色 + App 手动深色时，状态栏（时间 / 电量）看不见。原因：默认 `enableEdgeToEdge()` 只看系统深浅色，深色图标压在深色背景上。修复：`SystemBarsFollowTheme()` 按 App 实际深浅重新设置系统栏样式；`SystemBarsThemeTest`（去掉修复时 3 个里 2 个失败）。
+- 本地 `test`（982 个，0 失败）、`:app:lintDebug`、`:app:assembleDebug` 通过。
+- 云构建 b7d037cb86f4493c（43f0c62）→ redroid：系统浅色下 App 切深色，状态栏立即变浅色图标；强停后冷启动同样正确。系统深色 + App 浅色未在设备验证（redroid 无法切系统深色），由单测覆盖。
+- GitHub 仓库改名 `modbus_android` → `corn-modbus`（旧地址 301 重定向），描述改为 Corn Modbus；应用内仓库链接、LICENSE Required Notice 同步到新地址。
