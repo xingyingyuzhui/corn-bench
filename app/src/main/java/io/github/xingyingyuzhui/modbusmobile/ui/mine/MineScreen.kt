@@ -172,6 +172,7 @@ private fun MinePortrait(
                 MineDataSection(settings, overview, recording, null, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) }, onImport)
                 SectionLabel(stringResource(R.string.mine_section_settings))
                 GroupList(settings, selected = null, onSelect = go)
+                AuthorCredit()
             }
         } else {
             SubPageHeader(pageTitle(page), onBack = { go(MinePage.HOME) })
@@ -187,6 +188,7 @@ private fun MinePortrait(
                     }
                     SectionLabel(stringResource(R.string.mine_storage_title))
                     StorageSettings(model, settings)
+                    AuthorCredit()
                 } else {
                     GroupContent(page, model, settings, overview, recording, onDelete)
                 }
@@ -220,6 +222,7 @@ private fun MineLandscape(
             ) {
                 MineDataSection(settings, overview, recording, page, onExport, { go(MinePage.HISTORY) }, { go(MinePage.STORAGE) }, onImport)
                 GroupList(settings, selected = page, onSelect = go)
+                AuthorCredit()
             }
             Column(
                 Modifier.weight(0.6f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
@@ -551,6 +554,14 @@ private fun AboutGroup() {
             stringResource(R.string.about_privacy),
             trailing = SettingTrailing.NONE,
             value = stringResource(R.string.about_privacy_value),
+        )
+        RowDivider()
+        SettingRow(
+            stringResource(R.string.about_author),
+            Modifier.testTag("about-author"),
+            subtitle = stringResource(R.string.about_license_value),
+            value = io.github.xingyingyuzhui.modbusmobile.application.Authorship.AUTHOR,
+            onClick = rememberOpenRepo(),
         )
     }
 }

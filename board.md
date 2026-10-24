@@ -76,3 +76,9 @@
 - UI 细化第 1 轮（分支 ui-polish-r1）：写入确认的“来自 N 秒前”按秒/分钟/小时/天显示；向导预览占位卡带“预览”徽标、未命名写“未命名组件”；导出浮层在交给系统保存/分享后收起。每项都有去掉修复会失败的断言。云端 MCP 本轮连不上，这三项未做设备验收（未验证）。
 - redroid 补齐 PR #21 三项设备验收（云构建 3df2645556324f70）：向导预览徽标、写入确认“来自 1 分钟前的读取”、导出保存后浮层收起（Downloads 有 modbus-export-20261024-054235.zip）均通过。每次云构建 debug 签名不同，安装前卸载旧包。
 - 老板在聊天确认合并：PR #21 普通 merge 进 main，合并提交 6972cdd，带 skip ci。
+
+## 2026-10-24 · 更名 Corn Modbus（分支 brand-corn-modbus）
+
+- 老板要求：换玉米图标、应用名 Corn Modbus、设置最后加 by xingyingyuzhui（链到仓库）、代码里藏作者信息、仓库改非商业授权开源。
+- 图标：自适应图标（前景 76dp 原图 + #232323 背景 + 单色主题层）；名称改 Corn Modbus（包名不变）；「我的」/完整设置/关于加署名并打开仓库；Authorship + BuildConfig + manifest meta-data + 导出 ZIP 注释；LICENSE.md 为 PolyForm Noncommercial 1.0.0，README 补授权说明。
+

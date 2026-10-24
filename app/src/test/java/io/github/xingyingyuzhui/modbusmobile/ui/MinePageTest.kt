@@ -324,6 +324,34 @@ class MinePageTest {
         compose.onNodeWithTag("export-sheet").assertDoesNotExist()
     }
 
+    @Test
+    fun authorCreditSitsAfterTheSettingsAndOpensTheRepo() {
+        val opened = mutableListOf<String>()
+        val handler = object : androidx.compose.ui.platform.UriHandler {
+            override fun openUri(uri: String) { opened += uri }
+        }
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalSession provides Idle(),
+                LocalSettingsRepository provides repository,
+                LocalHistoryCatalog provides EmptyMineHistory(),
+                androidx.compose.ui.platform.LocalUriHandler provides handler,
+            ) { ModbusTheme(UiSettings()) { ModbusApp(startRoute = Destination.Mine.route) } }
+        }
+        compose.waitForIdle()
+        val credit = compose.onNodeWithTag("author-credit").performScrollTo()
+        credit.assertTextContains("by xingyingyuzhui", substring = true)
+        // 在设置分组（最后一行“关于”）之后
+        val about = compose.onNodeWithTag("mine-row-about").getBoundsInRoot()
+        assertTrue(credit.getBoundsInRoot().top >= about.bottom)
+        assertTrue("热区至少 48dp", credit.getBoundsInRoot().height >= androidx.compose.ui.unit.Dp(48f))
+        credit.performClick()
+        assertEquals(listOf("https://github.com/xingyingyuzhui/modbus_android"), opened)
+        // 关于页有作者行
+        open("mine-row-about")
+        compose.onNodeWithTag("about-author").assertTextContains("xingyingyuzhui", substring = true)
+    }
+
     // ---- 截图（Roborazzi 渲染，不是实机）----
     @Test fun screenshotHomeDark() { show(ThemeMode.DARK); compose.onRoot().captureRoboImage("mine_home_dark_portrait.png") }
     @Test fun screenshotHomeLight() { show(ThemeMode.LIGHT); compose.onRoot().captureRoboImage("mine_home_light_portrait.png") }
