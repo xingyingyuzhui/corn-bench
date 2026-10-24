@@ -20,6 +20,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -127,6 +128,7 @@ class PanelRegisterTableCardsTest {
             CompositionLocalProvider(
                 LocalSession provides session,
                 LocalOpenConnection provides {},
+                io.github.xingyingyuzhui.modbusmobile.ui.curve.LocalWallClock provides { PanelFixtures.WALL_MS + 12_000 },
                 LocalShellMode provides ShellMode.PORTRAIT,
                 LocalDockInsets provides DockInsets(bottom = 76.dp),
                 androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(base.density, fontScale),
@@ -175,25 +177,47 @@ class PanelRegisterTableCardsTest {
         assertEquals("线圈 / 离散输入没有 HEX 列", 0, count("panel-row-hex-t-coil-0"))
     }
 
-    @Test fun editPencilsExistOnlyForWritableTablesAndAreAtLeast48dp() {
+    @Test fun writableRowsAreWholeRowTouchTargetsAndOnlyThoseHaveAPencilHint() {
         show()
+        val card = bounds("panel-card-t-rw")
         for (i in 0 until 4) {
-            val t = touch("panel-row-edit-t-rw-$i")
-            assertTrue("✎ $i 触控 ${t.width / dp}×${t.height / dp}", t.width >= 47.5f * dp && t.height >= 47.5f * dp)
+            // v3：整行可点（≥48 高、占满卡片内宽），✎ 只是灰色提示
+            val t = touch("panel-row-t-rw-$i")
+            assertTrue("行 $i 触控 ${t.width / dp}×${t.height / dp}", t.height >= 47.5f * dp && t.width / dp > card.width.value - 30f)
+            val cfg = compose.onNodeWithTag("panel-row-t-rw-$i", useUnmergedTree = true).fetchSemanticsNode().config
+            assertTrue("整行有点击动作", cfg.contains(SemanticsActions.OnClick))
+            assertEquals(1, count("panel-row-edit-t-rw-$i"))
         }
         assertEquals("只读表没有 ✎", 0, count("panel-row-edit-t-ro-0"))
+        scrollTo("panel-row-t-ro-0")
+        val ro = compose.onNodeWithTag("panel-row-t-ro-0", useUnmergedTree = true).fetchSemanticsNode().config
+        assertFalse("只读表的行不可点", ro.contains(SemanticsActions.OnClick))
         for (i in 0 until 4) {
-            scrollTo("panel-row-edit-t-coil-$i")
-            val t = touch("panel-row-edit-t-coil-$i")
-            assertTrue("线圈 ✎ $i 触控 ${t.height / dp}", t.width >= 47.5f * dp && t.height >= 47.5f * dp)
+            scrollTo("panel-row-t-coil-$i")
+            val t = touch("panel-row-t-coil-$i")
+            assertTrue("线圈行 $i 触控 ${t.height / dp}", t.height >= 47.5f * dp)
         }
     }
 
-    @Test fun rowHeightsWritable48ReadOnly40() {
+    @Test fun rowsAreAtLeast48HighWritableOrNotAndHexSitsUnderTheValue() {
         show()
         assertEquals(48f, bounds("panel-row-t-rw-0").height.value, 0.6f)
         scrollTo("panel-row-t-ro-0")
-        assertEquals(40f, bounds("panel-row-t-ro-0").height.value, 0.6f)
+        assertEquals(48f, bounds("panel-row-t-ro-0").height.value, 0.6f)
+        // HEX 在值的正下方、右对齐
+        val v = bounds("panel-row-value-t-rw-0")
+        val h = bounds("panel-row-hex-t-rw-0")
+        assertTrue("HEX 在值下面", h.top >= v.bottom - 0.6.dp)
+        assertEquals("右对齐", v.right.value, h.right.value, 0.6f)
+    }
+
+    @Test fun headerCarriesUnitTypeAndUnitAndAReadOnlyLock() {
+        show()
+        assertEquals("U1 · U16 · ℃", text("panel-table-info-t-rw"))
+        scrollTo("panel-table-info-t-ro")
+        assertEquals("U2 · F32 · kW", text("panel-table-info-t-ro"))
+        assertTrue("可修改的表头是 ⚡", count("panel-writes-mark") >= 1)
+        assertEquals("只读表头是锁", 1, count("panel-readonly-mark"))
     }
 
     @Test fun tableSpansTheFullRowAndStaysInsideTheCard() {
@@ -210,14 +234,15 @@ class PanelRegisterTableCardsTest {
         assertTrue(bounds("panel-card-t-ro").top >= bounds("panel-card-t-rw").bottom)
     }
 
-    @Test fun badgeFollowsTheWorstRowAndMetaGivesRangeAndTime() {
+    @Test fun badgeFollowsTheWorstRowAndFooterOnlyAppearsForProblems() {
         show()
-        // t-rw 有一行过期 → 卡片 badge 是“过期”
-        assertEquals("读取失败的那一行决定说明：这里是过期", "读取失败，显示上次的值", text("panel-table-meta-t-rw"))
-        scrollTo("panel-table-meta-t-ro")
-        assertEquals("F32 3 行 = 6 个寄存器：IR0–IR5", "U2 · IR0–IR5 · 10:21:07", text("panel-table-meta-t-ro"))
-        scrollTo("panel-table-meta-t-coil")
-        assertEquals("U1 · C10–C13 · 10:21:07", text("panel-table-meta-t-coil"))
+        // t-rw 有一行过期 → 卡片标签是“过期”，底行说明读取失败、显示的是多久前的值
+        assertEquals("读取失败的那一行决定说明：这里是过期", "读取失败 · 12 秒前的值", text("panel-table-meta-t-rw"))
+        compose.onNodeWithText("过期", useUnmergedTree = true).assertExists()
+        // 全部正常的表没有底行，也没有“正常”标签
+        assertEquals(0, count("panel-table-meta-t-ro"))
+        assertEquals(0, count("panel-table-meta-t-coil"))
+        assertEquals(0, compose.onAllNodesWithText("正常", useUnmergedTree = true).fetchSemanticsNodes().size)
     }
 
     @Test fun tappingAPencilOnlyOpensTheEntryBox() {
@@ -244,7 +269,7 @@ class PanelRegisterTableCardsTest {
     @Test fun slaveAndIdleDisablePencilsWithAReason() {
         for ((role, reason) in listOf(Role.SLAVE to "从站模式不能写设备", null to "未连接主站，不能写设备")) {
             show(role = role)
-            compose.onNodeWithTag("panel-row-edit-t-rw-0", useUnmergedTree = true).assertIsNotEnabled()
+            compose.onNodeWithTag("panel-row-t-rw-0", useUnmergedTree = true).assertIsNotEnabled()
             assertEquals(reason, text("panel-table-note-t-rw"))
             compose.onNodeWithTag("panel-row-edit-t-rw-0", useUnmergedTree = true).performClick()
             assertNull(writer.entry)
@@ -254,7 +279,7 @@ class PanelRegisterTableCardsTest {
 
     @Test fun masterPencilsAreEnabled() {
         show()
-        compose.onNodeWithTag("panel-row-edit-t-rw-0", useUnmergedTree = true).assertIsEnabled()
+        compose.onNodeWithTag("panel-row-t-rw-0", useUnmergedTree = true).assertIsEnabled()
     }
 
     @Test fun withoutAWriterPencilsAreDrawnButDoNothing() {
@@ -263,6 +288,8 @@ class PanelRegisterTableCardsTest {
         assertEquals(4, count("panel-row-edit-t-rw-0") * 4)
         val cfg = compose.onNodeWithTag("panel-row-edit-t-rw-0", useUnmergedTree = true).fetchSemanticsNode().config
         assertFalse("没有 writer 时 ✎ 没有点击动作", cfg.contains(SemanticsActions.OnClick))
+        val row = compose.onNodeWithTag("panel-row-t-rw-0", useUnmergedTree = true).fetchSemanticsNode().config
+        assertFalse("没有 writer 时整行也不可点", row.contains(SemanticsActions.OnClick))
     }
 
     @Test fun editModeCardIsASummaryWithoutRowsOrPencils() {

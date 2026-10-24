@@ -470,7 +470,7 @@ class PanelEditTest {
         compose.onNodeWithText("长一点的面板9", useUnmergedTree = true).performScrollTo().performClick()
         assertEquals(listOf("p9"), selected)
         // 滚动后第一个 chip 被挤出视野，但不换行、不撑高：整排高度仍是一个 chip（≥48 触控）
-        val row = touch("panel-chips")
+        val row = touch("panel-tabs")
         assertTrue("chip 行高 ${row.height / dp}", row.height / dp < 60f)
     }
 

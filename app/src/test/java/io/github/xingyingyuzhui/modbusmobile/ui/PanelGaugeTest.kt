@@ -133,7 +133,7 @@ class PanelGaugeTest {
         assertEquals("仪表，量程 0 到 1.2", desc("panel-gauge-g2"))
         compose.onNodeWithText("预警", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("℃", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("HR100 · 10:21:07", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("HR100", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun noDataShowsDashAndNoArcOrFakeZero() {

@@ -7,11 +7,13 @@ import androidx.compose.foundation.background
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -59,6 +61,7 @@ class PanelWidgetsTest {
     private var paused = false
     private var toggled = 0
     private var selected: String? = null
+    private var openedConnection = 0
 
     private fun show(
         theme: ThemeMode = ThemeMode.DARK,
@@ -73,7 +76,9 @@ class PanelWidgetsTest {
         compose.setContent {
             CompositionLocalProvider(
                 LocalSession provides PanelFakeSession(role),
-                LocalOpenConnection provides {},
+                LocalOpenConnection provides { openedConnection++ },
+                // 固定“现在”= 读数时间 + 12 秒：过期卡写“12 秒前的值”
+                io.github.xingyingyuzhui.modbusmobile.ui.curve.LocalWallClock provides { PanelFixtures.WALL_MS + 12_000 },
                 LocalShellMode provides if (landscape) ShellMode.LANDSCAPE else ShellMode.PORTRAIT,
                 // 竖屏 dock 浮在底部（约 76dp 内容留白），横屏 rail 占左边 88dp。
                 LocalDockInsets provides if (landscape) DockInsets(start = 88.dp) else DockInsets(bottom = 76.dp),
@@ -101,13 +106,17 @@ class PanelWidgetsTest {
         show()
         text("panel-value-w-temp").assertTextEquals("23.4")
         compose.onNodeWithText("℃", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("HR100 · 10:21:07", useUnmergedTree = true).assertIsDisplayed()
+        // v3：正常时底行只有地址，不写时间
+        compose.onNodeWithText("HR100", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("HR100 · 10:21:07", useUnmergedTree = true).fetchSemanticsNodes().size)
         text("panel-value-w-press").assertTextEquals("0.82")
         text("panel-value-w-comp").assertTextEquals("运行")
         text("panel-value-w-mode").assertTextEquals("制冷")
         compose.onNodeWithText("HR120 = 2", useUnmergedTree = true).assertIsDisplayed()
         text("panel-value-w-valve").assertTextEquals("62 %")
-        compose.onNodeWithText("HR130 · 0–100", useUnmergedTree = true).assertIsDisplayed()
+        // 进度条：左地址、右量程
+        compose.onNodeWithText("HR130", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("0–100", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun qualityStatesAreVisibleNotJustColors() {
@@ -116,8 +125,16 @@ class PanelWidgetsTest {
         text("panel-value-w-cur").assertTextEquals("12.6")
         compose.onNodeWithText("超时", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("连续超时 3 次", useUnmergedTree = true).assertIsDisplayed()
-        // 阈值：0.82 ≥ 0.8 → 预警，其余正常
+        // 阈值：0.82 ≥ 0.8 → 预警，底行右侧写命中的阈值
         compose.onNodeWithText("预警", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("≥ 0.80", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test fun normalCardsHaveNoBadgeOnlyProblemsDo() {
+        show()
+        // v3：正常不打“正常”标签，只有预警（压力）和超时（电流）两张卡有标签
+        assertEquals(0, compose.onAllNodesWithText("正常", useUnmergedTree = true).fetchSemanticsNodes().size)
+        assertEquals(2, compose.onAllNodesWithTag("panel-badge", useUnmergedTree = true).fetchSemanticsNodes().size)
     }
 
     @Test fun staleKeepsValueAndSaysSo() {
@@ -127,7 +144,8 @@ class PanelWidgetsTest {
         show(snapshots = PanelFixtures.snapshots + ("temp" to stale))
         text("panel-value-w-temp").assertTextEquals("23.4")
         compose.onNodeWithText("过期", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("读取失败，显示上次的值", useUnmergedTree = true).assertIsDisplayed()
+        // 规范 31：显示上次的值时必须说明读取失败；v3 同时写出是多久以前的值
+        compose.onNodeWithText("读取失败 · 12 秒前的值", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun undefinedStateIsShownNotHidden() {
@@ -153,7 +171,7 @@ class PanelWidgetsTest {
     @Test fun progressBarFillMatchesValue() {
         show()
         val bar = bounds("panel-bar-w-valve")
-        assertEquals("进度条高 8", 8f, bar.height.value, 0.6f)
+        assertEquals("进度条高 10", 10f, bar.height.value, 0.6f)
         // 填充 = 62%：用整条宽度和填充节点比较
         val fill = compose.onNodeWithTag("panel-bar-w-valve", useUnmergedTree = true)
         assertTrue(bar.width.value > 100f)
@@ -200,12 +218,30 @@ class PanelWidgetsTest {
         assertEquals(16f, w.left.value, 0.6f)
     }
 
-    @Test fun lampCardLampIs14dpAndLabelAligned() {
+    @Test fun lampCardLampIs18dpAndLabelAligned() {
         show()
         val card = bounds("panel-card-w-comp")
         val label = bounds("panel-value-w-comp")
-        // 灯 14 + 间距 10 → 文字左缘 = 内容左 13 + 14 + 10
-        assertEquals(13f + 14f + 10f, (label.left - card.left).value, 1f)
+        assertEquals(18f, bounds("panel-lamp").width.value, 0.6f)
+        // 灯 18 + 间距 10 → 文字左缘 = 内容左 13 + 18 + 10
+        assertEquals(13f + 18f + 10f, (label.left - card.left).value, 1f)
+    }
+
+    @Test fun valueIsMono28() {
+        show()
+        // 值 mono 28（v3，原 26）
+        val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNodeWithTag("panel-value-w-temp", useUnmergedTree = true).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        assertEquals(28f, results.single().layoutInput.style.fontSize.value, 0.01f)
+    }
+
+    @Test fun headerIsTwoRowsSoTheGridStartsHigh() {
+        show()
+        // v3：标题行 52 + 页签 / 胶囊一行 48 + 2 + 2 ≈ 104，原来的会话条 + chips 要到 150 以上
+        val top = bounds("panel-card-w-temp").top.value
+        assertTrue("第一张卡顶部 $top", top <= 110f)
+        assertEquals(0, compose.onAllNodesWithTag("panel-strip", useUnmergedTree = true).fetchSemanticsNodes().size)
     }
 
     @Test @Config(qualifiers = "w780dp-h360dp-land")
@@ -215,38 +251,51 @@ class PanelWidgetsTest {
         val firstRowTop = cards[0].top
         assertEquals("横屏一行 4 张", 4, cards.count { kotlin.math.abs((it.top - firstRowTop).value) < 0.6f })
         assertEquals(0, compose.onAllNodesWithTag("panel-strip", useUnmergedTree = true).fetchSemanticsNodes().size)
+        // 横屏页头一行：标题、页签、胶囊在同一行
+        val tabs = bounds("panel-tabs")
+        val pill = bounds("panel-pause")
+        assertEquals(tabs.top.value + tabs.height.value / 2, pill.top.value + pill.height.value / 2, 1f)
         // 左边距 = dock 的 88
         assertEquals(88f, cards[0].left.value, 0.6f)
         assertEquals(8f, (cards[1].left - cards[0].right).value, 0.6f)
-        compose.onNodeWithText("轮询 1012 ms", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("1012 ms", useUnmergedTree = true).assertIsDisplayed()
     }
 
-    // ---- 会话条 / 暂停 / 面板切换 ----
+    // ---- 轮询胶囊 / 暂停 / 面板页签 ----
 
-    @Test fun sessionStripShowsPollingAndPauseButtonIsTouchSized() {
+    @Test fun pollPillShowsActualPeriodAndIsATouchSizedPauseButton() {
         show()
-        compose.onNodeWithText("主站 · 轮询中", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("设定 1000 ms · 实际 1012 ms", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("panel-pill-text", useUnmergedTree = true).assertTextEquals("1012 ms")
         val pause = compose.onNodeWithTag("panel-pause")
         pause.assertIsDisplayed()
         val touch = pause.fetchSemanticsNode().touchBoundsInRoot
-        assertTrue("暂停按钮热区高 ≥48dp，实际 ${touch.height}", touch.height >= 47.5f * 1f * compose.density.density)
+        assertTrue("胶囊热区高 ≥48dp，实际 ${touch.height}", touch.height >= 47.5f * compose.density.density)
+        // 可见部分仍是 34 高
+        val pill = compose.onNodeWithTag("panel-pill-text", useUnmergedTree = true).getBoundsInRoot()
+        assertTrue(pill.height.value < 20f)
         pause.performClick()
         assertEquals(1, toggled)
     }
 
-    @Test fun pausedStripSaysSoAndOffersResume() {
+    @Test fun pausedPillSaysSoAndOffersResume() {
         paused = true
         show(stats = null)
-        compose.onNodeWithText("主站 · 轮询已暂停", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("显示的是暂停前读到的值", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("继续", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("panel-pill-text", useUnmergedTree = true).assertTextEquals("已暂停")
+        compose.onNodeWithTag("panel-pause").assertContentDescriptionContains("继续轮询", substring = true)
+        compose.onNodeWithTag("panel-pause").assertContentDescriptionContains("暂停前读到的值", substring = true)
     }
 
-    @Test fun notMasterShowsIdleHintAndNoPauseButton() {
+    @Test fun slavePillSaysSlaveAndCannotPause() {
         show(role = Role.SLAVE, stats = null)
-        compose.onNodeWithTag("panel-poll-hint").assertTextContains("需要主站连接", substring = true)
+        compose.onNodeWithTag("panel-pill-text", useUnmergedTree = true).assertTextEquals("从站模式")
         assertEquals(0, compose.onAllNodesWithTag("panel-pause").fetchSemanticsNodes().size)
+    }
+
+    @Test fun offlinePillOpensTheConnectionPage() {
+        show(role = null, stats = null)
+        compose.onNodeWithTag("panel-pill-text", useUnmergedTree = true).assertTextEquals("未连接")
+        compose.onNodeWithTag("panel-pill").performClick()
+        assertEquals(1, openedConnection)
     }
 
     @Test fun multiplePanelsShowChipsAndSwitch() {
@@ -272,9 +321,11 @@ class PanelWidgetsTest {
         assertEquals(0, compose.onAllNodesWithTag("panel-card-w-temp", useUnmergedTree = true).fetchSemanticsNodes().size)
     }
 
-    @Test fun singlePanelHasNoChips() {
+    @Test fun singlePanelStillShowsItsNameAsATab() {
         show()
-        assertEquals(0, compose.onAllNodesWithTag("panel-chips", useUnmergedTree = true).fetchSemanticsNodes().size)
+        compose.onNodeWithTag("panel-tabs", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("panel-tab-p1", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("机房 A", useUnmergedTree = true).assertIsDisplayed()
     }
 
     // ---- 渲染图（输出到 screenshots 目录，再复制到 docs/review/ui-pr-p4）----

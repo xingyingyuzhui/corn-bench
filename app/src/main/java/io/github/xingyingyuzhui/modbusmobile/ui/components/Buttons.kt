@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusMotion
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSpacing
 import kotlinx.coroutines.Job
@@ -384,6 +385,56 @@ fun SecondaryButton(
         )
     }
 }
+
+/**
+ * 浅底描边按钮（面板 v3 控制卡）：视觉高 44、圆角 12、强调色浅底 + 45% 描边 + accentText 14.5 粗；
+ * [danger] = 红色同款（广播）。不和页面主按钮（实心 accent）抢视觉；触控用 minimumInteractiveComponentSize 补到 48。
+ */
+@Composable
+fun TonalButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    danger: Boolean = false,
+    enabled: Boolean = true,
+) {
+    val colors = LocalModbusColors.current
+    val radius = 12.dp
+    val shape = RoundedCornerShape(radius)
+    val interaction = remember { MutableInteractionSource() }
+    val tone = if (danger) colors.error else colors.accent
+    Box(
+        modifier
+            .minimumInteractiveComponentSize()
+            .height(TonalButtonHeight)
+            .focusRing(interaction, radius)
+            .clip(shape)
+            .background(if (enabled) colors.wash(tone) else colors.surface2)
+            .border(1.dp, if (enabled) tone.copy(alpha = 0.45f) else colors.line, shape)
+            .buttonSemantics(enabled, false, "")
+            .clickable(
+                interactionSource = interaction,
+                indication = androidx.compose.material3.ripple(),
+                enabled = enabled,
+                onClick = onClick,
+            )
+            .padding(horizontal = ButtonMetrics.paddingHSmall),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            color = when {
+                !enabled -> colors.dim
+                danger -> colors.error
+                else -> colors.accentText
+            },
+            fontSize = 14.5.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+val TonalButtonHeight = 44.dp
 
 /**
  * 小按钮：视觉高 32、最小宽 48、左右 12、圆角 radius.small 8、labelStrong 12/16 SemiBold；
