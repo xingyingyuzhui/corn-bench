@@ -100,4 +100,4 @@
 
 - 从已入库的 Roborazzi 浅色竖屏基线复制 6 张到 `docs/readme/`（连接、工作台、面板、曲线、日志、我的）。字节与 `ShellScreenshotTest.*_light_portrait.png` 相同。未新录基线，未使用实机或模拟器截图。审阅目录里的组件图仍是旧标题「Modbus」，没有放进 README。
 - README 增加界面预览、功能一览，以及 Release v0.1.0 两个 APK 的下载说明。PolyForm Noncommercial 声明和作者署名保持原样。未改应用代码、包名、版本和许可证正文。
-- 文档与图片副本，不跑本地构建。提交带 `[skip ci]`。不合并 main。
+- 文档与图片副本，不跑本地构建。提交 `4582fff` 带 `[skip ci]`。PR #23：https://github.com/xingyingyuzhui/modbus_android/pull/23 ，不合并 main。
