@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Corn Modbus · 面板 UI 设计稿 v3</title>
+<!-- v3：面板与子页面重设计。颜色 / 字体 / dock 沿用 ui-v2.html 的 token；打开时用 #b=1 / #b=2 / #b=3 切换画板。 -->
+<style>
+:root, .dark{
+  --bg:#0D1117; --s1:#151B23; --s2:#1C2430; --s3:#253041; --line:#2B3544; --row:#1E2631;
+  --tx:#E6EDF3; --mut:#8B98A8; --dim:#5C6878;
+  --amber:#F5A524; --amberT:#F5A524; --amberBg:rgba(245,165,36,.14); --onAmber:#1A1200;
+  --green:#3FB950; --greenBg:rgba(63,185,80,.14);
+  --red:#F85149; --redBg:rgba(248,81,73,.14);
+  --blue:#58A6FF; --blueBg:rgba(88,166,255,.13);
+  --purple:#A371F7; --purpleBg:rgba(163,113,247,.15);
+  --pink:#DB61A2; --pinkBg:rgba(219,97,162,.15);
+  --gray:#6E7681; --grayBg:rgba(110,118,129,.18);
+  --island:rgba(28,36,48,.94); --shadow:0 10px 30px rgba(0,0,0,.55);
+  --sans:"Noto Sans CJK SC",sans-serif; --mono:"Geist Mono","Noto Sans Mono CJK SC",monospace;
+}
+.light{
+  --bg:#F4F6F9; --s1:#FFFFFF; --s2:#EEF1F5; --s3:#E2E7EE; --line:#DCE2EA; --row:#EDF0F4;
+  --tx:#121A24; --mut:#5A6574; --dim:#8D97A5;
+  --amber:#F5A524; --amberT:#B76E00; --amberBg:rgba(245,165,36,.16); --onAmber:#1A1200;
+  --green:#1A7F37; --greenBg:rgba(26,127,55,.10);
+  --red:#CF222E; --redBg:rgba(207,34,46,.09);
+  --blue:#0969DA; --blueBg:rgba(9,105,218,.09);
+  --purple:#8250DF; --purpleBg:rgba(130,80,223,.10);
+  --pink:#BF3989; --pinkBg:rgba(191,57,137,.10);
+  --gray:#6E7781; --grayBg:rgba(110,119,129,.12);
+  --island:rgba(255,255,255,.95); --shadow:0 10px 28px rgba(20,32,50,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05070A;font-family:var(--sans);color:#E6EDF3;padding:36px 40px 48px}
+.board{display:none}
+.board.show{display:block}
+.btitle{display:flex;align-items:baseline;gap:16px;margin-bottom:26px}
+.btitle h1{font-size:26px;font-weight:700}
+.btitle span{color:#8B98A8;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,360px);gap:44px 40px;align-items:start}
+.cap{font-size:14px;color:#8B98A8;margin:0 0 10px 4px;line-height:20px}
+.cap b{color:#E6EDF3;font-weight:600;margin-right:8px}
+.cap .tag{font-size:11px;border:1px solid #2B3544;border-radius:6px;padding:1px 6px;margin-left:6px;color:#8B98A8}
+
+.phone{width:360px;height:780px;background:var(--bg);color:var(--tx);border-radius:28px;overflow:hidden;position:relative;
+  box-shadow:0 0 0 8px #1A1F27,0 0 0 9px #2A303A,0 30px 60px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.phone.long{height:auto}
+.phone.land{width:780px;height:360px;flex-direction:row}
+.sb{height:28px;display:flex;justify-content:space-between;align-items:center;padding:0 18px;font-size:12px;font-family:var(--mono);flex:none}
+.sb i{display:inline-block;width:18px;height:9px;border:1.5px solid var(--tx);border-radius:2px;position:relative;vertical-align:middle}
+.sb i:after{content:"";position:absolute;inset:1px 4px 1px 1px;background:var(--tx)}
+.appbar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex:none}
+.appbar h2{font-size:20px;font-weight:700}
+.appbar .l{display:flex;align-items:center;gap:6px}
+.ic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:var(--mut);font-size:16px}
+.content{flex:1;overflow:hidden;padding:0 14px 96px;display:flex;flex-direction:column;gap:10px}
+.long .content{padding-bottom:16px;overflow:visible}
+
+.sess{margin:0 14px 8px;background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px;flex:none}
+.dot{width:10px;height:10px;border-radius:5px;background:var(--green);box-shadow:0 0 0 4px var(--greenBg);flex:none}
+.sess .t1{font-size:14px;font-weight:600}
+.sess .t2{font-size:11.5px;color:var(--mut);font-family:var(--mono);margin-top:1px}
+.sess .cnt{margin-left:auto;text-align:right;font-family:var(--mono);font-size:11px;line-height:15px}
+.c-tx{color:var(--amberT)} .c-rx{color:var(--green)} .c-er{color:var(--red)} .c-fo{color:var(--blue)}
+
+.card{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:12px}
+.sec{font-size:12px;color:var(--mut);margin:4px 2px 6px;display:flex;justify-content:space-between;align-items:center}
+.lbl{font-size:12px;color:var(--mut);margin-bottom:8px;display:flex;justify-content:space-between}
+.seg{display:flex;background:var(--s2);border-radius:12px;padding:3px;gap:3px}
+.seg div{flex:1;text-align:center;font-size:14px;padding:8px 0;border-radius:9px;color:var(--mut);white-space:nowrap}
+.seg .on{background:var(--s1);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line),0 1px 3px rgba(0,0,0,.12)}
+.dark .seg .on{background:var(--s3);box-shadow:inset 0 0 0 1px #3A4658}
+.seg.sm div{font-size:12.5px;padding:6px 0}
+.seg.big small{display:block;font-size:11px;color:var(--dim);font-weight:400;margin-top:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips.nw{flex-wrap:nowrap;overflow:hidden}
+.chip{font-size:12.5px;padding:6px 11px;border-radius:16px;border:1px solid var(--line);color:var(--mut);white-space:nowrap;background:var(--s1)}
+.chip.on{border-color:var(--amber);color:var(--amberT);background:var(--amberBg)}
+.chip.xs{padding:3px 8px;font-size:12px}
+.fields{display:grid;gap:8px}
+.f{background:var(--s2);border-radius:10px;padding:7px 10px;min-height:50px}
+.f .k{font-size:11px;color:var(--mut)}
+.f .v{font-size:17px;font-family:var(--mono);margin-top:1px;display:flex;justify-content:space-between;align-items:baseline;white-space:nowrap}
+.f .v small{font-size:11px;color:var(--dim)}
+.f .v.t{font-family:var(--sans);font-size:15px}
+.f.on{box-shadow:inset 0 0 0 1.5px var(--amber)}
+.btn{height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;gap:8px;white-space:nowrap}
+.btn.pri{background:var(--amber);color:var(--onAmber)}
+.btn.out{border:1.5px solid var(--line);color:var(--tx);font-weight:600;background:var(--s1)}
+.btn.sm{height:44px;font-size:14px}
+.btn.xs{height:32px;font-size:12.5px;border-radius:10px;padding:0 12px}
+.row{display:flex;gap:8px;align-items:center}
+.sp{flex:1}
+.badge{font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600;white-space:nowrap}
+.b-ok{color:var(--green);background:var(--greenBg)} .b-tx{color:var(--amberT);background:var(--amberBg)}
+.b-er{color:var(--red);background:var(--redBg)} .b-fo{color:var(--blue);background:var(--blueBg)}
+.b-ec{color:var(--purple);background:var(--purpleBg)} .b-am{color:var(--pink);background:var(--pinkBg)}
+.b-gr{color:var(--mut);background:var(--grayBg)}
+.mono{font-family:var(--mono)}
+.mut{color:var(--mut)} .dim{color:var(--dim)}
+.tg{width:42px;height:24px;border-radius:12px;background:var(--s3);position:relative;flex:none}
+.tg:after{content:"";position:absolute;width:18px;height:18px;border-radius:9px;background:var(--s1);top:3px;left:3px;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.tg.on{background:var(--amber)} .tg.on:after{left:21px;background:#fff}
+.list{background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.li{display:flex;align-items:center;gap:10px;padding:0 12px;min-height:50px;border-bottom:1px solid var(--row);font-size:14px}
+.li:last-child{border-bottom:0}
+.li .r{margin-left:auto;color:var(--mut);font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.li .r.mono{font-family:var(--mono)}
+.li .sub{font-size:11.5px;color:var(--mut)}
+.chev{color:var(--dim)}
+.lic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--s2);flex:none}
+.lic svg{width:17px;height:17px;stroke:var(--mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.dev{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--s2)}
+.dev.on{border-color:var(--amber);background:linear-gradient(0deg,var(--amberBg),var(--amberBg)),var(--s2)}
+.dev .ico{width:36px;height:36px;border-radius:10px;background:var(--s3);display:grid;place-items:center;flex:none}
+.dev .n{font-size:14px;font-weight:600}
+.dev .m{font-size:11.5px;color:var(--mut);font-family:var(--mono)}
+.radio{width:20px;height:20px;border-radius:10px;border:2px solid var(--dim);margin-left:auto;flex:none}
+.radio.on{border-color:var(--amber);box-shadow:inset 0 0 0 4px var(--s2),inset 0 0 0 10px var(--amber)}
+.ck{width:20px;height:20px;border-radius:6px;border:2px solid var(--dim);flex:none}
+.ck.on{border-color:var(--amber);background:var(--amber);position:relative}
+.ck.on:after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid var(--onAmber);border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+.tbl{background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.th,.tr{display:grid;grid-template-columns:70px 1fr 84px 26px;align-items:center;padding:0 12px}
+.th{height:30px;font-size:11px;color:var(--dim);border-bottom:1px solid var(--line)}
+.tr{height:40px;border-bottom:1px solid var(--row);font-family:var(--mono)}
+.tr:last-child{border-bottom:0}
+.tr .a{font-size:13px} .tr .a small{display:block;font-size:10px;color:var(--dim);line-height:10px}
+.tr .val{font-size:17px}
+.tr .hx{font-size:12px;color:var(--mut)}
+.tr .ed{color:var(--dim);font-size:14px;text-align:right}
+.tr.flash{background:linear-gradient(90deg,var(--amberBg),transparent 80%)}
+.tr.flash .val{color:var(--amberT)}
+
+/* island dock */
+.island{position:absolute;left:14px;right:14px;bottom:14px;height:64px;border-radius:24px;background:var(--island);
+  border:1px solid var(--line);box-shadow:var(--shadow);display:flex;align-items:center;padding:0 6px;backdrop-filter:blur(12px)}
+.island .it{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--dim);height:52px;justify-content:center;border-radius:18px}
+.island .it.on{background:var(--amberBg);color:var(--amberT);font-weight:700}
+.island svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.rail{position:absolute;left:12px;top:12px;bottom:12px;width:62px;border-radius:24px;background:var(--island);border:1px solid var(--line);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 0}
+.rail .it{width:50px;height:50px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:9.5px;color:var(--dim)}
+.rail .it.on{background:var(--amberBg);color:var(--amberT);font-weight:700}
+.rail svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(1,3,6,.6)}
+.light .scrim{background:rgba(10,20,35,.38)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--s1);border-top-left-radius:24px;border-top-right-radius:24px;padding:10px 16px 18px;border-top:1px solid var(--line)}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--s3);margin:0 auto 12px}
+.bigval{font-size:36px;font-family:var(--mono);font-weight:600}
+.frame{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:var(--mono);font-size:14.5px;letter-spacing:.3px;word-break:break-all}
+.frame .crc{color:var(--dim)} .frame .hl{color:var(--amberT)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.st{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:8px 8px 7px}
+.st .k{font-size:10.5px;color:var(--mut)}
+.st .v{font-size:17px;font-family:var(--mono);font-weight:600;margin-top:2px}
+
+.log{display:flex;flex-direction:column;background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.le{padding:8px 12px;border-bottom:1px solid var(--row);border-left:3px solid transparent}
+.le .h{display:flex;gap:7px;align-items:center;font-size:11.5px}
+.le .h .tm{font-family:var(--mono);color:var(--dim)}
+.le .h .sum{font-size:12.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.le .h .lat{margin-left:auto;font-family:var(--mono);color:var(--mut)}
+.le .hex{font-family:var(--mono);font-size:12.5px;margin-top:3px;word-break:break-all;opacity:.9}
+.le .hex .crc{color:var(--dim)}
+.le.fo{opacity:.6}
+.l-rx{border-left-color:var(--green)!important} .l-tx{border-left-color:var(--amber)!important} .l-fo{border-left-color:var(--blue)!important}
+.l-am{border-left-color:var(--pink)!important} .l-gr{border-left-color:var(--gray)!important} .l-er{border-left-color:var(--red)!important}
+
+/* widgets */
+.wg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.w{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:10px 12px;position:relative}
+.w.span{grid-column:span 2}
+.w .n{font-size:12.5px;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+.w .v{font-family:var(--mono);font-size:26px;font-weight:600;margin-top:4px}
+.w .v small{font-size:12px;color:var(--mut);font-weight:400;margin-left:3px}
+.w .m{font-size:10.5px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+.w.stale .v{color:var(--mut)}
+.w.bad .v{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--red)}
+.lamp{width:14px;height:14px;border-radius:7px;display:inline-block;vertical-align:middle}
+.bar{height:8px;border-radius:4px;background:var(--s2);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--amber);border-radius:4px}
+.edit .w{outline:1.5px dashed var(--dim);outline-offset:-4px}
+.handle{position:absolute;right:6px;bottom:6px;width:12px;height:12px;border-right:2px solid var(--amber);border-bottom:2px solid var(--amber)}
+.wdel{position:absolute;right:-6px;top:-6px;width:20px;height:20px;border-radius:10px;background:var(--red);color:#fff;font-size:12px;display:grid;place-items:center;font-weight:700}
+
+/* picker */
+.pk{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pki{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:10px;height:118px;display:flex;flex-direction:column}
+.pki.on{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+.pki .pv{flex:1;border-radius:10px;background:var(--s2);display:grid;place-items:center;overflow:hidden}
+.pki .t{font-size:13.5px;font-weight:600;margin-top:7px}
+.pki .d{font-size:11px;color:var(--mut)}
+
+.sw8{display:flex;gap:8px}
+.sw8 i{width:28px;height:28px;border-radius:14px;display:block}
+.sw8 i.on{box-shadow:0 0 0 2px var(--s1),0 0 0 4px var(--tx)}
+.formula{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:8px 10px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+.formula b{color:var(--tx);font-weight:600}
+.savebar{position:sticky;bottom:0;padding:10px 14px 14px;background:linear-gradient(0deg,var(--bg) 70%,transparent);display:flex;gap:8px}
+
+/* spec panel */
+.ds{background:#151B23;border:1px solid #2B3544;border-radius:20px;padding:20px;display:flex;gap:36px;color:#E6EDF3;width:1160px}
+.ds h3{font-size:15px;margin-bottom:8px}
+.ds p{font-size:12px;color:#8B98A8;line-height:20px}
+
+/* ===================== v3 · 面板（在 v2 token 上增量） ===================== */
+.grid4{display:grid;grid-template-columns:repeat(4,360px);gap:40px 40px;align-items:start}
+.span2{grid-column:span 2}
+.notes{margin:12px 4px 0;font-size:12.5px;line-height:19px;color:#8B98A8;padding-left:16px}
+.notes li{margin-bottom:3px}
+.notes b{color:#E6EDF3;font-weight:600}
+.notes .old{color:#F85149}
+.notes .keep{color:#3FB950}
+.intro{background:#0F141B;border:1px solid #2B3544;border-radius:16px;padding:16px 20px;margin-bottom:30px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px 28px;width:1560px}
+.intro div{font-size:12.5px;line-height:19px;color:#8B98A8}
+.intro b{display:block;color:#E6EDF3;font-size:13.5px;margin-bottom:3px}
+.intro .x2{color:#F5A524}
+
+/* 页头：标题 + 面板页签 + 轮询胶囊合成两行 */
+.ph{padding:2px 16px 0;flex:none}
+.ph .t{height:48px;display:flex;align-items:center;gap:2px}
+.ph .t h2{font-size:20px;font-weight:700;margin-right:auto}
+.ph .t .ic{width:40px;height:40px;border-radius:20px}
+.ph .t .ic svg{width:20px;height:20px;stroke:var(--mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ph .r2{display:flex;align-items:center;gap:8px;height:40px;margin-bottom:6px}
+.tabs{display:flex;gap:18px;font-size:14.5px;flex:1;overflow:hidden;white-space:nowrap}
+.tabs span{color:var(--mut);position:relative;padding:9px 0}
+.tabs .on{color:var(--tx);font-weight:700}
+.tabs .on:after{content:"";position:absolute;left:0;right:0;bottom:2px;height:3px;border-radius:2px;background:var(--amber)}
+.tabs .cnt{font-size:11px;color:var(--dim);font-family:var(--mono);margin-left:3px;font-weight:400}
+.pill{display:flex;align-items:center;gap:7px;height:34px;padding:0 3px 0 11px;border-radius:17px;background:var(--s1);border:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--mut);flex:none;white-space:nowrap}
+.pill .pb{width:28px;height:28px;border-radius:14px;background:var(--s2);display:grid;place-items:center;color:var(--tx)}
+.pill .pb svg{width:13px;height:13px;fill:currentColor}
+.pill.paused{border-color:rgba(245,165,36,.5);color:var(--amberT)}
+.pill.off{padding-right:11px}
+.d8{width:8px;height:8px;border-radius:4px;background:var(--green);box-shadow:0 0 0 3px var(--greenBg);flex:none}
+.d8.am{background:var(--amber);box-shadow:0 0 0 3px var(--amberBg)}
+.d8.gr{background:var(--dim);box-shadow:none}
+
+.body{flex:1;overflow:hidden;padding:2px 14px 96px;display:flex;flex-direction:column;gap:8px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.c2{grid-column:span 2}
+
+/* 组件卡 v3 */
+.x{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:10px 12px 9px;position:relative;min-height:98px;display:flex;flex-direction:column}
+.x .n{font-size:13px;color:var(--mut);display:flex;align-items:center;gap:6px;white-space:nowrap;line-height:18px}
+.x .n .sp{flex:1}
+.x .v{font-family:var(--mono);font-size:28px;font-weight:600;margin-top:6px;letter-spacing:-.4px;line-height:34px;white-space:nowrap}
+.x .v small{font-size:13px;color:var(--mut);font-weight:400;margin-left:3px;letter-spacing:0}
+.x .m{margin-top:auto;padding-top:4px;font-size:10.5px;color:var(--dim);font-family:var(--mono);display:flex;justify-content:space-between;align-items:center;gap:6px;white-space:nowrap}
+.x.warn{border-color:rgba(245,165,36,.6)}
+.x.warn .v{color:var(--amberT)}
+.x.alert{border-color:rgba(248,81,73,.65);background:linear-gradient(var(--redBg),var(--redBg)),var(--s1)}
+.x.alert .v{color:var(--red)}
+.x.stale .v{color:var(--mut)}
+.x.bad .v{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px}
+.tag{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:5px;font-family:var(--sans);line-height:16px}
+.t-am{color:var(--amberT);background:var(--amberBg)} .t-er{color:var(--red);background:var(--redBg)} .t-gr{color:var(--mut);background:var(--grayBg)} .t-fo{color:var(--blue);background:var(--blueBg)}
+.wi{width:14px;height:14px;flex:none;stroke:var(--dim);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lamp2{width:18px;height:18px;border-radius:9px;flex:none}
+.on-g{background:var(--green);box-shadow:0 0 0 4px var(--greenBg),0 0 14px rgba(63,185,80,.55)}
+.off-g{background:var(--s3)}
+.bar2{height:10px;border-radius:5px;background:var(--s2);overflow:hidden}
+.bar2 i{display:block;height:100%;background:var(--amber);border-radius:5px}
+.tbtn{height:44px;border-radius:12px;background:var(--amberBg);color:var(--amberT);font-weight:700;font-size:14.5px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(245,165,36,.4);margin-top:8px}
+.tbtn.red{background:var(--redBg);color:var(--red);border-color:rgba(248,81,73,.5)}
+.tbtn.dis{background:var(--s2);color:var(--dim);border-color:var(--line)}
+.tg.dis{opacity:.45}
+.sw-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;height:34px}
+.sw-row .s{font-size:17px;font-weight:700}
+
+/* 寄存器表 v3 */
+.tb{background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.tb .hd{display:flex;align-items:center;gap:6px;padding:10px 12px 6px;font-size:13px;color:var(--mut)}
+.tb .hd .sp{flex:1}
+.tb .rw{display:grid;grid-template-columns:1fr auto 26px;align-items:center;min-height:48px;padding:0 6px 0 12px;border-top:1px solid var(--row);font-family:var(--mono)}
+.tb .rw .a{font-size:13.5px}
+.tb .rw .a small{display:block;font-size:10px;color:var(--dim);line-height:12px}
+.tb .rw .vv{text-align:right;font-size:17px;font-weight:600}
+.tb .rw .vv small{font-size:11px;color:var(--mut);font-weight:400;margin-left:2px}
+.tb .rw .vv .hx{display:block;font-size:10px;color:var(--dim);font-weight:400;line-height:12px}
+.tb .rw .e{color:var(--dim);text-align:center;font-size:14px}
+.tb .rw.old .vv{color:var(--mut)}
+.tb .ft{font-size:10.5px;color:var(--dim);font-family:var(--mono);padding:6px 12px 9px;border-top:1px solid var(--row)}
+
+/* 空状态 */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 26px 92px}
+.empty .ill{width:96px;height:96px;border-radius:28px;background:var(--s1);border:1px solid var(--line);display:grid;place-items:center;margin-bottom:18px}
+.empty .ill svg{width:44px;height:44px;stroke:var(--amber);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.empty h3{font-size:18px;font-weight:700}
+.empty p{font-size:13px;color:var(--mut);line-height:20px;margin-top:8px}
+.steps-mini{margin-top:18px;width:100%;display:flex;flex-direction:column;gap:8px;text-align:left}
+.steps-mini div{display:flex;gap:10px;align-items:center;font-size:13px;background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.steps-mini i{font-style:normal;width:22px;height:22px;border-radius:11px;background:var(--s2);display:grid;place-items:center;font-size:11.5px;font-family:var(--mono);color:var(--mut);flex:none}
+.steps-mini .done i{background:var(--greenBg);color:var(--green)}
+.steps-mini .r{margin-left:auto;color:var(--amberT);font-weight:600;font-size:12.5px}
+
+/* 编辑模式 v3 */
+.eh{height:52px;display:flex;align-items:center;gap:4px;padding:0 10px 0 6px;flex:none}
+.eh h2{font-size:18px;font-weight:700;margin-right:auto}
+.eh .ic{width:44px;height:44px;border-radius:22px;color:var(--tx);font-size:18px}
+.eh .ic svg{width:20px;height:20px;stroke:var(--tx);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ehint{font-size:11.5px;color:var(--mut);padding:0 16px 8px;flex:none;display:flex;gap:6px;align-items:center}
+.ehint .sh{color:var(--green)}
+.x.ed{background:var(--s2);border:1px solid var(--line);min-height:84px}
+.x.ed .v{color:var(--mut);font-size:22px;line-height:28px}
+.x.ed .grip{position:absolute;left:0;top:0;bottom:0;width:0}
+.x.ed .n{color:var(--tx);font-weight:600}
+.x.ed .sz{font-family:var(--mono);font-size:10.5px;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:0 5px;line-height:16px}
+.x.ed.sel{border:2px solid var(--amber);padding:9px 11px 8px;box-shadow:0 0 0 4px var(--amberBg)}
+.x.ed.sel .ck2{position:absolute;right:-7px;top:-7px;width:22px;height:22px;border-radius:11px;background:var(--amber);display:grid;place-items:center}
+.x.ed.sel .ck2:after{content:"";width:5px;height:9px;border:solid var(--onAmber);border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg)}
+.dots{display:inline-grid;grid-template-columns:3px 3px;gap:2px;margin-right:2px}
+.dots i{width:3px;height:3px;border-radius:2px;background:var(--dim);display:block}
+.addtile{border:1.5px dashed var(--line);border-radius:16px;min-height:84px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--amberT);font-weight:600;font-size:14px}
+.ebar{position:absolute;left:10px;right:10px;bottom:14px;background:var(--island);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:10px 10px 8px}
+.ebar .tt{display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:0 4px 8px}
+.ebar .tt b{font-size:14px}
+.ebar .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px}
+.ebar .acts div{height:52px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;color:var(--tx);background:var(--s2)}
+.ebar .acts svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ebar .acts .del{color:var(--red);background:var(--redBg)}
+
+/* 向导 v3 */
+.wh{height:52px;display:flex;align-items:center;gap:4px;padding:0 14px 0 6px;flex:none}
+.wh h2{font-size:18px;font-weight:700;margin-right:auto}
+.wh .ic{width:44px;height:44px;border-radius:22px}
+.wh .ic svg{width:20px;height:20px;stroke:var(--tx);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.stp{display:flex;gap:6px;padding:0 16px 10px;flex:none}
+.stp div{flex:1;font-size:11px;color:var(--dim)}
+.stp div:before{content:"";display:block;height:3px;border-radius:2px;background:var(--s3);margin-bottom:5px}
+.stp .done{color:var(--mut)} .stp .done:before{background:var(--amber);opacity:.55}
+.stp .on{color:var(--tx);font-weight:600} .stp .on:before{background:var(--amber)}
+.wb{flex:1;overflow:hidden;padding:0 14px 90px;display:flex;flex-direction:column;gap:8px}
+.grp{font-size:12px;color:var(--mut);margin:6px 2px 0;display:flex;align-items:center;gap:6px}
+.grp .tag{margin-left:auto}
+.pk3{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pk3 .k{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:8px 10px 8px;display:flex;gap:10px;align-items:center;min-height:62px}
+.pk3 .k .pv{width:44px;height:44px;border-radius:10px;background:var(--s2);display:grid;place-items:center;flex:none;overflow:hidden}
+.pk3 .k .t{font-size:14px;font-weight:600}
+.pk3 .k .d{font-size:11px;color:var(--mut);line-height:15px;margin-top:1px}
+.pk3 .k.w{border-color:rgba(245,165,36,.35)}
+.pk3 .k.on{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+.pvbar{display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--amber);border-radius:14px;padding:8px 12px;flex:none}
+.pvbar .nm{font-size:12px;color:var(--mut)}
+.pvbar .vl{font-family:var(--mono);font-size:22px;font-weight:600;line-height:26px}
+.pvbar .vl small{font-size:12px;color:var(--mut);font-weight:400;margin-left:2px}
+.blk{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px}
+.blk .bt{font-size:12px;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+.fld{background:var(--s2);border-radius:10px;padding:6px 10px;min-height:52px}
+.fld .k{font-size:11px;color:var(--mut)}
+.fld .v{font-size:17px;font-family:var(--mono);margin-top:1px;display:flex;justify-content:space-between;align-items:baseline;white-space:nowrap}
+.fld .v small{font-size:11px;color:var(--dim);font-family:var(--sans)}
+.fld .v.t{font-family:var(--sans);font-size:15px}
+.fld.on{box-shadow:inset 0 0 0 1.5px var(--amber)}
+.fld.dd .v:after{content:"▾";color:var(--dim);font-size:12px;margin-left:6px}
+.coll{display:flex;align-items:center;min-height:48px;gap:8px;font-size:14px}
+.coll .sub{font-size:12px;color:var(--mut);font-family:var(--mono)}
+.coll .chev{margin-left:auto;color:var(--dim)}
+.fml{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:7px 10px;font-family:var(--mono);font-size:12px;color:var(--mut)}
+.fml b{color:var(--tx);font-weight:600}
+.wbar{position:absolute;left:0;right:0;bottom:0;padding:10px 14px 16px;background:linear-gradient(0deg,var(--bg) 78%,transparent);display:flex;gap:8px}
+.mock-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);border:1px dashed var(--line);border-radius:14px;padding:6px}
+.mock-grid .gh{border:1px dashed var(--line);border-radius:12px;min-height:90px;display:grid;place-items:center;color:var(--dim);font-size:11px}
+.thr{display:flex;align-items:center;gap:8px;height:48px;border-top:1px solid var(--row);font-size:13.5px}
+.thr:first-of-type{border-top:0}
+.thr .op{font-family:var(--mono);width:30px;height:30px;border-radius:8px;background:var(--s2);display:grid;place-items:center;font-size:13px}
+.thr .vv{font-family:var(--mono);font-size:15px}
+.thr .x2{margin-left:auto;color:var(--dim)}
+.ser{display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid var(--row)}
+.ser:first-of-type{border-top:0}
+.ser .sw{width:12px;height:12px;border-radius:6px;flex:none}
+.ser .nn{font-size:14px;font-weight:600}
+.ser .aa{font-size:11px;color:var(--mut);font-family:var(--mono)}
+.ser .ax{margin-left:auto;font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+
+/* 曲线全屏 v3 */
+.fh{height:52px;display:flex;align-items:center;gap:2px;padding:0 6px;flex:none}
+.fh h2{font-size:16px;font-weight:700;margin-right:auto;white-space:nowrap}
+.fh .ic{width:44px;height:44px;border-radius:22px}
+.fh .ic svg{width:20px;height:20px;stroke:var(--tx);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.lg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lg>div{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.lg .h{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
+.lg .vv{font-family:var(--mono);font-size:22px;font-weight:600;margin-top:2px}
+.lg .vv small{font-size:12px;color:var(--mut);font-weight:400;margin-left:2px}
+.lg .mm{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+
+</style>
+</head>
+<body>
+<!-- ====================================================== BOARD 1 · 面板主页 -->
+<section class="board" id="b1">
+<div class="btitle"><h1>v3 · ① 面板主页</h1><span>读数优先 · 只有异常才出声 · 会写设备的控件和读数分开</span></div>
+<div class="intro">
+  <div><b>1. 页头从 3 行压成 2 行</b>原来「标题 / 会话条 / 面板页签」三段占了约 190dp 才开始出读数。现在：标题行（⤢ ✎）+ 一行「面板页签 · 轮询胶囊」，第一张卡上移约 <span class="x2">70dp</span>。胶囊里是实际周期和暂停键。</div>
+  <div><b>2. 正常不打标签，异常才说话</b>原来每张卡都有绿色「正常」和同一个时间戳，满屏重复。现在正常时不显示标签和时间；<span class="x2">预警</span> 琥珀边、<span style="color:#F85149">告警</span> 红底、过期变灰并写「12 秒前」、超时划线并写次数，一眼能找到出问题的卡。</div>
+  <div><b>3. 控制类和读数分开</b>原来按钮是实心琥珀色，和「连接」主按钮一样醒目，一屏六个。现在控制卡名称前有 ⚡（会写设备），按钮改成浅底描边（44dp），广播按钮用红色。点了照旧走写入确认，流程不变。</div>
+</div>
+<div class="grid4">
+
+<!-- 1-1 深色主页 -->
+<div><div class="cap"><b>面板</b>深色 · 主站轮询中</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="ph">
+    <div class="t"><h2>面板</h2>
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div></div>
+    <div class="r2"><div class="tabs"><span class="on">机房 A</span><span>冷站</span><span>测试</span></div>
+      <div class="pill"><span class="d8"></span>1012 ms<span class="pb"><svg viewBox="0 0 12 12"><rect x="2" y="1.5" width="2.6" height="9" rx="1"/><rect x="7.4" y="1.5" width="2.6" height="9" rx="1"/></svg></span></div></div>
+  </div>
+  <div class="body">
+    <div class="g2">
+      <div class="x"><div class="n">供水温度</div><div class="v">23.4<small>℃</small></div><div class="m"><span>HR100</span></div></div>
+      <div class="x warn"><div class="n">供水压力<span class="sp"></span><span class="tag t-am">预警</span></div><div class="v">0.82<small>MPa</small></div><div class="m"><span>HR101</span><span>≥ 0.80</span></div></div>
+      <div class="x"><div class="n">压缩机</div>
+        <div class="row" style="margin-top:10px;gap:10px"><span class="lamp2 on-g"></span><span style="font-size:17px;font-weight:700">运行</span></div><div class="m"><span>C0</span></div></div>
+      <div class="x"><div class="n">运行模式</div><div style="font-size:24px;font-weight:700;margin-top:6px;color:var(--blue);line-height:34px">制冷</div><div class="m"><span>HR120 = 2</span></div></div>
+      <div class="x c2" style="min-height:0"><div class="n">阀门开度<span class="sp"></span><span class="mono" style="font-size:17px;color:var(--tx);font-weight:600">62<small style="font-size:12px;color:var(--mut);font-weight:400"> %</small></span></div><div class="bar2" style="margin-top:10px"><i style="width:62%"></i></div><div class="m" style="padding-top:7px"><span>HR130</span><span>0 – 100</span></div></div>
+      <div class="x bad"><div class="n">压缩机电流<span class="sp"></span><span class="tag t-er">超时</span></div><div class="v">12.6<small>A</small></div><div class="m" style="color:var(--red)"><span>连续超时 3 次</span></div></div>
+      <div class="x stale"><div class="n">回水温度<span class="sp"></span><span class="tag t-gr">过期</span></div><div class="v">18.9<small>℃</small></div><div class="m"><span>HR102</span><span>12 秒前</span></div></div>
+    </div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div>
+<ul class="notes">
+  <li>页签就是面板切换（原来的 chips），只有一个面板时显示它的名字。</li>
+  <li>胶囊：<b>● 1012 ms + 暂停键</b>。暂停后变琥珀色「已暂停」，未连接时灰色「未连接」，点一下去连接页。</li>
+  <li>名称 13 / 值 mono 28（原 26）；地址留在左下，阈值或量程放在右下。</li>
+  <li><span class="keep">保留</span>：没读到显示「—」，失败时说明显示的是上次的值，不插假数据。</li>
+</ul></div>
+
+<!-- 1-2 浅色 -->
+<div><div class="cap"><b>面板</b>浅色 · 同一面板</div>
+<div class="phone light">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="ph">
+    <div class="t"><h2>面板</h2>
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div></div>
+    <div class="r2"><div class="tabs"><span class="on">机房 A</span><span>冷站</span><span>测试</span></div>
+      <div class="pill"><span class="d8"></span>1012 ms<span class="pb"><svg viewBox="0 0 12 12"><rect x="2" y="1.5" width="2.6" height="9" rx="1"/><rect x="7.4" y="1.5" width="2.6" height="9" rx="1"/></svg></span></div></div>
+  </div>
+  <div class="body">
+    <div class="g2">
+      <div class="x c2" style="padding:9px 10px 6px;min-height:0">
+        <div class="n" style="padding:0 2px">供水温度 / 供水压力 · 1 分钟<span class="sp"></span>
+          <span class="ic" style="width:28px;height:20px;color:var(--dim);font-size:13px">⤢</span></div>
+        <div style="display:flex;gap:12px;font-size:11.5px;color:var(--mut);padding:4px 2px 2px"><span><b style="color:#B76E00">━</b> 供水温度 <b class="mono" style="color:var(--tx)">23.4</b></span><span><b style="color:#0969DA">┅</b> 供水压力 <b class="mono" style="color:var(--tx)">0.82</b></span></div>
+        <svg width="318" height="112" viewBox="0 0 318 112" preserveAspectRatio="none">
+          <g stroke="#E2E7EE"><line x1="22" y1="10" x2="296" y2="10"/><line x1="22" y1="50" x2="296" y2="50"/><line x1="22" y1="90" x2="296" y2="90"/></g>
+          <g font-family="Geist Mono" font-size="9" fill="#8D97A5"><text x="0" y="13">28</text><text x="0" y="93">18</text><text x="300" y="13">1.0</text><text x="300" y="93">0.4</text></g>
+          <polyline fill="none" stroke="#E0900F" stroke-width="2" points="22,70 50,58 80,40 110,30 140,34 170,52 200,68 230,74 260,60 296,40"/>
+          <polyline fill="none" stroke="#0969DA" stroke-width="2" stroke-dasharray="5 4" points="22,30 50,38 80,52 110,64 140,70 170,66 200,52 230,40 260,34 296,32"/>
+          <g font-family="Geist Mono" font-size="9" fill="#8D97A5"><text x="22" y="108">10:20:07</text><text x="248" y="108">10:21:07</text></g>
+        </svg></div>
+      <div class="x"><div class="n">供水温度</div><div class="v">23.4<small>℃</small></div><div class="m"><span>HR100</span></div></div>
+      <div class="x warn"><div class="n">供水压力<span class="sp"></span><span class="tag t-am">预警</span></div><div class="v">0.82<small>MPa</small></div><div class="m"><span>HR101</span><span>≥ 0.80</span></div></div>
+      <div class="x"><div class="n">压缩机</div>
+        <div class="row" style="margin-top:10px;gap:10px"><span class="lamp2" style="background:#1A7F37;box-shadow:0 0 0 4px rgba(26,127,55,.12)"></span><span style="font-size:17px;font-weight:700">运行</span></div><div class="m"><span>C0</span></div></div>
+      <div class="x"><div class="n">吸气压力</div>
+        <svg width="140" height="64" viewBox="0 0 140 64" style="margin:2px auto 0;display:block"><path d="M18 58 A52 52 0 0 1 122 58" fill="none" stroke="#E2E7EE" stroke-width="9" stroke-linecap="round"/><path d="M18 58 A52 52 0 0 1 88 12" fill="none" stroke="#F5A524" stroke-width="9" stroke-linecap="round"/><path d="M110 28 A52 52 0 0 1 122 58" fill="none" stroke="#CF222E" stroke-width="3" transform="translate(5,-3)"/><text x="70" y="56" text-anchor="middle" font-family="Geist Mono" font-size="17" font-weight="600" fill="#121A24">0.46</text></svg>
+        <div class="m" style="padding-top:0"><span>0</span><span>HR104 · MPa</span><span>1.2</span></div></div>
+    </div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div>
+<ul class="notes">
+  <li>曲线卡：图例里直接带当前值，⤢ 放在卡内右上（≥48dp 热区），不再和标题挤成一行。</li>
+  <li>仪表：读数放进弧心，量程端点放底行；预警段是外侧细带（与 v2 一致）。</li>
+  <li>浅色下预警值用 <span style="color:#B76E00">#B76E00</span>（amberT），对白底对比度够。</li>
+</ul></div>
+
+<!-- 1-3 控制类 -->
+<div><div class="cap"><b>面板 · 控制组件</b>深色 · 开关 / 按钮 / 广播</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="ph">
+    <div class="t"><h2>面板</h2><div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div></div>
+    <div class="r2"><div class="tabs"><span>机房 A</span><span class="on">冷站</span><span>测试</span></div>
+      <div class="pill"><span class="d8"></span>1004 ms<span class="pb"><svg viewBox="0 0 12 12"><rect x="2" y="1.5" width="2.6" height="9" rx="1"/><rect x="7.4" y="1.5" width="2.6" height="9" rx="1"/></svg></span></div></div>
+  </div>
+  <div class="body">
+    <div class="g2">
+      <div class="x"><div class="n"><svg class="wi" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>压缩机</div><div class="sw-row"><span class="s">运行</span><div class="tg on"></div></div><div class="m"><span>C0</span><span>U1</span></div></div>
+      <div class="x"><div class="n"><svg class="wi" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>电加热</div><div class="sw-row"><span class="s" style="color:var(--mut)">关</span><div class="tg"></div></div><div class="m"><span>HR140 · 位 3</span></div></div>
+      <div class="x c2" style="min-height:0"><div class="n"><svg class="wi" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>风机<span class="sp"></span><span class="tag t-gr">过期</span></div><div class="sw-row"><span class="s" style="color:var(--mut)">开 ?</span><div class="tg on dis"></div></div><div class="m"><span>C3 · 状态 14 秒前，不能切换</span></div></div>
+      <div class="x"><div class="n"><svg class="wi" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>启动压缩机</div><div class="tbtn">启动</div><div class="m"><span>C5 ← ON</span><span>U1</span></div></div>
+      <div class="x"><div class="n"><svg class="wi" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>设定温度</div><div class="tbtn">设为 7.0 ℃</div><div class="m"><span>HR20 ← 70</span><span>U1</span></div></div>
+      <div class="x c2" style="min-height:0"><div class="n"><svg class="wi" viewBox="0 0 24 24" style="stroke:var(--red)"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>全部停机<span class="sp"></span><span class="tag t-er">广播 · 所有从站</span></div><div class="tbtn red">全停</div><div class="m"><span>C9 ← OFF · Unit 0，无回应</span></div></div>
+    </div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div>
+<ul class="notes">
+  <li><b>⚡</b> = 这张卡会写设备。读数卡没有 ⚡，扫一眼就能分开。</li>
+  <li>按钮从实心琥珀改为浅底描边，<span class="old">不再和「连接为主站」抢主按钮的视觉</span>；高 44dp，热区补到 48dp。</li>
+  <li>写入目标写成 <span class="mono">C5 ← ON</span>，比「写 C5 = ON · U1」短，Unit 靠右。</li>
+  <li>状态未知时开关置灰，原因压成一行：「状态 14 秒前，不能切换」。</li>
+  <li><span class="keep">不变</span>：点开关 / 按钮 → 同一个写入确认（整帧预览），取消就不发；广播仍是红色确认。</li>
+</ul></div>
+
+<!-- 1-4 寄存器表 -->
+<div><div class="cap"><b>面板 · 寄存器表</b>深色 · 可修改 / 只读</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="ph">
+    <div class="t"><h2>面板</h2><div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div></div>
+    <div class="r2"><div class="tabs"><span>机房 A</span><span>冷站</span><span class="on">测试</span></div>
+      <div class="pill paused"><span class="d8 am"></span>已暂停<span class="pb"><svg viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z"/></svg></span></div></div>
+  </div>
+  <div class="body">
+    <div class="tb">
+      <div class="hd"><svg class="wi" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>水泵参数<span class="sp"></span><span class="mono" style="font-size:11px;color:var(--dim)">U1 · U16 · ℃</span></div>
+      <div class="rw"><div class="a">HR100<small>40101</small></div><div class="vv">23.4<span class="hx">00EA</span></div><div class="e">✎</div></div>
+      <div class="rw"><div class="a">HR101<small>40102</small></div><div class="vv">8.2<span class="hx">0052</span></div><div class="e">✎</div></div>
+      <div class="rw old"><div class="a">HR102<small>40103</small></div><div class="vv">50.0<span class="hx">01F4</span></div><div class="e">✎</div></div>
+      <div class="rw"><div class="a">HR103<small>40104</small></div><div class="vv" style="color:var(--dim)">—</div><div class="e">✎</div></div>
+      <div class="ft" style="color:var(--red)">HR102 读取失败，显示的是上一次的值</div>
+    </div>
+    <div class="tb">
+      <div class="hd"><svg class="wi" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>电表读数<span class="sp"></span><span class="mono" style="font-size:11px;color:var(--dim)">U2 · F32 · kW</span></div>
+      <div class="rw" style="grid-template-columns:1fr auto 8px"><div class="a">IR0<small>30001</small></div><div class="vv">1.50<span class="hx">3FC0 0000</span></div><div></div></div>
+      <div class="rw" style="grid-template-columns:1fr auto 8px"><div class="a">IR2<small>30003</small></div><div class="vv">0.75<span class="hx">3F40 0000</span></div><div></div></div>
+      <div class="rw" style="grid-template-columns:1fr auto 8px"><div class="a">IR4<small>30005</small></div><div class="vv">2.25<span class="hx">4010 0000</span></div><div></div></div>
+    </div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div>
+<ul class="notes">
+  <li>四列（地址 / 值 / HEX / ✎）改成三列：<b>HEX 挪到值下面</b>当小字，值右对齐、更大。</li>
+  <li>整行可点（48dp）打开修改浮层；✎ 只是灰色提示，不再每行一支琥珀色笔。</li>
+  <li>只读表头是 🔒，可改表头是 ⚡；Unit / 类型 / 单位收进表头一行，不再单独占一行表头。</li>
+  <li>胶囊示例：已暂停（琥珀，▶ 继续）。</li>
+</ul></div>
+
+<!-- 1-5 空状态 -->
+<div><div class="cap"><b>面板 · 空</b>深色 · 还没有组件、未连接</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="ph">
+    <div class="t"><h2>面板</h2></div>
+    <div class="r2"><div class="tabs"><span class="on">默认面板</span></div>
+      <div class="pill off"><span class="d8 gr"></span>未连接</div></div>
+  </div>
+  <div class="empty">
+    <div class="ill"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2" stroke-dasharray="2.5 2.5"/><rect x="3" y="15" width="8" height="6" rx="2"/></svg></div>
+    <h3>这个面板还是空的</h3>
+    <p>把常看的寄存器做成组件：数值、指示灯、曲线、开关……<br>面板只显示真实读数，不放示例数据。</p>
+    <div class="steps-mini">
+      <div><i>1</i>添加组件，填 Unit 和地址<span class="r"></span></div>
+      <div><i>2</i>在「连接」页以主站连接<span class="r">去连接 ›</span></div>
+      <div><i>3</i>回到面板，自动开始轮询</div>
+    </div>
+    <div class="btn pri" style="width:100%;margin-top:16px">＋ 添加组件</div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div>
+<ul class="notes">
+  <li>原来是一张说明文字卡、而且只有在有仓库时才有「添加组件」按钮。现在居中插画 + 三步引导 + 主按钮。</li>
+  <li>三步是<b>真实的下一步</b>，不是示例卡，不违反「面板不放示例数据」。</li>
+  <li>没有组件时页头不显示 ✎ 和 ⤢（和现在一样：没功能的入口不画）。</li>
+</ul></div>
+
+<!-- 1-6 横屏 -->
+<div class="span2"><div class="cap"><b>面板</b>深色 · 横屏 4 列</div>
+<div class="phone land dark" style="width:780px">
+  <div class="rail" data-on="2"></div>
+  <div style="flex:1;display:flex;flex-direction:column;padding-left:86px">
+    <div class="ph" style="padding:6px 14px 0 4px"><div class="r2" style="margin:0;height:44px">
+      <span style="font-size:18px;font-weight:700;margin-right:10px">面板</span>
+      <div class="tabs"><span class="on">机房 A</span><span>冷站</span><span>测试</span></div>
+      <div class="pill"><span class="d8"></span>1012 ms<span class="pb"><svg viewBox="0 0 12 12"><rect x="2" y="1.5" width="2.6" height="9" rx="1"/><rect x="7.4" y="1.5" width="2.6" height="9" rx="1"/></svg></span></div>
+      <div class="ic" style="width:40px;height:40px"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--mut);fill:none;stroke-width:1.8"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
+      <div class="ic" style="width:40px;height:40px"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--mut);fill:none;stroke-width:1.8"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div>
+    </div></div>
+    <div class="body" style="padding:6px 14px 14px 4px">
+      <div class="g4">
+        <div class="x"><div class="n">供水温度</div><div class="v">23.4<small>℃</small></div><div class="m"><span>HR100</span></div></div>
+        <div class="x warn"><div class="n">供水压力<span class="sp"></span><span class="tag t-am">预警</span></div><div class="v">0.82<small>MPa</small></div><div class="m"><span>HR101</span><span>≥ 0.80</span></div></div>
+        <div class="x"><div class="n">压缩机</div><div class="row" style="margin-top:10px;gap:10px"><span class="lamp2 on-g"></span><span style="font-size:17px;font-weight:700">运行</span></div><div class="m"><span>C0</span></div></div>
+        <div class="x"><div class="n">运行模式</div><div style="font-size:24px;font-weight:700;margin-top:6px;color:var(--blue);line-height:34px">制冷</div><div class="m"><span>HR120 = 2</span></div></div>
+        <div class="x c2" style="min-height:0"><div class="n">阀门开度<span class="sp"></span><span class="mono" style="font-size:17px;color:var(--tx);font-weight:600">62 %</span></div><div class="bar2" style="margin-top:10px"><i style="width:62%"></i></div><div class="m" style="padding-top:7px"><span>HR130</span><span>0 – 100</span></div></div>
+        <div class="x bad"><div class="n">压缩机电流<span class="sp"></span><span class="tag t-er">超时</span></div><div class="v">12.6<small>A</small></div><div class="m" style="color:var(--red)"><span>连续超时 3 次</span></div></div>
+        <div class="x stale"><div class="n">回水温度<span class="sp"></span><span class="tag t-gr">过期</span></div><div class="v">18.9<small>℃</small></div><div class="m"><span>HR102</span><span>12 秒前</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<ul class="notes">
+  <li>横屏把「面板」标题、页签、胶囊、⤢ ✎ 收进一行 44dp，与竖屏是同一套组件（原来横屏有单独的 LandscapeHeader 样式）。</li>
+  <li>左侧导航栏、横屏 4 列、曲线自动全屏的规则都不变。</li>
+</ul></div>
+
+</div>
+</section>
+<!-- ====================================================== BOARD 2 · 编辑 / 全屏 / 行修改 -->
+<section class="board" id="b2">
+<div class="btitle"><h1>v3 · ② 编辑面板 · 曲线全屏 · 行内修改</h1><span>编辑 = 点选 + 底部工具条 · 面板设置收进浮层 · 全屏只留看图需要的东西</span></div>
+<div class="intro">
+  <div><b>4. 编辑模式：点选 + 工具条</b>原来每张卡同时画虚线框、红 ×、右下角拉手，6 张卡就有 18 个控件，红 × 还压在卡角上，容易误删。现在卡片安静地排着，<span class="x2">点一张选中</span>，底部工具条给出：尺寸、前移 / 后移、配置、删除。长按拖动排序仍然保留。</div>
+  <div><b>5. 面板设置单独放</b>面板名称、列数、新建 / 删除面板原来常驻在编辑页顶部，占了约 130dp。现在收进页头「⚙」打开的浮层，编辑页一进来就是组件。</div>
+  <div><b>6. 曲线全屏</b>原来「快照」是底部一整条灰按钮，看着像不能点；时间窗口和暂停 / 关闭挤在一行。现在页头只放 ← 标题、快照、暂停，时间窗口是独立的分段控件，图例卡带当前 / 最小 / 最大值。</div>
+</div>
+<div class="grid4">
+
+<!-- 2-1 编辑：未选中 -->
+<div><div class="cap"><b>编辑面板</b>深色 · 刚进入</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="eh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div><h2>编辑 · 机房 A</h2>
+    <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
+    <div class="btn pri xs" style="height:36px;padding:0 16px">完成</div></div>
+  <div class="ehint"><span class="sh">●</span>编辑时不会写设备 · 点一下选中 · 长按拖动</div>
+  <div class="body" style="padding-bottom:20px">
+    <div class="g2">
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>供水温度<span class="sp"></span><span class="sz">1×1</span></div><div class="v">23.4<small>℃</small></div><div class="m"><span>数值 · HR100</span></div></div>
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>供水压力<span class="sp"></span><span class="sz">1×1</span></div><div class="v">0.82<small>MPa</small></div><div class="m"><span>数值 · HR101</span></div></div>
+      <div class="x ed c2" style="min-height:70px"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>供水温度 / 供水压力<span class="sp"></span><span class="sz">2×1</span></div><div class="m" style="margin-top:8px"><span>曲线 · 2 个系列 · 1 分钟</span></div></div>
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>压缩机<span class="sp"></span><span class="sz">1×1</span></div><div class="row" style="margin-top:8px;gap:8px"><span class="lamp2 off-g"></span><span style="color:var(--mut)">运行</span></div><div class="m"><span>指示灯 · C0</span></div></div>
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>启动压缩机<span class="sp"></span><span class="sz">1×1</span></div><div class="tbtn dis" style="height:36px">启动</div><div class="m"><span>按钮 · C5</span></div></div>
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>运行模式<span class="sp"></span><span class="sz">1×1</span></div><div style="font-size:20px;font-weight:700;margin-top:6px;color:var(--mut)">制冷</div><div class="m"><span>状态文本 · HR120</span></div></div>
+      <div class="addtile">＋ 添加组件</div>
+    </div>
+  </div>
+</div>
+<ul class="notes">
+  <li>卡片换成 surface2 底、灰色值，<b>一眼就知道在编辑态</b>（原来只靠虚线框区分）。</li>
+  <li>右上角写尺寸 1×1 / 2×1，左边 ⠿ 表示可以拖。</li>
+  <li>「＋ 添加组件」是网格里的最后一格，不再是底部一条横按钮。</li>
+  <li>编辑时 dock 隐藏，全屏专注；「完成」才写盘（草稿制不变）。</li>
+</ul></div>
+
+<!-- 2-2 编辑：选中 -->
+<div><div class="cap"><b>编辑面板 · 选中一张</b>深色 · 底部工具条</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="eh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div><h2>编辑 · 机房 A</h2>
+    <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
+    <div class="btn pri xs" style="height:36px;padding:0 16px">完成</div></div>
+  <div class="ehint"><span class="sh">●</span>编辑时不会写设备 · 点一下选中 · 长按拖动</div>
+  <div class="body" style="padding-bottom:20px">
+    <div class="g2">
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>供水温度<span class="sp"></span><span class="sz">1×1</span></div><div class="v">23.4<small>℃</small></div><div class="m"><span>数值 · HR100</span></div></div>
+      <div class="x ed sel"><span class="ck2"></span><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>供水压力<span class="sp"></span><span class="sz" style="border-color:var(--amber);color:var(--amberT)">1×1</span></div><div class="v">0.82<small>MPa</small></div><div class="m"><span>数值 · HR101</span></div></div>
+      <div class="x ed c2" style="min-height:70px"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>供水温度 / 供水压力<span class="sp"></span><span class="sz">2×1</span></div><div class="m" style="margin-top:8px"><span>曲线 · 2 个系列 · 1 分钟</span></div></div>
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>压缩机<span class="sp"></span><span class="sz">1×1</span></div><div class="row" style="margin-top:8px;gap:8px"><span class="lamp2 off-g"></span><span style="color:var(--mut)">运行</span></div><div class="m"><span>指示灯 · C0</span></div></div>
+      <div class="x ed"><div class="n"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>启动压缩机<span class="sp"></span><span class="sz">1×1</span></div><div class="tbtn dis" style="height:36px">启动</div><div class="m"><span>按钮 · C5</span></div></div>
+    </div>
+  </div>
+  <div class="ebar">
+    <div class="tt"><span><b>供水压力</b> <span class="mut">· 数值</span></span><span class="mut mono" style="font-size:12px">第 2 / 6 个</span></div>
+    <div class="seg sm"><div class="on">1 × 1</div><div>2 × 1</div><div>2 × 2</div></div>
+    <div class="acts">
+      <div><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>前移</div>
+      <div><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>后移</div>
+      <div><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>配置</div>
+      <div class="del"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>删除</div>
+    </div>
+  </div>
+</div>
+<ul class="notes">
+  <li>选中：琥珀描边 + 勾。工具条里是<b>原来散在卡上的所有操作</b>：尺寸（分段，替代拖角标和点角标）、前移 / 后移（原来只有无障碍动作才有）、配置、删除。</li>
+  <li>删除放在最右，是红色的，并且仍是草稿：点「完成」前都能 ✕ 放弃。</li>
+  <li>曲线只能 2 列，所以选中曲线时 1×1 不出现（规则沿用 minColumns）。</li>
+  <li>每个按钮高 52dp。</li>
+</ul></div>
+
+<!-- 2-3 面板设置 -->
+<div><div class="cap"><b>面板设置</b>深色 · 编辑页 ⚙ 打开</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="eh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div><h2>编辑 · 机房 A</h2><div class="btn pri xs" style="height:36px;padding:0 16px">完成</div></div>
+  <div class="body" style="opacity:.5"><div class="g2"><div class="x ed"></div><div class="x ed"></div><div class="x ed c2"></div></div></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div style="font-size:17px;font-weight:700;margin-bottom:12px">面板设置</div>
+    <div class="fld" style="margin-bottom:8px"><div class="k">面板名称</div><div class="v t">机房 A</div></div>
+    <div class="lbl" style="margin:12px 2px 6px">竖屏列数 <span class="dim">横屏固定 4 列</span></div>
+    <div class="seg"><div>1 列</div><div class="on">2 列</div><div>3 列</div></div>
+    <div class="lbl" style="margin:16px 2px 6px">全部面板 · 3</div>
+    <div class="list">
+      <div class="li"><span class="d8"></span>机房 A<span class="r">6 个组件 · 当前</span></div>
+      <div class="li"><span class="d8 gr"></span>冷站<span class="r">6 个组件</span></div>
+      <div class="li"><span class="d8 gr"></span>测试<span class="r">2 个组件</span></div>
+      <div class="li" style="color:var(--amberT);font-weight:600">＋ 新建面板</div>
+    </div>
+    <div class="btn out sm" style="margin-top:14px;color:var(--red);border-color:rgba(248,81,73,.45)">删除「机房 A」</div>
+  </div>
+</div>
+<ul class="notes">
+  <li>原来常驻在编辑页顶部的「名称 / 列数」和面板 chips 都收到这里。</li>
+  <li>列数改成 1 / 2 / 3 分段（原来是点一下循环切换的数字框，看不出来能点）。</li>
+  <li>删除面板仍会二次确认，并写明「里面 N 个组件会一起删除」；同样要「完成」后才写盘。</li>
+</ul></div>
+
+<!-- 2-4 曲线全屏 -->
+<div><div class="cap"><b>曲线全屏</b>深色 · 竖屏</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="fh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></div><h2>供水温度 / 供水压力</h2>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg></div></div>
+  <div style="padding:0 14px 8px;display:flex;align-items:center;gap:10px;flex:none">
+    <div class="seg sm" style="flex:1"><div class="on">1 分</div><div>10 分</div><div>1 时</div></div>
+    <span class="row" style="gap:6px;font-size:12px;color:var(--mut)"><span class="d8"></span>轮询中</span>
+  </div>
+  <div style="padding:0 14px;flex:none">
+    <div class="card" style="padding:8px 4px 6px">
+      <svg width="324" height="380" viewBox="0 0 324 380">
+        <defs><pattern id="hh" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#F85149" stroke-opacity=".35" stroke-width="2"/></pattern></defs>
+        <g stroke="#232C38"><line x1="26" y1="12" x2="296" y2="12"/><line x1="26" y1="122" x2="296" y2="122"/><line x1="26" y1="232" x2="296" y2="232"/><line x1="26" y1="342" x2="296" y2="342"/></g>
+        <g font-family="Geist Mono" font-size="10" fill="#F5A524"><text x="2" y="16">28</text><text x="2" y="126">24</text><text x="2" y="236">21</text><text x="2" y="346">18</text></g>
+        <g font-family="Geist Mono" font-size="10" fill="#58A6FF"><text x="300" y="16">1.0</text><text x="300" y="126">0.8</text><text x="300" y="236">0.6</text><text x="300" y="346">0.4</text></g>
+        <rect x="132" y="12" width="40" height="330" fill="url(#hh)"/>
+        <text x="152" y="28" text-anchor="middle" font-size="10" fill="#F85149">缺测 14 s</text>
+        <polyline fill="none" stroke="#F5A524" stroke-width="2" points="26,300 50,250 75,190 100,120 132,60"/><polyline fill="none" stroke="#F5A524" stroke-width="2" points="172,190 200,260 225,300 250,290 275,230 296,170"/>
+        <polyline fill="none" stroke="#58A6FF" stroke-width="2" stroke-dasharray="5 4" points="26,100 60,150 100,210 132,240"/><polyline fill="none" stroke="#58A6FF" stroke-width="2" stroke-dasharray="5 4" points="172,250 210,220 250,160 296,100"/>
+        <line x1="236" y1="12" x2="236" y2="342" stroke="#E6EDF3" stroke-opacity=".5" stroke-dasharray="2 3"/>
+        <circle cx="236" cy="272" r="4" fill="#F5A524"/><circle cx="236" cy="176" r="4" fill="#58A6FF"/>
+        <g font-family="Geist Mono" font-size="10" fill="#5C6878"><text x="26" y="370">10:20:07</text><text x="130" y="370">10:20:37</text><text x="240" y="370">10:21:07</text></g>
+        <rect x="186" y="44" width="100" height="22" rx="6" fill="#253041"/><text x="236" y="59" text-anchor="middle" font-family="Geist Mono" font-size="11" fill="#E6EDF3">10:20:52</text>
+      </svg>
+    </div>
+  </div>
+  <div style="padding:8px 14px 0" class="lg">
+    <div><div class="h"><b style="color:#F5A524">━</b>供水温度<span class="tag t-gr" style="margin-left:auto">游标</span></div><div class="vv">22.1<small>℃</small></div><div class="mm">最小 20.0 · 最大 25.7</div></div>
+    <div><div class="h"><b style="color:#58A6FF">┅</b>供水压力<span class="tag t-gr" style="margin-left:auto">游标</span></div><div class="vv">0.74<small>MPa</small></div><div class="mm">最小 0.60 · 最大 0.90</div></div>
+  </div>
+</div>
+<ul class="notes">
+  <li>页头：← 返回 · 标题 · 快照 · 暂停（每个 44dp + 热区 48）。<span class="old">去掉底部那条灰色「快照」</span>。</li>
+  <li>时间窗口改用唯一的 SegmentedControl（规范 6），旁边是轮询状态。</li>
+  <li>拖动游标时图例卡显示游标处的值并标「游标」，松手回到最新值；落在缺测段里显示「—」（规则不变）。</li>
+  <li>快照仍会先弹隐私提示。</li>
+</ul></div>
+
+<!-- 2-5 行修改 -->
+<div><div class="cap"><b>寄存器表 · 改一行</b>浅色 · 页内浮层</div>
+<div class="phone light">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="ph"><div class="t"><h2>面板</h2></div></div>
+  <div class="body"><div class="tb" style="opacity:.6"><div class="hd">水泵参数</div><div class="rw"><div class="a">HR100</div><div class="vv">23.4</div><div></div></div><div class="rw"><div class="a">HR101</div><div class="vv">8.2</div><div></div></div></div></div>
+  <div class="scrim"></div>
+  <div class="sheet" style="bottom:92px;border-radius:24px;left:10px;right:10px;border:1px solid var(--line)">
+    <div class="grab"></div>
+    <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:17px;font-weight:700">HR101</span><span class="mut" style="font-size:13px">水泵参数 · 第 2 行</span></div>
+    <div class="mono mut" style="font-size:12px;margin-top:3px">U1 · U16 · ×0.1 ℃</div>
+    <div class="row" style="margin-top:12px;gap:10px;align-items:stretch">
+      <div class="fld" style="flex:1;background:var(--s2)"><div class="k">读取值 · 3 秒前</div><div class="v" style="color:var(--mut)">8.2<small>℃</small></div></div>
+      <div style="display:grid;place-items:center;color:var(--dim)">→</div>
+      <div class="fld on" style="flex:1.3"><div class="k">新值</div><div class="v">8.5<small>℃</small></div></div>
+    </div>
+    <div class="fml" style="margin-top:10px">8.5 ÷ 0.1 = <b>85</b> → 写入 0x0055</div>
+    <div class="row" style="margin-top:12px"><div class="btn out" style="flex:1">取消</div><div class="btn pri" style="flex:1.6">下一步 · 看写入帧</div></div>
+  </div>
+  <div class="island" data-on="2"></div>
+</div>
+<ul class="notes">
+  <li>「读取值 → 新值」左右并排，和工作台写入确认的说法一致（规范 3）。</li>
+  <li>反算公式写成一行能看懂的算式，代替原来一段说明文字。</li>
+  <li>浮层仍然坐在 dock 上方（规范 60），之后照旧进入同一个写入确认。</li>
+</ul></div>
+
+</div>
+</section>
+<!-- ====================================================== BOARD 3 · 添加组件 -->
+<section class="board" id="b3">
+<div class="btitle"><h1>v3 · ③ 添加组件</h1><span>类型 → 数据 → 显示 · 每一步都有实际内容 · 不常用的折叠起来</span></div>
+<div class="intro">
+  <div><b>7. 第 1 步按「只读 / 会写设备」分组</b>原来 9 种类型混在一起，开关、按钮和数值平起平坐。现在分成「显示读数」和「控制设备 ⚡」两组，后一组标明「会写设备 · 每次都要确认」。卡片改成横排紧凑样式，9 种一屏放下，<span class="x2">不用滚动</span>。</div>
+  <div><b>8. 第 2 步「数据」只留必填</b>原来 14 个数据类型芯片一次摊开、字序不能选时也画成灰色、换算三格常驻。现在常用的 U16 / S16 / U32 / F32 / 位放在外面，其余收进「更多」；字序只在 32/64 位时出现；换算和轮询折叠成一行摘要，点开再改。</div>
+  <div><b>9. 第 3 步「显示」不再是空页</b>原来第 3 步只有一个「尺寸」分段。现在名称、单位、小数位、颜色阈值、尺寸都在这一步，预览按真实尺寸放在面板网格里显示，能看出占多大地方。</div>
+</div>
+<div class="grid4">
+
+<!-- 3-1 选类型 -->
+<div><div class="cap"><b>添加组件 · 类型</b>深色</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="wh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div><h2>添加组件</h2></div>
+  <div class="stp"><div class="on">类型</div><div>数据</div><div>显示</div></div>
+  <div class="wb" style="padding-bottom:16px">
+    <div class="grp">显示读数<span class="mut" style="font-size:11px;margin-left:auto">只读，不会写设备</span></div>
+    <div class="pk3">
+      <div class="k"><div class="pv"><span class="mono" style="font-size:13px;font-weight:600">23.4</span></div><div><div class="t">数值</div><div class="d">单点 + 单位</div></div></div>
+      <div class="k"><div class="pv"><svg width="36" height="22" viewBox="0 0 36 22"><polyline fill="none" stroke="#F5A524" stroke-width="2" points="1,16 8,12 15,14 22,6 29,8 35,3"/><polyline fill="none" stroke="#58A6FF" stroke-width="2" points="1,8 8,10 15,7 22,12 29,11 35,14"/></svg></div><div><div class="t">曲线</div><div class="d">多点趋势 · 双轴</div></div></div>
+      <div class="k"><div class="pv"><span class="lamp2 on-g" style="width:14px;height:14px"></span></div><div><div class="t">指示灯</div><div class="d">位 / 线圈</div></div></div>
+      <div class="k"><div class="pv"><span style="color:var(--blue);font-weight:700;font-size:13px">制冷</span></div><div><div class="t">状态文本</div><div class="d">数值 → 文字</div></div></div>
+      <div class="k"><div class="pv"><div class="bar2" style="width:32px;height:7px"><i style="width:60%"></i></div></div><div><div class="t">进度条</div><div class="d">开度 / 液位</div></div></div>
+      <div class="k"><div class="pv"><svg width="34" height="22" viewBox="0 0 34 22"><path d="M4 20 A13 13 0 0 1 30 20" fill="none" stroke="#253041" stroke-width="5" stroke-linecap="round"/><path d="M4 20 A13 13 0 0 1 22 8" fill="none" stroke="#F5A524" stroke-width="5" stroke-linecap="round"/></svg></div><div><div class="t">仪表</div><div class="d">量程 + 色段</div></div></div>
+      <div class="k c2" style="grid-column:span 2"><div class="pv"><span class="mono" style="font-size:9px;line-height:11px;color:var(--mut)">0·236<br>1·82<br>2·500</span></div><div><div class="t">寄存器表</div><div class="d">一段连续地址，最多 16 行 · 可选允许修改（修改时会写设备）</div></div></div>
+    </div>
+    <div class="grp" style="margin-top:10px"><svg class="wi" viewBox="0 0 24 24" style="stroke:var(--amberT)"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>控制设备<span class="tag t-am">会写设备 · 每次都要确认</span></div>
+    <div class="pk3">
+      <div class="k w"><div class="pv"><div class="tg on" style="transform:scale(.8)"></div></div><div><div class="t">开关</div><div class="d">线圈 / 寄存器位</div></div></div>
+      <div class="k w"><div class="pv"><span style="font-size:11px;font-weight:700;color:var(--amberT);border:1px solid rgba(245,165,36,.5);border-radius:6px;padding:2px 5px;background:var(--amberBg)">启动</span></div><div><div class="t">按钮</div><div class="d">一键写预设值</div></div></div>
+    </div>
+  </div>
+</div>
+<ul class="notes">
+  <li>点一张直接进第 2 步，不需要再点「下一步」。</li>
+  <li>顶部三段进度条写着「类型 · 数据 · 显示」，代替右上角的「1 / 3」。</li>
+  <li>每张卡高 62dp（原来 118dp），9 种加两个分组标题刚好一屏。</li>
+  <li><span class="keep">不变</span>：只列真能用的类型，不画灰卡片（规范 34）。</li>
+</ul></div>
+
+<!-- 3-2 数据 -->
+<div><div class="cap"><b>数值组件 · 数据</b>深色 · 第 2 步</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="wh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></div><h2>数值 · 数据</h2></div>
+  <div class="stp"><div class="done">类型</div><div class="on">数据</div><div>显示</div></div>
+  <div class="wb">
+    <div class="pvbar"><div style="flex:1"><div class="nm">实时读数 <span class="tag t-am" style="margin-left:4px">预览</span></div><div class="vl">23.4<small>（原始 234）</small></div></div><div class="mono dim" style="font-size:11px;text-align:right">U1 · HR100<br>3 秒前</div></div>
+    <div class="blk">
+      <div class="bt">数据点位</div>
+      <div class="seg sm"><div class="on">保持</div><div>输入</div><div>线圈</div><div>离散</div></div>
+      <div class="row" style="align-items:stretch"><div class="fld" style="width:96px"><div class="k">Unit</div><div class="v">1</div></div><div class="fld on" style="flex:1"><div class="k">地址</div><div class="v">100<small>= 40101</small></div></div></div>
+      <div class="lbl" style="margin:4px 2px 0">数据类型 <span class="dim">占 1 个寄存器</span></div>
+      <div class="chips"><span class="chip">U16</span><span class="chip on">S16</span><span class="chip">U32</span><span class="chip">F32</span><span class="chip">位</span><span class="chip">更多 ▾</span></div>
+      <div class="dim" style="font-size:11px">字序只在 32 / 64 位类型时出现</div>
+    </div>
+    <div class="blk" style="padding:2px 12px">
+      <div class="coll">换算<span class="sub">× 0.1 + 0 · 1 位小数</span><span class="chev">›</span></div>
+    </div>
+    <div class="blk" style="padding:2px 12px">
+      <div class="coll">轮询周期<span class="sub">1000 ms（默认）</span><span class="chev">›</span></div>
+    </div>
+  </div>
+  <div class="wbar"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">下一步 · 显示</div></div>
+</div>
+<ul class="notes">
+  <li>预览压成一行：实时值 + 原始值 + 读取时间，换算对不对一眼可见。</li>
+  <li>地址框后面直接写 <span class="mono">= 40101</span>，对照设备手册用。</li>
+  <li>「更多 ▾」里是 U64 / S64 / F64 / BCD16 / BCD32 / ASCII。区域不允许的类型直接不出现，不画灰的（例如线圈只有 BOOL）。</li>
+  <li>换算展开后是原来的三格 + 算式：<span class="mono">234 × 0.1 + 0 = 23.4</span>。</li>
+  <li>校验规则不变：点「下一步」有错时，滚到第一个出错的框（规范 63）。</li>
+</ul></div>
+
+<!-- 3-3 显示 -->
+<div><div class="cap"><b>数值组件 · 显示</b>深色 · 第 3 步</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="wh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></div><h2>数值 · 显示</h2></div>
+  <div class="stp"><div class="done">类型</div><div class="done">数据</div><div class="on">显示</div></div>
+  <div class="wb">
+    <div class="mock-grid">
+      <div class="x warn" style="border-color:var(--amber);box-shadow:0 0 0 1px var(--amber);min-height:90px"><div class="n">供水压力<span class="sp"></span><span class="tag t-am">预警</span></div><div class="v" style="font-size:24px;line-height:28px">0.82<small>MPa</small></div><div class="m"><span>HR101</span></div></div>
+      <div class="gh">面板里的其他组件</div>
+    </div>
+    <div class="seg sm"><div class="on">1 × 1</div><div>2 × 1</div><div>2 × 2</div></div>
+    <div class="blk">
+      <div class="row" style="align-items:stretch"><div class="fld on" style="flex:1"><div class="k">名称</div><div class="v t">供水压力</div></div><div class="fld" style="width:92px"><div class="k">小数位</div><div class="v">2</div></div></div>
+      <div class="lbl" style="margin:2px 2px 0">单位</div>
+      <div class="chips"><span class="chip">℃</span><span class="chip on">MPa</span><span class="chip">kPa</span><span class="chip">%</span><span class="chip">A</span><span class="chip">V</span><span class="chip">kW</span><span class="chip">自定义</span></div>
+    </div>
+    <div class="blk" style="gap:0">
+      <div class="bt" style="margin-bottom:4px">颜色阈值 <span class="dim">只变色，不是报警</span></div>
+      <div class="thr"><span class="op">≥</span><span class="vv">0.80</span><span class="tag t-am">预警</span><span class="x2">✕</span></div>
+      <div class="thr"><span class="op">≥</span><span class="vv">1.00</span><span class="tag t-er">告警</span><span class="x2">✕</span></div>
+      <div class="thr" style="color:var(--amberT);font-weight:600">＋ 添加阈值</div>
+    </div>
+  </div>
+  <div class="wbar"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">添加到面板</div></div>
+</div>
+<ul class="notes">
+  <li>预览放进一格「假网格」里，按选中尺寸显示，旁边虚线格表示其他组件；预览只读不写（规范 39）。</li>
+  <li>名称、单位、小数位、阈值都移到这一步，第 2 步只管「读什么」，第 3 步只管「怎么显示」。</li>
+  <li>「添加到面板」只是放进编辑草稿，编辑页点「完成」才写盘（规范 41 不变）。</li>
+</ul></div>
+
+<!-- 3-4 曲线配置 -->
+<div><div class="cap"><b>曲线组件 · 数据</b>深色 · 第 2 步</div>
+<div class="phone dark">
+  <div class="sb"><span>10:21</span><span>▂▄▆ <i></i></span></div>
+  <div class="wh"><div class="ic"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></div><h2>曲线 · 数据</h2></div>
+  <div class="stp"><div class="done">类型</div><div class="on">数据</div><div>显示</div></div>
+  <div class="wb">
+    <div class="card" style="border-color:var(--amber);padding:8px 6px 4px">
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut);padding:0 6px"><span>实时预览 · 1 分钟</span><span class="tag t-am">预览</span></div>
+      <svg width="318" height="96" viewBox="0 0 318 96"><g stroke="#232C38"><line x1="0" y1="10" x2="318" y2="10"/><line x1="0" y1="48" x2="318" y2="48"/><line x1="0" y1="86" x2="318" y2="86"/></g>
+        <polyline fill="none" stroke="#F5A524" stroke-width="2" points="0,70 40,50 80,30 120,24 160,36 200,58 240,72 280,60 318,40"/>
+        <polyline fill="none" stroke="#58A6FF" stroke-width="2" stroke-dasharray="5 4" points="0,26 40,34 80,50 120,64 160,70 200,64 240,48 280,36 318,32"/></svg>
+    </div>
+    <div class="blk" style="gap:0;padding-bottom:4px">
+      <div class="bt" style="margin-bottom:2px">系列 <span class="mono">2 / 8</span></div>
+      <div class="ser"><span class="sw" style="background:#F5A524"></span><div><div class="nn">供水温度</div><div class="aa">U1 HR100 · S16 ×0.1 ℃</div></div><span class="ax">左轴</span><span class="chev">›</span></div>
+      <div class="ser"><span class="sw" style="background:#58A6FF"></span><div><div class="nn">供水压力</div><div class="aa">U1 HR101 · S16 ×0.01 MPa</div></div><span class="ax">右轴</span><span class="chev">›</span></div>
+      <div class="ser" style="color:var(--amberT);font-weight:600;font-size:14px">＋ 添加系列</div>
+    </div>
+    <div class="blk">
+      <div class="bt">时间窗口</div>
+      <div class="seg sm"><div class="on">1 分</div><div>5 分</div><div>10 分</div><div>1 时</div><div>自定义</div></div>
+    </div>
+    <div class="blk" style="padding:2px 12px">
+      <div class="coll">采样与内存<span class="sub">每次采样 · 保留 1 时</span><span class="chev">›</span></div>
+    </div>
+  </div>
+  <div class="wbar"><div class="btn out" style="flex:1">上一步</div><div class="btn pri" style="flex:1.6">下一步 · 显示</div></div>
+</div>
+<ul class="notes">
+  <li>「＋ 添加系列」从右上角的小字链接改成列表最后一行（48dp）。</li>
+  <li>时间窗口用分段控件；取点方式、内存保留、每系列最多点数收进「采样与内存」。</li>
+  <li>坐标轴、图例位置、缺测画法、游标挪到第 3 步「显示」，和数值组件的分法一致。</li>
+  <li>系列编辑浮层不变（颜色 / 线型 / 粗细 / 轴），只是把「数据点位」放在第一行。</li>
+</ul></div>
+
+</div>
+</section>
+
+<script>
+const ICON = [
+  ['连接','<path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8"/>'],
+  ['工作台','<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'],
+  ['面板','<rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/>'],
+  ['日志','<path d="M5 6h14M5 12h14M5 18h9"/>'],
+  ['我的','<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'],
+];
+document.querySelectorAll('.island,.rail').forEach(el=>{
+  const on = +el.dataset.on;
+  el.innerHTML = ICON.map(([t,p],i)=>`<div class="it${i===on?' on':''}"><svg viewBox="0 0 24 24">${p}</svg>${t}</div>`).join('');
+});
+const b = (location.hash.match(/b=(\d)/)||[0,'1'])[1];
+document.getElementById('b'+b).classList.add('show');
+</script>
+</body>
+</html>
