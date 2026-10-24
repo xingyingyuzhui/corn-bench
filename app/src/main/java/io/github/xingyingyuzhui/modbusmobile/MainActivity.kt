@@ -23,6 +23,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.LocalProjectRepository
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.ui.ModbusApp
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusTheme
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.SystemBarsFollowTheme
 
 class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity() {
                 io.github.xingyingyuzhui.modbusmobile.ui.LocalMasterPoller provides container.masterPoller,
             ) {
                 ModbusTheme(settings) {
+                    SystemBarsFollowTheme()
                     ModbusApp()
                 }
             }
