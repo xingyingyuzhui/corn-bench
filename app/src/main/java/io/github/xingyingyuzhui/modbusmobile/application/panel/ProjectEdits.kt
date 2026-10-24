@@ -95,6 +95,10 @@ object ProjectEdits {
         if (project.panels.size <= 1 || project.panels.none { it.id == panelId }) project else project.copy(panels = project.panels.filterNot { it.id == panelId })
 
     /** 点一下右下角把手：1×1 → 2×1 → 2×2 → 1×2 → 1×1；只有 1 列（不可能）或列数不够 2 时跳过跨列的项。 */
+    /** 编辑工具条里可选的尺寸（列 × 行）：受面板列数和组件最小列数限制（曲线至少 2 列）。 */
+    fun sizes(panelColumns: Int, minColumns: Int = 1): List<Pair<Int, Int>> =
+        listOf(1 to 1, 2 to 1, 2 to 2, 1 to 2).filter { it.first <= panelColumns && it.first >= minColumns }
+
     fun nextSize(columns: Int, rows: Int, panelColumns: Int, minColumns: Int = 1): Pair<Int, Int> {
         val cycle = listOf(1 to 1, 2 to 1, 2 to 2, 1 to 2).filter { it.first <= panelColumns && it.first >= minColumns }
         val index = cycle.indexOf(columns to rows)

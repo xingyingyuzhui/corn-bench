@@ -235,7 +235,7 @@ class PanelRegisterTableFlowTest {
         assertEquals("编辑页里没有行也没有 ✎", 0, count("panel-row-edit-t1-0"))
         assertEquals("3 行 · HR100–HR102 · 允许修改", text("panel-table-summary-t1"))
         // 点卡片 = 打开向导（改配置），向导预览里 ✎ 画出来但点不动
-        tap("edit-card-t1")
+        tap("edit-card-t1"); tap("edit-configure")
         waitTag("wiz-preview")
         waitTag("panel-row-edit-t1-0")
         tap("panel-row-edit-t1-0")

@@ -102,6 +102,9 @@ val LocalOpenCurve = staticCompositionLocalOf<(String) -> Unit> { {} }
 /** 面板页把“当前面板里第一个曲线组件的 id”报给外壳（横屏自动全屏用）；离开面板页时报 null。 */
 val LocalReportCurveTarget = staticCompositionLocalOf<(String?) -> Unit> { {} }
 
+/** 面板页进入 / 退出编辑模式时报给外壳：编辑时隐藏 dock / 侧栏（v3 2-1，全屏专注）。 */
+val LocalReportPanelEditing = staticCompositionLocalOf<(Boolean) -> Unit> { {} }
+
 val LocalOpenConnection = staticCompositionLocalOf<() -> Unit> {
     error("连接页回调还没有提供")
 }
@@ -117,7 +120,8 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
         adaptive.windowSizeClass.windowHeightSizeClass != WindowHeightSizeClass.COMPACT
     val current = nav.currentBackStackEntryAsState().value?.destination?.route
     val onCurve = isCurveRoute(current)
-    val hideChrome = onCurve || current == PanelWizardRoute
+    var panelEditing by remember { mutableStateOf(false) }
+    val hideChrome = onCurve || current == PanelWizardRoute || (panelEditing && current == Destination.Panel.route)
     var suppressCurve by rememberSaveable { mutableStateOf(false) }
     var autoEntered by rememberSaveable { mutableStateOf(false) }
     var curveTarget by remember { mutableStateOf<String?>(null) }
@@ -160,6 +164,7 @@ fun ModbusApp(startRoute: String = Destination.Connection.route) {
             LocalOpenWizard provides { nav.navigate(PanelWizardRoute) { launchSingleTop = true } },
             LocalOpenCurve provides { id -> nav.navigate(curveRoute(id)) { launchSingleTop = true } },
             LocalReportCurveTarget provides { id -> curveTarget = id },
+            LocalReportPanelEditing provides { editing -> panelEditing = editing },
             LocalAppViewModelStoreOwner provides appStoreOwner,
         ) {
             NavHost(

@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasSetTextAction
@@ -126,32 +127,40 @@ class PanelEditTest {
 
     private val dp get() = compose.density.density
 
-    // ---- 版式 ----
+    // ---- 版式（v3 编辑态）----
 
-    @Test fun headerAndFieldsMatchDesign() {
+    private fun tap(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).performClick()
+
+    private fun openSettings() { tap("edit-settings"); compose.waitForIdle() }
+
+    private fun select(id: String) { tap("edit-card-$id"); compose.waitForIdle() }
+
+    @Test fun headerHasCloseNamedTitleGearAndDone() {
         showEditor()
-        compose.onNodeWithText("编辑面板", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("编辑 · 机房 A", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("完成", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("面板名称", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("列数", useUnmergedTree = true).assertIsDisplayed()
-        // 面板名称格 + 列数格同高，列数格宽 110
-        assertEquals(110f, bounds("edit-columns").width.value, 0.6f)
-        assertEquals(bounds("edit-name").height.value, bounds("edit-columns").height.value, 1f)
-        // 页面左右边距 16
-        assertEquals(16f, bounds("edit-name").left.value, 0.6f)
-        assertEquals(360f - 16f, bounds("edit-columns").right.value, 0.6f)
+        compose.onNodeWithTag("edit-settings", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("编辑时不会写设备", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        // v3：名称 / 列数不再常驻页面顶部，收进 ⚙ 浮层
+        assertEquals(0, count("edit-name"))
+        assertEquals(0, count("edit-columns"))
     }
 
-    @Test fun cardsAreDashedWithPrefixAndAtLeast96High() {
+    @Test fun cardsAreQuietEditCardsWithGripAndSizeAndAtLeast84High() {
         showEditor()
         for (w in PanelFixtures.widgets) {
             val card = bounds("edit-card-${w.id}")
-            assertTrue("${w.id} 高 ${card.height.value}", card.height.value >= 95.5f)
+            assertTrue("${w.id} 高 ${card.height.value}", card.height.value >= 83.5f)
         }
-        // 名称前有 ⠿，且编辑模式不显示 badge / meta 行
-        compose.onNodeWithText("⠿ 供水温度", useUnmergedTree = true).assertIsDisplayed()
-        assertEquals(0, count("panel-meta"))
-        assertEquals(PanelFixtures.widgets.size, count("edit-outline"))
+        // 名称前有 ⠿（画出来的点），右上角写尺寸；没有 × 和角标，也没有虚线框
+        assertEquals(PanelFixtures.widgets.size, count("edit-grip"))
+        assertEquals(PanelFixtures.widgets.size, count("edit-size-tag"))
+        compose.onNodeWithText("供水温度", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals(0, count("edit-delete-w-temp"))
+        assertEquals(0, count("edit-handle-w-temp"))
+        assertEquals(0, count("edit-outline"))
+        // 编辑态不打异常标签
+        assertEquals(0, count("panel-badge"))
         // 两列、间距 8、边距 16
         val a = bounds("edit-card-w-temp")
         val b = bounds("edit-card-w-press")
@@ -160,78 +169,85 @@ class PanelEditTest {
         assertEquals(360f - 16f, b.right.value, 0.6f)
     }
 
-    @Test fun addWidgetButtonIsRealAndHintIsHonest() {
+    @Test fun addWidgetIsTheLastGridCell() {
         showEditor()
         val t = touch("edit-add-widget")
         assertTrue("热区高 ${t.height / dp}", t.height / dp >= 47.5f)
-        assertEquals("按钮高 44（稿面 .btn.sm）", 44f, bounds("edit-add-widget").height.value, 0.6f)
+        // 最后一格：和组件卡同宽（1 列）
+        assertEquals(bounds("edit-card-w-temp").width.value, bounds("edit-add-widget").width.value, 0.6f)
         compose.onNodeWithTag("edit-add-widget", useUnmergedTree = true).performScrollTo().performClick()
         assertEquals(listOf("addWidget"), calls)
-        compose.onNodeWithTag("edit-hint", useUnmergedTree = true).assertTextContains("不会向设备发送任何写入", substring = true)
     }
 
-    @Test fun tappingACardOpensItsConfig() {
+    @Test fun tappingACardSelectsItAndShowsTheToolbar() {
         showEditor()
-        compose.onNodeWithTag("edit-card-w-temp", useUnmergedTree = true).performClick()
+        assertEquals("没选中时没有工具条", 0, count("edit-toolbar"))
+        select("w-temp")
+        assertTrue("点卡片只是选中，不打开配置", calls.isEmpty())
+        assertEquals(1, count("edit-selected-w-temp"))
+        compose.onNodeWithTag("edit-toolbar", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("第 1 / 6 个", useUnmergedTree = true).assertIsDisplayed()
+        // 再点一次取消选中
+        select("w-temp")
+        assertEquals(0, count("edit-toolbar"))
+    }
+
+    @Test fun toolbarConfigureOpensThatWidget() {
+        showEditor()
+        select("w-temp")
+        tap("edit-configure")
         assertEquals(listOf("open:w-temp"), calls)
     }
 
-    @Test fun everyControlHasAtLeast48dpTouchArea() {
+    @Test fun toolbarActionsAreAtLeast48dp() {
         showEditor()
-        val tags = listOf("edit-close", "edit-done", "edit-columns") +
-            PanelFixtures.widgets.flatMap { listOf("edit-delete-${it.id}", "edit-handle-${it.id}") }
-        for (tag in tags) {
+        select("w-press")
+        for (tag in listOf("edit-close", "edit-done", "edit-settings", "edit-move-earlier", "edit-move-later", "edit-configure", "edit-delete")) {
             val t = touch(tag)
             assertTrue("$tag 宽 ${t.width / dp}", t.width / dp >= 47.5f)
             assertTrue("$tag 高 ${t.height / dp}", t.height / dp >= 47.5f)
         }
-        // 同一张卡的 × 和角标不重叠
-        for (w in PanelFixtures.widgets) {
-            val del = touch("edit-delete-${w.id}")
-            val handle = touch("edit-handle-${w.id}")
-            assertTrue("${w.id} × 与角标重叠", del.bottom <= handle.top + 0.5f)
-        }
-    }
-
-    @Test fun deleteAndHandleSitAtCardCorners() {
-        showEditor()
-        val card = touch("edit-card-w-temp")
-        val del = touch("edit-delete-w-temp")
-        val handle = touch("edit-handle-w-temp")
-        assertEquals(card.right, del.right, 1f)
-        assertEquals(card.top, del.top, 1f)
-        assertEquals(card.right, handle.right, 1f)
-        assertEquals(card.bottom, handle.bottom, 1f)
+        assertEquals("工具条按钮高 52", 52f, bounds("edit-delete").height.value, 0.6f)
     }
 
     // ---- 操作 ----
 
-    @Test fun deleteButtonDeletesThatWidget() {
+    @Test fun toolbarDeleteDeletesThatWidget() {
         showEditor()
-        compose.onNodeWithTag("edit-delete-w-press", useUnmergedTree = true).performClick()
+        select("w-press")
+        tap("edit-delete")
         assertEquals(listOf("delete:w-press"), calls)
     }
 
-    @Test fun tappingHandleCyclesSize() {
+    @Test fun toolbarSizeSegmentsSetTheSpan() {
         showEditor()
-        compose.onNodeWithTag("edit-handle-w-temp", useUnmergedTree = true).performClick()
-        assertEquals(listOf("span:w-temp:2x1"), calls)
-    }
-
-    @Test fun draggingHandleResizes() {
-        showEditor()
-        val card = touch("edit-card-w-temp")
-        // 1×1 卡向右拖出约一整列宽 → 2 列
-        compose.onNodeWithTag("edit-handle-w-temp", useUnmergedTree = true).performTouchInput {
-            swipe(center, center + Offset(card.width * 0.9f, 0f), durationMillis = 300)
-        }
+        select("w-temp")
+        compose.onNodeWithText("2 × 1", useUnmergedTree = true).performClick()
         assertEquals(listOf("span:w-temp:2x1"), calls)
         calls.clear()
-        // 向下拖出约一行高 → 2 行
-        compose.onNodeWithTag("edit-handle-w-press", useUnmergedTree = true).performTouchInput {
-            swipe(center, center + Offset(0f, card.height * 1.0f), durationMillis = 300)
-        }
-        assertEquals(listOf("span:w-press:1x2"), calls)
+        compose.onNodeWithText("1 × 2", useUnmergedTree = true).performClick()
+        assertEquals(listOf("span:w-temp:1x2"), calls)
+    }
+
+    @Test fun toolbarMovesEarlierAndLaterAndDisablesAtTheEnds() {
+        showEditor()
+        select("w-temp")
+        compose.onNodeWithTag("edit-move-earlier", useUnmergedTree = true).assertIsNotEnabled()
+        tap("edit-move-later")
+        assertEquals(listOf("move:w-temp>w-press"), calls)
+        calls.clear()
+        select("w-temp")
+        select("w-cur")
+        compose.onNodeWithTag("edit-move-later", useUnmergedTree = true).assertIsNotEnabled()
+        tap("edit-move-earlier")
+        assertEquals(listOf("move:w-cur>w-valve"), calls)
+    }
+
+    @Test fun cardsKeepAccessibilityActionsAsGestureAlternatives() {
+        showEditor()
+        val actionsOf = compose.onNodeWithTag("edit-card-w-press", useUnmergedTree = true).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].map { it.label }
+        assertTrue(actionsOf.toString(), actionsOf.containsAll(listOf("前移", "后移", "配置“供水压力”", "删除组件“供水压力”")))
     }
 
     @Test fun longPressDragOntoAnotherCardMoves() {
@@ -261,16 +277,29 @@ class PanelEditTest {
         assertTrue(calls.toString(), calls.none { it.startsWith("move") })
     }
 
-    @Test fun columnsTileCyclesTwoThreeFour() {
+    @Test fun curveOnlyOffersTwoColumnSizes() {
+        val curve = io.github.xingyingyuzhui.modbusmobile.application.panel.Widget(
+            "w-curve", io.github.xingyingyuzhui.modbusmobile.application.panel.WidgetKinds.CURVE, spanColumns = 2,
+            curve = io.github.xingyingyuzhui.modbusmobile.application.panel.CurveConfig(
+                listOf(io.github.xingyingyuzhui.modbusmobile.application.panel.CurveSeries(PanelFixtures.temp)),
+            ),
+        )
+        val project = PanelFixtures.project().copy(panels = listOf(Panel("p1", "机房 A", widgets = listOf(curve))))
+        showEditor(editState(project))
+        select("w-curve")
+        assertEquals(0, compose.onAllNodesWithText("1 × 1", useUnmergedTree = true).fetchSemanticsNodes().size)
+        compose.onNodeWithText("2 × 2", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun settingsSheetColumnsAreSegmentsTwoThreeFour() {
         showEditor()
-        compose.onNodeWithTag("edit-columns", useUnmergedTree = true).performClick()
+        openSettings()
+        compose.onNodeWithText("面板设置", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("3 列", useUnmergedTree = true).performClick()
         assertEquals(listOf("columns:3"), calls)
         calls.clear()
-        val four = PanelFixtures.project().copy(panels = listOf(Panel("p1", "机房 A", columns = 4, widgets = PanelFixtures.widgets)))
-        compose.activityRule.scenario.recreate()
-        showEditor(editState(four))
-        compose.onNodeWithTag("edit-columns", useUnmergedTree = true).performClick()
-        assertEquals(listOf("columns:2"), calls)
+        compose.onNodeWithText("4 列", useUnmergedTree = true).performClick()
+        assertEquals(listOf("columns:4"), calls)
     }
 
     @Test fun threeColumnPanelEditsInThreeColumns() {
@@ -288,8 +317,9 @@ class PanelEditTest {
     @Test fun blankNameShowsErrorAndDoneStillCallsBack() {
         val blank = PanelFixtures.project().copy(panels = listOf(Panel("p1", "", widgets = PanelFixtures.widgets)))
         showEditor(editState(blank, error = EditError.BLANK_NAME))
-        compose.onAllNodesWithText("面板名称不能为空", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty().let(::assertTrue)
         assertTrue(count("edit-error") == 1)
+        openSettings()
+        compose.onAllNodesWithText("面板名称不能为空", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty().let(::assertTrue)
     }
 
     @Test fun saveFailureAndReadOnlyAreExplained() {
@@ -297,10 +327,10 @@ class PanelEditTest {
         compose.onNodeWithText("保存失败，修改还在，请重试", useUnmergedTree = true).assertIsDisplayed()
     }
 
-    @Test fun renameFieldReportsTypedText() {
+    @Test fun renameFieldInSettingsReportsTypedText() {
         showEditor()
-        compose.onNode(hasSetTextAction() and hasTestTag("edit-name") or hasSetTextAction(), useUnmergedTree = true)
-            .performTextReplacement("冷站")
+        openSettings()
+        compose.onNode(hasSetTextAction(), useUnmergedTree = true).performTextReplacement("冷站")
         assertEquals(listOf("rename:冷站"), calls)
     }
 
@@ -332,9 +362,11 @@ class PanelEditTest {
 
     @Test fun deletePanelOnlyWithMultiplePanelsAndConfirms() {
         showEditor()
+        openSettings()
         assertEquals("只有一个面板时不显示", 0, count("edit-delete-panel"))
         compose.activityRule.scenario.recreate()
         showEditor(editState(PanelFixtures.project(Panel("p2", "冷站"))))
+        openSettings()
         val t = touch("edit-delete-panel")
         assertTrue("热区高 ${t.height / dp}", t.height / dp >= 47.5f)
         compose.onNodeWithTag("edit-delete-panel", useUnmergedTree = true).performScrollTo().performClick()
@@ -344,31 +376,33 @@ class PanelEditTest {
         assertEquals(listOf("deletePanel"), calls)
     }
 
-    @Test fun emptyPanelSaysSoAndOffersTheRealAddButton() {
+    @Test fun emptyPanelSaysSoAndStillOffersTheAddCell() {
         val empty = Project("default", "x", listOf(Panel("p1", "机房 A")))
         showEditor(editState(empty))
         compose.onNodeWithTag("edit-empty", useUnmergedTree = true).assertIsDisplayed()
-        assertEquals(0, count("edit-grid"))
         compose.onNodeWithTag("edit-add-widget", useUnmergedTree = true).assertIsDisplayed()
     }
 
-    // ---- 多面板 chip ----
+    // ---- 多面板（设置浮层里的面板列表）----
 
     private fun manyPanels(n: Int = 9) = Project(
         "default", "x",
         listOf(Panel("p1", "机房 A", widgets = PanelFixtures.widgets)) + (2..n).map { Panel("p$it", "长一点的面板$it") },
     )
 
-    @Test fun editChipsSelectAndPlusAddsAPanel() {
+    @Test fun settingsListSelectsPanelsAndNewPanelAddsOne() {
         showEditor(editState(PanelFixtures.project(Panel("p2", "冷站"))))
-        compose.onNodeWithText("冷站", useUnmergedTree = true).performClick()
+        openSettings()
+        tap("edit-panel-p2")
         compose.onNodeWithContentDescription("新建面板", useUnmergedTree = true).performClick()
         assertEquals(listOf("select:p2", "addPanel"), calls)
+        compose.onNodeWithText("6 个组件 · 当前", useUnmergedTree = true).assertIsDisplayed()
     }
 
-    @Test fun manyPanelsChipRowScrollsInEditMode() {
+    @Test fun manyPanelsAreAllReachableInSettings() {
         showEditor(editState(manyPanels()))
-        compose.onNodeWithText("长一点的面板9", useUnmergedTree = true).performScrollTo().performClick()
+        openSettings()
+        compose.onNodeWithTag("edit-panel-p9", useUnmergedTree = true).assertExists().performScrollTo().performClick()
         assertEquals(listOf("select:p9"), calls)
     }
 
@@ -385,20 +419,20 @@ class PanelEditTest {
         assertEquals(8f, (bounds("edit-card-w-press").left - a.right).value, 0.6f)
     }
 
-    @Test fun fontScale13EditCardsKeepControlsAndTextInside() {
+    @Test fun fontScale13EditCardsKeepTextInside() {
         showEditor(fontScale = 1.3f)
         for (w in PanelFixtures.widgets) {
+            compose.onNodeWithTag("edit-card-${w.id}", useUnmergedTree = true).performScrollTo()
             val card = bounds("edit-card-${w.id}")
-            assertTrue("${w.id} 高 ${card.height.value}", card.height.value >= 95.5f)
+            assertTrue("${w.id} 高 ${card.height.value}", card.height.value >= 83.5f)
+            compose.onNodeWithTag("edit-card-${w.id}", useUnmergedTree = true).performScrollTo()
             val value = bounds("panel-value-${w.id}")
             assertTrue("${w.id} 值超出卡片底部", value.bottom.value <= card.bottom.value - 4f)
             assertTrue("${w.id} 值超出卡片右侧", value.right.value <= card.right.value)
-            val del = touch("edit-delete-${w.id}")
-            val handle = touch("edit-handle-${w.id}")
-            assertTrue(del.bottom <= handle.top + 0.5f)
         }
         compose.onNodeWithText("完成", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("面板名称", useUnmergedTree = true).assertIsDisplayed()
+        select("w-temp")
+        compose.onNodeWithTag("edit-toolbar", useUnmergedTree = true).assertIsDisplayed()
     }
 
     // ---- 页面入口（PanelContent）----
@@ -517,6 +551,14 @@ class PanelEditTest {
     private fun shot(name: String) = compose.onRoot().captureRoboImage(name)
 
     @Test fun render_edit_dark_portrait() { showEditor(); shot("panel_edit_dark_portrait.png") }
+
+    @Test fun render_edit_selected_dark_portrait() { showEditor(); select("w-press"); shot("panel_edit_selected_dark_portrait.png") }
+
+    @Test fun render_edit_settings_dark_portrait() {
+        showEditor(editState(PanelFixtures.project(Panel("p2", "冷站"), Panel("p3", "测试"))))
+        openSettings()
+        shot("panel_edit_settings_dark_portrait.png")
+    }
 
     @Test fun render_edit_light_portrait() { showEditor(theme = ThemeMode.LIGHT); shot("panel_edit_light_portrait.png") }
 

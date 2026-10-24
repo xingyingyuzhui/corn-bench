@@ -80,6 +80,12 @@ fun PanelScreen() {
     val openWizard = LocalOpenWizard.current
     val openCurve = LocalOpenCurve.current
     val editing = edit
+    // 编辑模式隐藏 dock（v3 2-1）；离开面板页时复原
+    val reportEditing = io.github.xingyingyuzhui.modbusmobile.ui.LocalReportPanelEditing.current
+    androidx.compose.runtime.DisposableEffect(editing != null) {
+        reportEditing(editing != null)
+        onDispose { reportEditing(false) }
+    }
     if (editing != null) {
         PanelEditor(
             edit = editing,

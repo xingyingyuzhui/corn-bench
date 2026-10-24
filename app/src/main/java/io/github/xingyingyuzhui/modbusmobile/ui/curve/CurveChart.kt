@@ -209,13 +209,20 @@ fun CurveCardBody(
     }
 }
 
-/** 编辑模式里的曲线卡：不画实时图（编辑期间不读数 / 不重绘），只给名称和系列摘要。 */
+/** 编辑模式里的曲线卡（v3 编辑态）：不画实时图（编辑期间不读数 / 不重绘），只给 ⠿ 名称 + 尺寸、系列摘要和图例。 */
 @Composable
 fun CurveEditCard(widget: Widget, modifier: Modifier = Modifier) {
     val config = widget.curve ?: return
     val colors = LocalModbusColors.current
-    CardFrame(modifier, "panel-card-${widget.id}") {
-        Text("⠿ ${widget.displayTitle}", color = colors.muted, fontSize = 12.5.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    CardFrame(modifier, "panel-card-${widget.id}", fill = colors.surface2) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 22.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            io.github.xingyingyuzhui.modbusmobile.ui.panel.GripDots(colors.dim)
+            Text(
+                widget.displayTitle, color = colors.text, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
+            io.github.xingyingyuzhui.modbusmobile.ui.panel.EditSizeTag(stringResource(R.string.panel_edit_size_short, widget.spanColumns, widget.spanRows))
+        }
         Text(
             stringResource(R.string.curve_edit_summary, config.series.size, windowLabel(config.windowSec)),
             color = colors.dim, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp),

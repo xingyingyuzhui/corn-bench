@@ -246,7 +246,7 @@ class PanelWizardFlowTest {
         val repo = repoWith(PanelFixtures.project())
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-        tap("edit-card-w-temp")
+        tap("edit-card-w-temp"); tap("edit-configure")
         waitTag("wiz-name")
         step().assertTextContains("2 / 3", substring = true)
         type("wiz-name", "回水温度")
@@ -267,7 +267,7 @@ class PanelWizardFlowTest {
         val before = File(dir, "default.json").readText()
         show(repo)
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-        tap("edit-card-w-temp")
+        tap("edit-card-w-temp"); tap("edit-configure")
         waitTag("wiz-name")
         type("wiz-name", "改了名")
         tap("wiz-prev")
@@ -279,22 +279,20 @@ class PanelWizardFlowTest {
         assertEquals(before, File(dir, "default.json").readText())
     }
 
-    @Test fun draftSurvivesLeavingForAnotherTabAndComingBack() {
+    @Test fun editModeHidesTheDockAndKeepsTheDraftUntilDone() {
         val repo = repoWith(PanelFixtures.project())
         show(repo)
+        assertTrue("面板页有 dock", compose.onAllNodesWithText("工作台", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
         waitTag("panel-edit"); tap("panel-edit"); waitTag("edit-grid")
-        tap("edit-delete-w-temp")
+        // v3：编辑模式全屏专注，隐藏 dock（不会在编辑中切走，草稿也就不会被意外留在后台）
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("工作台", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+        tap("edit-card-w-temp"); tap("edit-delete")
         waitGone("edit-card-w-temp")
-        compose.onNodeWithText("工作台", useUnmergedTree = true).performClick()
-        waitGone("edit-grid")
-        compose.onNodeWithText("面板", useUnmergedTree = true).performClick()
-        waitTag("edit-grid")
-        assertEquals("草稿（已删一个）还在", 0, count("edit-card-w-temp"))
-        assertTrue(count("edit-card-w-press") > 0)
         assertTrue("没点完成，文件仍有该组件", reloaded().panels[0].widgets.any { it.id == "w-temp" })
         tap("edit-done")
         waitTag("panel-grid")
         assertTrue(reloaded().panels[0].widgets.none { it.id == "w-temp" })
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("工作台", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test fun wizardHidesTheDockAndNeverTouchesDeviceUntilConnected() {
