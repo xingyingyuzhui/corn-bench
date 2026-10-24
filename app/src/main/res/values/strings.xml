@@ -273,6 +273,8 @@
     <string name="panel_wiz_address_modicon">= %1$s</string>
     <string name="panel_wiz_conv_title">换算</string>
     <string name="panel_wiz_conv_summary">× %1$s + %2$s</string>
+    <string name="panel_wiz_conv_summary_decimals">× %1$s + %2$s · %3$d 位小数</string>
+    <string name="panel_wiz_order_hint">字序只在 32 / 64 位类型时出现</string>
     <string name="panel_wiz_poll_summary">%1$s ms</string>
     <string name="panel_wiz_poll_default">%1$s ms（默认）</string>
     <string name="panel_wiz_preview_live">实时读数</string>
@@ -805,11 +807,12 @@
     <string name="panel_wiz_series_point_title">数据点位</string>
     <string name="panel_wiz_curve_series">系列 · %1$d/%2$d</string>
     <string name="panel_wiz_curve_add_series">添加系列</string>
-    <string name="panel_wiz_curve_series_empty">还没有系列。点右上角“添加系列”，每个系列对应一个点位。</string>
+    <string name="panel_wiz_curve_series_empty">还没有系列。点下面的“添加系列”，每个系列对应一个点位。</string>
     <string name="panel_wiz_curve_series_need">至少添加一个系列</string>
     <string name="panel_wiz_curve_series_bad">数据点位有误，点进去检查</string>
     <string name="panel_wiz_curve_axis_left">左轴</string>
     <string name="panel_wiz_curve_axis_right">右轴</string>
+    <string name="panel_wiz_curve_preview_title">实时预览</string>
     <string name="panel_wiz_curve_preview_empty">添加系列后，这里实时画出曲线。</string>
     <string name="panel_wiz_curve_sec_time">时间与采样</string>
     <string name="panel_wiz_curve_window">时间窗口</string>

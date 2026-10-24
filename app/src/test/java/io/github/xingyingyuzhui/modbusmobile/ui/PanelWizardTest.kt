@@ -203,8 +203,12 @@ class PanelWizardTest {
         for (tag in listOf("wiz-name", "wiz-decimals", "wiz-unit-chip-℃", "wiz-threshold-add", "wiz-range-min")) assertEquals(tag, 0, count(tag))
         assertEquals("没有写入开关 / 记录历史这类没功能的东西", 0, compose.onAllNodesWithText("允许在面板上修改", useUnmergedTree = true).fetchSemanticsNodes().size)
         assertEquals(0, compose.onAllNodesWithText("记录历史", useUnmergedTree = true).fetchSemanticsNodes().size)
+        // 16 位类型不画字序分段，只写一句说明（不画灰的）
+        assertEquals(0, count("wiz-order"))
+        compose.onNodeWithTag("wiz-order-hint", useUnmergedTree = true).assertTextContains("32 / 64", substring = true)
         // 换算、轮询折叠成一行摘要
-        compose.onNodeWithTag("wiz-convert-summary", useUnmergedTree = true).assertTextContains("× 0.1 + 0")
+        // 稿面 3-2：摘要还写小数位
+        compose.onNodeWithTag("wiz-convert-summary", useUnmergedTree = true).assertTextContains("× 0.1 + 0 · 1 位小数")
         compose.onNodeWithTag("wiz-poll-block-summary", useUnmergedTree = true).assertTextContains("1000 ms（默认）")
         assertEquals("收起时看不到缩放框", 0, count("wiz-scale"))
         open("wiz-convert")

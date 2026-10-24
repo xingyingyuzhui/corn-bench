@@ -202,6 +202,8 @@ class PanelCurveWizardTest {
             runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo() }
             assertEquals(tag, 1, count(tag))
         }
+        // 规范 65：曲线预览卡也带“预览”徽标（面板里的真卡片没有）
+        compose.onNodeWithTag("wiz-preview-badge", useUnmergedTree = true).assertTextContains("预览")
         tap("wiz-sampling-block-toggle")
         for (tag in listOf("wiz-sampling", "wiz-retention", "wiz-max-points")) {
             runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo() }
@@ -221,6 +223,7 @@ class PanelCurveWizardTest {
         compose.onNodeWithTag("wiz-series-empty", useUnmergedTree = true).assertIsDisplayed()
         assertEquals("没有系列就没有预览曲线", 0, count("curve-chart-w-new"))
         assertEquals(1, count("wiz-preview-none") + count("wiz-preview-placeholder") + count("curve-waiting").coerceAtMost(1))
+        compose.onNodeWithTag("wiz-preview-badge", useUnmergedTree = true).assertTextContains("预览")
         tap("wiz-series-add")
         assertEquals(listOf("addSeries"), calls)
         compose.onNodeWithTag("wiz-sheet", useUnmergedTree = true).assertIsDisplayed()
@@ -240,7 +243,9 @@ class PanelCurveWizardTest {
     @Test fun seriesRowShowsNameAndSourceAndTapOpensTheSheet() {
         show(curveState(2, CurveForm(listOf(temp, press))))
         compose.onNodeWithTag("wiz-series-sub-1", useUnmergedTree = true).assertTextContains("HR101", substring = true)
-        compose.onNodeWithTag("wiz-series-sub-1", useUnmergedTree = true).assertTextContains("右轴", substring = true)
+        // v3 3-4：轴是独立小标签，不再拼在来源行里
+        compose.onNodeWithTag("wiz-series-axis-1", useUnmergedTree = true).assertTextContains("右轴", substring = true)
+        assertEquals("行内不画线宽 / 线型样例", 0, compose.onAllNodesWithText("px", substring = true, useUnmergedTree = true).fetchSemanticsNodes().size)
         tap("wiz-series-row-1")
         assertEquals(listOf("open:1"), calls)
         compose.onNodeWithTag("wiz-sheet-title", useUnmergedTree = true).assertTextContains("供水压力", substring = true)

@@ -167,6 +167,8 @@ fun CurveCardBody(
     modifier: Modifier = Modifier,
     borderColor: Color? = null,
     onFullscreen: (() -> Unit)? = null,
+    /** 向导预览卡：名称行右侧的“预览”徽标（规范 65），面板里的真卡片不传。 */
+    previewBadge: String? = null,
 ) {
     val colors = LocalModbusColors.current
     Box(modifier) {
@@ -178,9 +180,17 @@ fun CurveCardBody(
         ) {
             Text(
                 title, color = colors.muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false).testTag("curve-title-text-$id"),
+                // 有预览徽标时名称占满剩余宽度，徽标才能贴到名称行最右
+                modifier = (if (previewBadge != null) Modifier.weight(1f) else Modifier.weight(1f, fill = false))
+                    .testTag("curve-title-text-$id"),
             )
             Text(" · ${windowLabel(config.windowSec)}", color = colors.muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 1, softWrap = false)
+            if (previewBadge != null) {
+                // 规范 65：预览徽标放在名称行最右（稿面 3-4：“实时预览 · 1 分钟” + 右侧“预览”）
+                io.github.xingyingyuzhui.modbusmobile.ui.components.ToneBadge(
+                    previewBadge, colors.txText, Modifier.testTag("wiz-preview-badge"),
+                )
+            }
         }
         if (config.legend == LegendPosition.TOP) {
             CurveLegend(config, Modifier.padding(top = 4.dp).testTag("curve-legend-$id"), frame)

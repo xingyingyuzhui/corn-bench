@@ -320,10 +320,17 @@ private fun DataStep(
         // 有要显示的错误就自动展开：必填等“下一步”后才报，输错的内容立刻报（规范 40）
         val shown = listOf(FormField.SCALE, FormField.OFFSET).mapNotNull { result.errors[it] }
             .any { wizard.showErrors || it != FormError.REQUIRED }
+        val scale = form.scale.ifBlank { "1" }
+        val offset = form.offset.ifBlank { "0" }
+        val decimals = form.decimals.trim().toIntOrNull()
+        // 稿面 3-2：摘要写“× 0.1 + 0 · 1 位小数”，收起时也能看出怎么换算、显示几位
+        val summary = if (decimals != null) {
+            stringResource(R.string.panel_wiz_conv_summary_decimals, scale, offset, decimals)
+        } else {
+            stringResource(R.string.panel_wiz_conv_summary, scale, offset)
+        }
         CollapsibleBlock(
-            stringResource(R.string.panel_wiz_conv_title),
-            stringResource(R.string.panel_wiz_conv_summary, form.scale.ifBlank { "1" }, form.offset.ifBlank { "0" }),
-            tag = "wiz-convert", forceOpen = shown,
+            stringResource(R.string.panel_wiz_conv_title), summary, tag = "wiz-convert", forceOpen = shown,
         ) { ScaleFields(wizard, result, snapshot, onForm) }
     }
     if (form.isWriter) WriteNote(form)
@@ -617,6 +624,12 @@ internal fun SourceSection(wizard: WizardState, result: FormResult, onForm: (Wid
         if ((form.type.registers ?: 1) >= 2) {
             Text(stringResource(R.string.panel_wiz_order), color = colors.muted, fontSize = 12.sp)
             SegmentedTextControl(ByteWordOrder.entries, form.order, { onForm(form.copy(order = it)) }, Modifier.testTag("wiz-order"), small = true) { it.name }
+        } else {
+            // 稿面 3-2：字序不能选时不画灰控件，只留一句说明
+            Text(
+                stringResource(R.string.panel_wiz_order_hint), color = colors.dim, fontSize = 11.sp,
+                modifier = Modifier.testTag("wiz-order-hint"),
+            )
         }
     }
 }
