@@ -108,3 +108,5 @@
 - 本地 `test :app:lintDebug :app:assembleDebug` 通过（core + app 共 982 例，0 失败）。
 - redroid 设备验收（云构建 b7d037cb86f4493c，43f0c62）：系统浅色下切到「深色」，状态栏立即变为白色图标、导航栏变深；强停冷启动后仍正确；「跟随系统」浅色时仍为深色图标。
 - GitHub 仓库改名 `xingyingyuzhui/modbus_android` → `xingyingyuzhui/corn-modbus`（旧地址 301 重定向），描述改为 Corn Modbus；应用内仓库链接、LICENSE Required Notice 同步改新地址。云构建项目登记的仓库地址仍是旧 URL（靠重定向可用）。
+- 合并 main（PR #23 README 预览）进分支，board 冲突两段都保留；删掉重复的一段本分支记录。
+- 老板要求合并后升版本发新包：versionName 0.1.1 / versionCode 2，README 下载链接改为 v0.1.1 与新仓库地址。本地 `test`（982 例，0 失败）、`:app:lintDebug`、`:app:assembleRelease :app:assembleDebug` 通过，`tools/verify_offline_apks.py` 两变体通过。
