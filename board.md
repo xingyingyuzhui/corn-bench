@@ -82,3 +82,8 @@
 - 老板要求：换玉米图标、应用名 Corn Modbus、设置最后加 by xingyingyuzhui（链到仓库）、代码里藏作者信息、仓库改非商业授权开源。
 - 图标：自适应图标（前景 76dp 原图 + #232323 背景 + 单色主题层）；名称改 Corn Modbus（包名不变）；「我的」/完整设置/关于加署名并打开仓库；Authorship + BuildConfig + manifest meta-data + 导出 ZIP 注释；LICENSE.md 为 PolyForm Noncommercial 1.0.0，README 补授权说明。
 
+
+## 2026-10-24 · 合并 PR #22 Corn Modbus
+
+- 设备验收通过（redroid，build 38ad9086964447ff，f5111f9）。
+- 已合进 main。
