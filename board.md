@@ -116,3 +116,10 @@
 - 老板在聊天确认「搞完之后合并到 main，然后升级版本号发新包」。PR #24 CI 通过（push 40095177589 / pull_request 40095179630，5dd7855），普通 merge 进 main，合并提交 31be6ec 带 skip ci。
 - annotated tag `v0.1.1` → 31be6ec（tree 与已构建的 5dd7855 相同）。GitHub Release（非 draft）：https://github.com/xingyingyuzhui/corn-modbus/releases/tag/v0.1.1
 - 附件：`Corn-Modbus-0.1.1.apk`（release，zipalign + 本机 Android Debug 密钥签名，与 0.1.0 同钥可覆盖升级；sha256 1efadf27965c1f87e720fa042a1a06fb7dfe12243adabe5211ca8960793d8ebc）、`Corn-Modbus-0.1.1-debug.apk`（sha256 4974a96851b95dd2c119ca840dfe83ee6bed79b002d4bf3ef925572902ed7e4b）。APK 不入库。
+
+## 2026-10-24 · 面板 UI v3 设计稿（分支 design-panel-v3，仅设计稿）
+
+- 老板反馈：面板及其子页面的 UI / UX 不太好，要求再设计一版，先出预览图。
+- 先用本地 Roborazzi 重新渲染当前 main 的面板各页面做现状核对（输出只留在本地 /tmp；录制会覆盖仓库里已跟踪的基线，已全部还原，未提交）。
+- 新增 `docs/design/panel-v3.html`（沿用 v2 的 token，#b=1/2/3 切换画板）及三张渲染图 `panel-v3-b1-main.png` / `panel-v3-b2-edit.png` / `panel-v3-b3-wizard.png`。内容：页头 3 行压成 2 行（页签 + 轮询胶囊）、正常不打标签只标异常、控制类 ⚡ 与读数分开且按钮改浅底描边、寄存器表三列、空状态引导；编辑改点选 + 底部工具条、面板设置收进浮层；曲线全屏页头化；向导按只读 / 会写分组、第 2 步只留必填、第 3 步承载名称 / 单位 / 阈值 / 尺寸。
+- 只是设计稿，未改应用代码；等老板看图定稿后再分 PR 实现（会涉及注意事项 33 / 36 / 38 等尺寸断言的更新）。
