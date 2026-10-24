@@ -95,3 +95,9 @@
 - 仓库无正式 release keystore：release APK 先为 unsigned，再用本机 Android Debug 密钥 zipalign+apksigner 签名后发布（便于安装；非商店正式签名）。
 - 打 annotated tag `v0.1.0`（指向 a61ffcf）并推送；GitHub Release（非 draft）：https://github.com/xingyingyuzhui/modbus_android/releases/tag/v0.1.0
 - 附件：`Corn-Modbus-0.1.0.apk`（约 11.0 MiB，sha256 ac15b1e2ee60b46160d46a067ab17529ccbe4917a1c348e84ee47305700205f8）、`Corn-Modbus-0.1.0-debug.apk`（约 16.3 MiB，sha256 eec73ebdedcaa66ad7057b1dddb5c3888fdd3a894f78efa4675945ddd0d90be9）。APK 未入库（`.gitignore`）。
+
+## 2026-10-24 · README 界面预览
+
+- 从已入库的 Roborazzi 浅色竖屏基线复制 6 张到 `docs/readme/`（连接、工作台、面板、曲线、日志、我的）。字节与 `ShellScreenshotTest.*_light_portrait.png` 相同。未新录基线，未使用实机或模拟器截图。审阅目录里的组件图仍是旧标题「Modbus」，没有放进 README。
+- README 增加界面预览、功能一览，以及 Release v0.1.0 两个 APK 的下载说明。PolyForm Noncommercial 声明和作者署名保持原样。未改应用代码、包名、版本和许可证正文。
+- 文档与图片副本，不跑本地构建。提交带 `[skip ci]`。不合并 main。
