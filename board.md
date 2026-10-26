@@ -153,3 +153,13 @@
 - 本地 `./gradlew test :app:lintDebug :app:assembleRelease :app:assembleDebug` 通过（BUILD SUCCESSFUL）；offline APK 校验通过。
 - annotated tag `v0.1.2` → 合并后的发版提交。GitHub Release（非 draft）：https://github.com/xingyingyuzhui/corn-modbus/releases/tag/v0.1.2
 - 附件：`Corn-Modbus-0.1.2.apk`（release，zipalign + 本机 Android Debug 密钥签名，与 0.1.0/0.1.1 同钥可覆盖升级；sha256 f7689dfefbf83ebf2dcb2161edecb33460b475607a2a04123c231567cb24c99d）、`Corn-Modbus-0.1.2-debug.apk`（sha256 74a2f6629c9759186ccd72dbc68489ec6dc9311d1861423583c6bc202b9498ee）。APK 不入库。
+
+## 2026-10-26 · 换 Modbus 品牌图标 + 发布 v0.1.3
+
+- 老板授权：Corn-Flashing review 修完后，把 Corn Modbus 图标换成新图（玉米 + 交换面板箭头，不是 Flashing 的芯片图），然后合并发版。
+- 启动器自适应图标：各密度 `ic_launcher_foreground` / `ic_launcher_monochrome` 按规范 68 重做（原图 76dp 居中、背景仍 #232323）；单色层是玉米+面板剪影（去掉圆角底板描边）。应用内无单独品牌 drawable（关于/设置仍是文字署名）。
+- versionName 0.1.3 / versionCode 4；README 下载链接改为 v0.1.3。
+- 本地 `./gradlew --offline :app:assembleRelease :app:assembleDebug` 通过；`tools/verify_offline_apks.py` 两变体通过。
+- annotated tag `v0.1.3` → 发版提交。GitHub Release（非 draft）：https://github.com/xingyingyuzhui/corn-modbus/releases/tag/v0.1.3
+- 附件：`Corn-Modbus-0.1.3.apk`（release，zipalign + 本机 Android Debug 密钥签名，与 0.1.0–0.1.2 同钥可覆盖升级；sha256 997013b52e8b0ded7382cbaa415599f6882fc4608192e3c6c6eecc2ad9f7c179）、`Corn-Modbus-0.1.3-debug.apk`（sha256 e5d02ad360e5d74fdeb6f1b09c46b952bdb41a9c3502d0bf8703e2d2d4832ce1）。APK 不入库。
+- 未提交 `app/src/test/screenshots/*.png`（规范 22）。未在本轮做设备验收（未验证）。
