@@ -20,7 +20,9 @@
 - [x] 构建结构：catalog 补 `android-library`；6 个模块（:app、:ui-common、:feature-flashing、:flashing-core、:feature-modbus、:modbus-core）；两个 feature 改为 library，Flashing 依赖改走 catalog。
 - [x] :ui-common token 初版（色板 → 语义 → 尺寸）+ 外壳组件；本地 `:ui-common:compileDebugKotlin` 通过。
   - TX 色：青绿 #4FD1C5（与玉米 #F7C948 ΔE≈83；原 Modbus 琥珀 #F5A524 与玉米 ΔE≈19）。
-- [ ] :feature-flashing 去 Activity / Application、懒加载容器、USB 授权 action 隔离
+- [x] :feature-flashing 去 Activity / Application（`FlashingFeature` 懒加载容器 + `FlashingEntry`），USB 授权 action 改为 `<包名>.flashing.USB_PERMISSION`，SharedPreferences `ui` → `flashing_ui`，`CornColors` 改由 token 取值（`CornColorsMatchTokensTest` 锁定旧值）。
+  - 本机补齐原生构建：SDK 已有 NDK 27.2.12479018；CMake 3.22.1 + ninja 用 pip 装在 /home/box/tc/tools/cmake-venv，经 local.properties 的 `cmake.dir` 指向（不入库）。
+  - 本地：`:feature-flashing:compileDebugKotlin` + `externalNativeBuildDebug` 通过；`:feature-flashing:testDebugUnitTest` 22 个通过（含新增 1 个），加 `:flashing-core:test` 164 个，共 186 个。
 - [ ] :feature-modbus 同上 + token 换皮
 - [ ] :app 外壳、模式切换、last_mode
 - [ ] 测试 / Roborazzi / CI / docs

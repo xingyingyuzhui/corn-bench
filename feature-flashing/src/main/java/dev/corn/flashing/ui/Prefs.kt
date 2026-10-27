@@ -7,7 +7,7 @@ import kotlin.reflect.KProperty
 
 /** Small persisted UI settings (screen 10 and workbench toggles), backed by SharedPreferences. */
 class Prefs(context: Context) {
-    private val sp = context.getSharedPreferences("ui", Context.MODE_PRIVATE)
+    private val sp = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
     private fun flag(key: String, default: Boolean) = object : ReadWriteProperty<Any?, Boolean> {
         val state = mutableStateOf(sp.getBoolean(key, default))
@@ -36,6 +36,11 @@ class Prefs(context: Context) {
     var eraseMode by choice("erase", 0)
     var verifyMode by choice("verify", 0)
     var preset by choice("preset", 0)
+
+    companion object {
+        /** Corn Bench 里与其它模块共用一个应用数据目录，文件名加模块前缀（原 Corn Flashing 为 "ui"）。 */
+        const val FILE = "flashing_ui"
+    }
 
     init {
         // Legacy index 1 was labelled CRC32 but always performed full readback.

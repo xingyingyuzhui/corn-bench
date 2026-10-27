@@ -12,28 +12,34 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.corn.ui.theme.benchColors
 
-/** Charcoal + corn-yellow palette from the approved mockups (screens 01–23). */
+/**
+ * Charcoal + corn-yellow palette from the approved mockups (screens 01–23).
+ * Corn Bench：字段与旧值完全相同，但值改由 :ui-common 的语义 token 提供（[benchColors] 深色一档），
+ * 不再写字面色值；`CornColorsMatchTokensTest` 逐项锁定旧值，保证第一期视觉零变化。
+ */
 object CornColors {
-    val Background = Color(0xFF121212)
-    val Surface1 = Color(0xFF1B1B1B)
-    val Surface2 = Color(0xFF232323)
-    val Surface3 = Color(0xFF2C2C2C)
-    val Line = Color(0xFF2F2F2F)
-    val Text = Color(0xFFF3EFE4)
-    val Dim = Color(0xFF9B968A)
-    val Mute = Color(0xFF6D6961)
-    val Corn = Color(0xFFF7C948)
-    val CornDeep = Color(0xFFE9A93A)
-    val CornOn = Color(0xFF1A1606)
-    val CornContainer = Color(0x1FF7C948)
-    val Leaf = Color(0xFF86A96F)
-    val LeafContainer = Color(0x2486A96F)
-    val Red = Color(0xFFEF6B5B)
-    val RedContainer = Color(0x21EF6B5B)
-    val Blue = Color(0xFF7FB0E8)
-    val BlueContainer = Color(0x1F7FB0E8)
-    val NavBackground = Color(0xFF161616)
+    private val t = benchColors(dark = true)
+    val Background = t.bg
+    val Surface1 = t.surface1
+    val Surface2 = t.surface2
+    val Surface3 = t.surface3
+    val Line = t.line
+    val Text = t.text
+    val Dim = t.muted
+    val Mute = t.dim
+    val Corn = t.accent
+    val CornDeep = t.accentDeep
+    val CornOn = t.onAccent
+    val CornContainer = t.accentContainer
+    val Leaf = t.success
+    val LeafContainer = t.successContainer
+    val Red = t.danger
+    val RedContainer = t.dangerContainer
+    val Blue = t.info
+    val BlueContainer = t.infoContainer
+    val NavBackground = t.navBackground
 }
 
 private val CornScheme = darkColorScheme(
@@ -64,7 +70,7 @@ private val CornScheme = darkColorScheme(
     surfaceContainerHighest = CornColors.Surface3,
     outline = CornColors.Line,
     outlineVariant = CornColors.Line,
-    scrim = Color(0xCC000000),
+    scrim = benchColors(dark = true).scrim,
 )
 
 private val CornTypography = Typography().run {

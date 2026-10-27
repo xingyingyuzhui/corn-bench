@@ -151,7 +151,9 @@ fun AppIcon(size: Dp = 30.dp) {
 fun TopBar(title: String, sub: String, right: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        AppIcon()
+        // 只有模式根页用 TopBar：在 Corn Bench 外壳里这里是模式切换器（玉米 + ▾，48dp 热区），否则是原来的图标。
+        val switcher = dev.corn.ui.mode.LocalModeSwitcher.current
+        if (switcher != null) dev.corn.ui.mode.BrandSwitcher(switcher) else AppIcon()
         Column(Modifier.weight(1f)) {
             T(title, size = 19.sp, weight = FontWeight.Bold, maxLines = 1)
             T(sub, CornColors.Dim, 11.5.sp, maxLines = 1)

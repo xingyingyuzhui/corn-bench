@@ -10,7 +10,7 @@ import org.junit.Test
 
 /**
  * App-layer resume/end rules that BatchController wires to Room.
- * Full cancelRunning wiring is covered by CornApplication + service smoke;
+ * Full cancelRunning wiring is covered by FlashingContainer (formerly CornApplication) + service smoke;
  * fingerprint comparison (config content SHA) is asserted here.
  */
 class BatchControllerLogicTest {

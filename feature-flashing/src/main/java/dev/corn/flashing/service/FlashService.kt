@@ -6,8 +6,7 @@ import android.content.pm.ServiceInfo
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.IBinder
-import dev.corn.flashing.CornApplication
-import dev.corn.flashing.MainActivity
+import dev.corn.flashing.FlashingFeature
 import dev.corn.flashing.R
 import dev.corn.flashing.usb.StLinkHardwareBackend
 import kotlinx.coroutines.*
@@ -19,7 +18,7 @@ class FlashService : Service() {
     private var activeSimulation = true
     private var activeStartId: Int? = null
     private var latestStartId = 0
-    private val app get() = application as CornApplication
+    private val app get() = FlashingFeature.container(this)
     private val repository get() = app.repository
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -93,7 +92,12 @@ class FlashService : Service() {
     private fun promote(idle: Boolean, simulator: Boolean) {
         val notifications = getSystemService(NotificationManager::class.java)
         notifications.createNotificationChannel(NotificationChannel(CHANNEL, "烧录任务", NotificationManager.IMPORTANCE_LOW))
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(
+            this, 0,
+            // 宿主（Corn Bench :app）的启动 Activity；烧录进行中外壳不允许切走，所以回到的一定是烧录模式。
+            packageManager.getLaunchIntentForPackage(packageName)?.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP) ?: Intent(),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
         val cancel = PendingIntent.getService(this, 0, Intent(this, FlashService::class.java).setAction(ACTION_CANCEL), PendingIntent.FLAG_IMMUTABLE)
         val notification = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_corn)
