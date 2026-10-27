@@ -7,9 +7,13 @@ plugins {
 android {
     // 第一期不改 namespace / Kotlin 包名（dev.corn.flashing），applicationId 由 :app 决定。
     namespace = "dev.corn.flashing"
-    ndkVersion = "27.2.12479018"
-    externalNativeBuild {
-        cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" }
+    // `corn.flashing.skipNative=true` 只给没有 NDK 的验收构建机（Oracle redroid 云构建）用：不编 USBFS 原生库，
+    // `NativeUsbFs` 加载失败时自己降级为“不可用”，烧录侧只能走模拟器后端。正式构建与 CI 不设这个属性。
+    if (providers.gradleProperty("corn.flashing.skipNative").orNull != "true") {
+        ndkVersion = "27.2.12479018"
+        externalNativeBuild {
+            cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" }
+        }
     }
     compileSdk { version = release(37) { minorApiLevel = 2 } }
     defaultConfig {
