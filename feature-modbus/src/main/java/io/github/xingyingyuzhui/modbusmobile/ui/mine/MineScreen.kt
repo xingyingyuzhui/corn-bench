@@ -34,11 +34,11 @@ import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.AddressStyle
 import io.github.xingyingyuzhui.modbusmobile.application.DensityMode
 import io.github.xingyingyuzhui.modbusmobile.application.EchoMode
+import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
 import io.github.xingyingyuzhui.modbusmobile.application.FontScale
 import io.github.xingyingyuzhui.modbusmobile.application.NumberFormat
 import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
 import io.github.xingyingyuzhui.modbusmobile.application.TimeStyle
-import io.github.xingyingyuzhui.modbusmobile.application.PHASE1_DARK_ONLY
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryOverview
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistorySession
@@ -69,6 +69,13 @@ import io.github.xingyingyuzhui.modbusmobile.ui.shell.LocalShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.ShellMode
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.dockClearance
 import io.github.xingyingyuzhui.modbusmobile.ui.shell.screenFrame
+import dev.corn.ui.theme.BenchAccent
+import dev.corn.ui.theme.BenchThemeMode
+import dev.corn.ui.theme.LocalAppearanceController
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.toAccentColor
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.toBenchAccent
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.toBenchThemeMode
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.toThemeMode
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import kotlinx.coroutines.launch
@@ -288,7 +295,13 @@ private fun pageTitle(page: MinePage): String = stringResource(
 
 @Composable
 private fun groupValue(group: MinePage, settings: UiSettings): String? = when (group) {
-    MinePage.APPEARANCE -> stringResource(R.string.appearance_phase1_value)
+    MinePage.APPEARANCE -> stringResource(
+        when (settings.theme) {
+            ThemeMode.SYSTEM -> R.string.theme_system
+            ThemeMode.LIGHT -> R.string.theme_light
+            ThemeMode.DARK -> R.string.theme_dark
+        },
+    )
     MinePage.DISPLAY -> addressName(settings.addressStyle)
     MinePage.SECURITY -> stringResource(R.string.mine_summary_security)
     MinePage.COMM -> stringResource(R.string.mine_summary_comm, settings.defaultResponseTimeoutMs)
@@ -343,21 +356,25 @@ private fun DeleteSessionSheet(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 private fun AppearanceGroup(model: MineViewModel, settings: UiSettings) {
     val spacing = LocalSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
-        // 第一期只开放深色：主题 / 强调色两项隐藏不删（第二期把 PHASE1_DARK_ONLY 改成 false 时恢复）。
-        if (!PHASE1_DARK_ONLY) {
-            SectionLabel(stringResource(R.string.setting_theme))
-            SegmentedTextControl(ThemeMode.entries, settings.theme, model::setTheme) { themeName(it) }
-            SectionLabel(stringResource(R.string.setting_accent))
-            ColorSwatchRow(settings.accent, onSelect = model::setAccent)
-        } else {
-            SectionLabel(stringResource(R.string.setting_appearance_phase1))
-            Text(
-                stringResource(R.string.appearance_phase1_hint),
-                color = LocalModbusColors.current.muted,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-            )
-        }
+        // 第二期起深浅色与强调色开放。外壳在时写外壳（两个模式共用一套外观），否则退回本模块的设置
+        // （预览 / 单测 / 单独跑本模块）。
+        val appearance = LocalAppearanceController.current
+        val themeMode = appearance?.state?.value?.themeMode
+        SectionLabel(stringResource(R.string.setting_theme))
+        SegmentedTextControl(
+            options = BenchThemeMode.entries,
+            selected = themeMode ?: settings.theme.toBenchThemeMode(),
+            onSelect = { mode ->
+                if (appearance != null) appearance.setThemeMode(mode) else model.setTheme(mode.toThemeMode())
+            },
+        ) { themeModeName(it) }
+        SectionLabel(stringResource(R.string.setting_accent))
+        ColorSwatchRow(
+            selected = (appearance?.state?.value?.accent ?: settings.accent.toBenchAccent()).toAccentColor(),
+            onSelect = { accent: AccentColor ->
+                if (appearance != null) appearance.setAccent(accent.toBenchAccent()) else model.setAccent(accent)
+            },
+        )
         SectionLabel(stringResource(R.string.setting_font))
         SegmentedTextControl(FontScale.entries, settings.fontScale, model::setFont) { fontName(it) }
         SectionLabel(stringResource(R.string.setting_density))
@@ -590,11 +607,11 @@ private fun echoName(mode: EchoMode): String = stringResource(
 )
 
 @Composable
-private fun themeName(mode: ThemeMode): String = stringResource(
+private fun themeModeName(mode: BenchThemeMode): String = stringResource(
     when (mode) {
-        ThemeMode.SYSTEM -> R.string.theme_system
-        ThemeMode.LIGHT -> R.string.theme_light
-        ThemeMode.DARK -> R.string.theme_dark
+        BenchThemeMode.SYSTEM -> R.string.theme_system
+        BenchThemeMode.LIGHT -> R.string.theme_light
+        BenchThemeMode.DARK -> R.string.theme_dark
     },
 )
 

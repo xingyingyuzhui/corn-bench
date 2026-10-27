@@ -88,9 +88,12 @@ class UiSettingsRoundTripTest {
         assertEquals(false, UiSettings().landscapeCurveFullscreen)
     }
 
-    /** 第一期只开放深色：旧数据里的 SYSTEM / LIGHT 读出来都要归一成 DARK，其余字段不动。 */
+    /**
+     * 第二期起不再把主题归一成深色：旧数据里存过 LIGHT / TEAL 的，读回来必须原样保留，
+     * 由外壳首次启动时迁移到 `bench_ui`（见 ModeStoreTest / AppearanceMigrationTest）。
+     */
     @Test
-    fun phase1NormalizesThemeToDarkAndKeepsEverythingElse() {
+    fun legacyThemeAndAccentAreNoLongerForcedToDark() {
         val parsed = uiSettingsFrom(
             mapOf(
                 UiSettingKeys.THEME to ThemeMode.LIGHT.name,
@@ -99,11 +102,11 @@ class UiSettingsRoundTripTest {
             ),
         )
         assertEquals(ThemeMode.LIGHT, parsed.theme)
-        val normalized = parsed.forPhase1()
-        assertEquals(ThemeMode.DARK, normalized.theme)
-        assertEquals(AccentColor.TEAL, normalized.accent)
-        assertEquals(FontScale.LARGE, normalized.fontScale)
-        assertEquals(ThemeMode.DARK, UiSettings().forPhase1().theme)
-        assertEquals(ThemeMode.DARK, UiSettings(theme = ThemeMode.SYSTEM).forPhase1().theme)
+        assertEquals(AccentColor.TEAL, parsed.accent)
+        assertEquals(FontScale.LARGE, parsed.fontScale)
+        // 兼容函数保留但已是恒等：旧调用点不用改。
+        assertEquals(parsed, parsed.forPhase1())
+        assertEquals(UiSettings(), UiSettings().forPhase1())
+        assertEquals(ThemeMode.SYSTEM, UiSettings(theme = ThemeMode.SYSTEM).forPhase1().theme)
     }
 }

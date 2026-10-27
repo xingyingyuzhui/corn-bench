@@ -52,4 +52,8 @@ dependencies {
     testImplementation(libs.junit4)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.robolectric)
+    // 第二期起烧录模式也要随外壳深浅色变化，这里补 Compose 渲染测试（只在本模块，不进 :app）。
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

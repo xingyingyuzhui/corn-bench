@@ -17,14 +17,17 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
 
 /**
- * 用户可调的外观项。第一期只开放深色：[dark] 由外壳固定传 true，但浅色值和其余可调项都保留，
- * 第二期重新开放时不需要改结构。
+ * 用户可调的外观项（第二期起深浅色与强调色都开放）。
+ *
+ * 由**外壳**统一提供：两个模式共用一套外观，切换模式不会换主题。
+ * [dark] 默认深色是为了让预览 / 单测不传参时仍是第一期的观感。
  */
 data class BenchAppearance(
     val dark: Boolean = true,
     /** App 字号倍率，与系统字号叠乘。 */
     val fontScale: Float = 1f,
     val density: BenchDensity = BenchDensity.COMFORTABLE,
+    val accent: BenchAccent = BenchAccent.DEFAULT,
 )
 
 val LocalBenchAppearance = staticCompositionLocalOf { BenchAppearance() }
@@ -102,7 +105,7 @@ fun CornTheme(
     appearance: BenchAppearance = BenchAppearance(),
     content: @Composable () -> Unit,
 ) {
-    val colors = benchColors(appearance.dark)
+    val colors = benchColors(appearance.dark, appearance.accent)
     val density = LocalDensity.current
     CompositionLocalProvider(
         LocalBenchColors provides colors,

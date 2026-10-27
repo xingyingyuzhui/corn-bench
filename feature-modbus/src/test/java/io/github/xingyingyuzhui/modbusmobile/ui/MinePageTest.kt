@@ -352,15 +352,20 @@ class MinePageTest {
         compose.onNodeWithTag("about-author").assertTextContains("xingyingyuzhui", substring = true)
     }
 
-    /** 第一期只开放深色：外观页不显示主题 / 强调色两项，而显示一句固定深色的说明。 */
+    /** 第二期：外观页重新显示主题（跟随系统 / 浅色 / 深色）与强调色，并且真的写进存储。 */
     @Test
-    fun appearanceHidesThemeAndAccentInPhase1() {
+    fun appearanceShowsThemeAndAccentAgain() {
         show()
         open("mine-row-appearance")
-        compose.onNodeWithText("主题").assertDoesNotExist()
-        compose.onNodeWithText("强调色").assertDoesNotExist()
-        compose.onNodeWithText("配色").assertIsDisplayed()
-        compose.onNodeWithText("当前版本固定深色（玉米 + 炭黑）。浅色与强调色会随第二版设计规范开放。").assertIsDisplayed()
+        compose.onNodeWithText("主题").assertIsDisplayed()
+        compose.onNodeWithText("强调色").assertIsDisplayed()
+        compose.onNodeWithText("浅色").assertIsDisplayed()
+        compose.onNodeWithText("深色").assertIsDisplayed()
+        // 这个用例的仓库用的是默认 UiSettings（跟随系统），点「浅色」后必须真的写进存储。
+        assertEquals(ThemeMode.SYSTEM, repository.settings.value.theme)
+        compose.onNodeWithText("浅色").performClick()
+        compose.waitForIdle()
+        assertEquals(ThemeMode.LIGHT, repository.settings.value.theme)
     }
 
     // ---- 截图（Roborazzi 渲染，不是实机）----

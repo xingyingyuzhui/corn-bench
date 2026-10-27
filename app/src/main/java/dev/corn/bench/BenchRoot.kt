@@ -32,8 +32,13 @@ import dev.corn.ui.mode.ModeConfirmDialog
 import dev.corn.ui.mode.ModeOption
 import dev.corn.ui.mode.ModePickerScreen
 import dev.corn.ui.mode.ModeSwitchSheet
+import dev.corn.ui.theme.AppearanceController
+import dev.corn.ui.theme.BenchAccent
+import dev.corn.ui.theme.BenchAppearance
+import dev.corn.ui.theme.BenchThemeMode
 import dev.corn.ui.theme.BenchType
 import dev.corn.ui.theme.CornTheme
+import dev.corn.ui.theme.LocalAppearanceController
 import dev.corn.ui.theme.LocalBenchColors
 import io.github.xingyingyuzhui.modbusmobile.ModbusEntry
 import io.github.xingyingyuzhui.modbusmobile.ModbusFeature
@@ -91,6 +96,8 @@ fun BenchRoot(
     guard: ModeGuard = DefaultModeGuard,
     /** 每插一次 USB +1；0 = 本次启动不是 USB 唤起。只提示，不自动切模式。 */
     usbAttachTick: Int = 0,
+    /** 外观（深浅色 / 强调色）。默认用 `bench_ui`；测试可注入内存实现。 */
+    appearanceController: AppearanceController? = null,
     modbusContent: @Composable () -> Unit = { ModbusEntry() },
     flashingContent: @Composable () -> Unit = { FlashingEntry() },
 ) {
@@ -106,29 +113,42 @@ fun BenchRoot(
         if (chosen == null && stored is ModeState.Selected) chosen = (stored as ModeState.Selected).mode
     }
 
-    CornTheme {
-        // 系统栏图标深浅跟当前模式的主题走（系统浅色时炭黑底也需要浅色图标）。
-        BenchSystemBars()
-        Box(Modifier.fillMaxSize().background(LocalBenchColors.current.bg)) {
-            when {
-                chosen != null -> ModeShell(
-                    mode = chosen!!,
-                    guard = guard,
-                    usbAttachTick = usbAttachTick,
-                    onModeChange = { next ->
-                        chosen = next
-                        scope.launch { store.setMode(next) }
-                    },
-                    modbusContent = modbusContent,
-                    flashingContent = flashingContent,
-                )
-                stored == ModeState.Loading -> Box(
-                    Modifier.fillMaxSize().testTag(BenchLoadingTag),
-                )
-                else -> ModePickerScreen(onPick = { picked ->
-                    chosen = picked
-                    scope.launch { store.setMode(picked) }
-                })
+    // 外观由外壳统一持有：两个模式共用同一套深浅色与强调色，改完切换模式不会变。
+    // 先建 store 再读它的 state（不能反过来：那时 provider 还没生效，读到的永远是默认值）。
+    val appearanceStore = appearanceController
+        ?: remember(context) { BenchAppearanceStore(context.applicationContext, scope) }
+    val appearance by appearanceStore.state
+    val dark = appearance.isDark()
+    CornTheme(
+        appearance = BenchAppearance(
+            dark = dark,
+            accent = appearance.accent,
+        ),
+    ) {
+        CompositionLocalProvider(LocalAppearanceController provides appearanceStore) {
+            // 系统栏图标深浅跟当前模式的主题走（系统浅色时炭黑底也需要浅色图标）。
+            BenchSystemBars()
+            Box(Modifier.fillMaxSize().background(LocalBenchColors.current.bg)) {
+                when {
+                    chosen != null -> ModeShell(
+                        mode = chosen!!,
+                        guard = guard,
+                        usbAttachTick = usbAttachTick,
+                        onModeChange = { next ->
+                            chosen = next
+                            scope.launch { store.setMode(next) }
+                        },
+                        modbusContent = modbusContent,
+                        flashingContent = flashingContent,
+                    )
+                    stored == ModeState.Loading -> Box(
+                        Modifier.fillMaxSize().testTag(BenchLoadingTag),
+                    )
+                    else -> ModePickerScreen(onPick = { picked ->
+                        chosen = picked
+                        scope.launch { store.setMode(picked) }
+                    })
+                }
             }
         }
     }

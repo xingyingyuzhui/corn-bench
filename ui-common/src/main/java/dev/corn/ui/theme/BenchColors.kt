@@ -5,7 +5,10 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * 第 2 层：语义色。字段名就是用途；两个功能模块的旧颜色对象（Flashing `CornColors`、Modbus `ModbusColors`）
- * 第一期都从这里取值，不再各自写字面色值。深浅两套值同时存在，第一期 App 只开放深色。
+ * 都从这里取值，不再各自写字面色值。
+ *
+ * 第二期起深浅两套都开放，强调色由 [BenchAccent] 传入（见 [benchColors]）；
+ * 第一期的深色 + 玉米取值保持不变（`CornColorsMatchTokensTest` / `ModbusColorsMatchTokensTest` 锁定）。
  */
 data class BenchColors(
     val isDark: Boolean,
@@ -145,7 +148,30 @@ private val Light = with(BenchPalette) {
     )
 }
 
-/** 深色 = 炭黑 + 玉米（第一期唯一开放的主题）；浅色为暂定值。 */
-fun benchColors(dark: Boolean): BenchColors = if (dark) Dark else Light
+/** 深色 = 炭黑、浅色 = 暖白纸；强调色默认玉米（品牌色）。 */
+fun benchColors(
+    dark: Boolean,
+    accent: BenchAccent = BenchAccent.DEFAULT,
+): BenchColors = (if (dark) Dark else Light).withAccent(accent, dark)
+
+/**
+ * 把玉米色的强调槽位换成指定强调色，其余语义色不动。
+ * `accentContainer` 按主色 12% 叠在表面上（深 .12 / 浅 .16），保证和第一期玉米浅底是同一套观感。
+ */
+private fun BenchColors.withAccent(accent: BenchAccent, dark: Boolean): BenchColors {
+    val tones = accent.tones(dark)
+    if (accent == BenchAccent.CORN) return this
+    val wash = if (dark) 0.12f else 0.16f
+    return copy(
+        accent = colorOf(tones.fill),
+        accentDeep = colorOf(tones.deep),
+        onAccent = colorOf(tones.on),
+        accentText = colorOf(tones.text),
+        accentBorder = colorOf(tones.border),
+        accentContainer = colorOf(tones.fill).copy(alpha = wash),
+        // 预警色在玉米主题里就是玉米色；换强调色后仍应保持“警告”的语义色，不要再跟着变。
+        warning = if (dark) BenchPalette.Corn400 else BenchPalette.Corn700,
+    )
+}
 
 val LocalBenchColors = staticCompositionLocalOf { benchColors(dark = true) }

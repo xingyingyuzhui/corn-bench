@@ -114,13 +114,17 @@ data class UiSettings(
 }
 
 /**
- * 第一期只开放深色（老板已拍板）：读盘和新建设置时把主题归一到 [ThemeMode.DARK]，
- * 浅色值、强调色值都保留不删，第二期重新开放时把这里改回 false，并恢复设置页的两行即可。
+ * 主题 / 强调色的“唯一来源”已经搬到外壳（`bench_ui` 的 `BenchAppearanceStore`）：
+ * 两个模式共用一套外观，冷启动停在烧录模式时也不必为了读主题去创建上位机的 DataStore。
+ *
+ * 这里保留 [UiSettings.theme] / [UiSettings.accent] 是为了**兼容旧数据与旧截图/单测**：
+ * - 旧版本存过的主题 / 强调色仍在 `ui_settings` 里，升级后第一次启动由外壳迁移过去；
+ * - 没有外壳时（预览、单独跑本模块）[ModbusTheme] 退回读这两个字段。
  */
-const val PHASE1_DARK_ONLY = true
+const val PHASE1_DARK_ONLY = false
 
-/** 按第一期规则归一设置：只动主题，其余字段原样保留。 */
-fun UiSettings.forPhase1(): UiSettings = if (PHASE1_DARK_ONLY) copy(theme = ThemeMode.DARK) else this
+/** 第二期起不再强制深色；保留函数是为了旧调用点与旧测试不用改。 */
+fun UiSettings.forPhase1(): UiSettings = this
 
 internal object UiSettingKeys {
     const val THEME = "theme"

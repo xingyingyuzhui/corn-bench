@@ -1,7 +1,7 @@
-# Corn Bench 外壳（第一期）
+# Corn Bench 外壳（第一期 + 第二期外观）
 
 合并后唯一的 Android 应用：`:app` 提供 Application / Activity 与模式外壳，两个功能模块都变成 library。
-本文件只记录第一期实际落地的结构和**还没验证**的部分。
+本文件记录第一期的结构与第二期开放的浅色 / 强调色，以及**还没验证**的部分。
 
 ## 包与启动
 
@@ -35,24 +35,38 @@
 - 被拦截时目标卡置灰并写明原因，同时弹一个只读的确认框；不提供“强制断开”。
 - 每个模式一个独立 `ViewModelStore`，切走时 `clear()`，切回来是新的 ViewModel。
 
-## 外观
+## 外观（第二期：浅色 / 强调色开放）
 
-- 第一期只开放深色：外壳固定 `CornTheme(dark = true)`；上位机侧 `PHASE1_DARK_ONLY` 把读到的主题归一成 DARK，
-  外观页隐藏“主题 / 强调色”两项（代码和浅色 token 都保留，第二期把常量改成 false 并恢复两行即可）。
-- 颜色、间距、字号来自 `:ui-common` 的语义 token；上位机自己的间距刻度（group 16 / card 12）先保留，
-  避免换皮时整页节奏一起变。
+- **单一来源**：外观由外壳持有，存在 `bench_ui`（`theme_mode` / `accent`），经
+  `LocalAppearanceController` 提供给两个模式。改完切模式不会换主题；冷启动停在烧录模式也不用
+  为了读主题去创建上位机的 DataStore。
+- 主题三档：跟随系统 / 浅色 / 深色；强调色五档：玉米（默认）、蓝、绿、青、紫。
+  `BenchAccent` 只在 `:ui-common` 定义，两侧共用一个枚举。
+- 两个模块都不再自带写死深浅色的调色板：
+  - 烧录 `CornColors` 改成随主题解析的 `@Composable` getter，352 处调用点不变；
+    `CornColorsThemeTest` 在 Compose 里实际读一遍，浅色下必须真的是浅底深字（故意改回写死深色会红）。
+  - 上位机 `ModbusColors` 从 `benchColors(dark, accent)` 取值，`ModbusColorsMatchTokensTest` 锁定映射；
+    没有外壳时（预览 / 单测）退回读 `UiSettings.theme` / `UiSettings.accent`。
+- 外观页恢复“主题 / 强调色”两项，写入外壳控制器；`PHASE1_DARK_ONLY` 改为 `false`（函数保留为恒等，
+  旧调用点与旧截图不用改）。第一期的 `ui_settings` 旧值在第一次启动时迁移到 `bench_ui`，之后以外壳为准。
+- 冷启动窗口底色跟随系统深浅（`app/src/main/res/values{,-night}`），浅色主题下不会先闪一下黑屏。
+- 颜色、间距、字号仍来自 `:ui-common` 语义 token；上位机自己的间距刻度（group 16 / card 12）先保留。
 - 字号只在 `CornTheme` 里叠一次（系统倍率 × App 倍率），`ModbusThemeDensityTest` 锁定 1.3 不会变成 1.69。
 - 系统栏图标深浅由外壳 `BenchSystemBars()` 按当前 token 设置（`BenchSystemBarsTest` 锁定系统浅色时仍是浅色图标）。
 
 ## 本地已验证 / 未验证
 
-已验证（本机，2026-10-27）：
+已验证（本机，2026-10-27 / 第二期 2026-10-28）：
 
-- 5 个模块单测全绿，共 1210 个：`:modbus-core` 58、`:flashing-core` 164、`:feature-modbus` 948、`:feature-flashing` 22、`:app` 18。
+- 5 个模块单测全绿，共 1221 个：`:modbus-core` 58、`:flashing-core` 164、`:feature-modbus` 948、`:feature-flashing` 27、`:app` 24。
+  - 第二期新增：`CornColorsThemeTest`（浅色下烧录页必须真的是浅底深字、强调色跟着外壳变）、
+    `BenchAppearanceTest`（改外壳外观要传到模式内容；切模式保持同一套 token；跟随系统按 uiMode 走）、
+    `AppearanceMigrationTest`（外观经 `bench_ui` 持久化；缺键时退回跟随系统 + 玉米）。
 - `:app` / `:feature-modbus` / `:feature-flashing` 的 `lintDebug` 通过（`abortOnError = true`）。
 - `:app:assembleDebug` / `:app:assembleRelease` 通过；`tools/modbus/verify_offline_apks.py` 通过；
   合并后的 debug / release manifest 都没有 `INTERNET`。
-- `:app:recordRoborazziDebug` / `:feature-modbus:recordRoborazziDebug` 能出图（模式选择页、切换面板、拦截态）。
+- `:app:recordRoborazziDebug` / `:feature-modbus:recordRoborazziDebug` 能出图（模式选择页、切换面板、拦截态、
+  上位机浅色各页）；浅色连接页实测底色 #F6F4EE + 白卡片，不是黑底。
 
 未验证：
 

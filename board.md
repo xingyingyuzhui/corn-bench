@@ -48,3 +48,26 @@
     只做“能渲染”检查，没有像素基线比对，基线 PNG 不入库。
   - docs：新增 `docs/bench-shell.md`（外壳结构与已验证/未验证清单）、`docs/注意事项.md`（合并后新增规则）、README 补全 6 个模块。
 - 未验证：真机 / 模拟器上的模式切换、USB 授权、前后台切换（本机 `adb devices` 无设备）；真实 ST-LINK / USB-RS485 收发。
+
+## 2026-10-28 第二期 · 外观开放（浅色 / 强调色）
+
+- 范围：仓库里写明的第二期内容就是「重新开放浅色与强调色」（`PHASE1_DARK_ONLY` 注释、`BenchPalette` 的浅色暂定值、
+  `docs/注意事项.md` 第 13 条）。没有其他第二期规格文档，本轮只做这一项，不扩到协议 / 功能。
+- [x] `:ui-common` 外观契约：`BenchAccent`（玉米 / 蓝 / 绿 / 青 / 紫，深浅各一套 4 值）、
+  `BenchAppearance.accent`、`BenchThemeMode`、`AppearanceController` + `LocalAppearanceController`。
+  `benchColors(dark, accent)` 只换强调槽位（`warning` 保持语义色，不跟着强调色变）。
+- [x] 烧录侧 `CornColors` 从写死深色的 `object` 改成随主题解析的 `@Composable` getter（352 处调用点不变）：
+  `ChipTone` 改为语义枚举 + `colors()`，`Illo` / `Ring` / `hatch()` / `outcomeColor` / `statusColor` 同步改成 Composable。
+  新增 `CornColorsThemeTest`：在 Compose 里实际读 `CornColors`，浅色必须是浅底深字、强调色跟外壳变；
+  故意把 `Background` 改回写死 `benchColors(true)` 时该测试会红（已实测）。
+- [x] 上位机侧：`PHASE1_DARK_ONLY` → `false`，`forPhase1()` 保留为恒等；外观页恢复「主题 / 强调色」两项并写外壳控制器；
+  `ModbusTheme` 有外壳时以外壳外观为准，没有时退回 `UiSettings`。
+- [x] 外壳：`BenchAppearanceStore`（`bench_ui` 的 `theme_mode` / `accent`）+ 首次启动从第一期 `ui_settings` 迁移旧值；
+  `BenchRoot` 统一提供外观，新增 `appearanceController` 注入点给测试。
+- [x] 冷启动窗口底色跟随系统深浅（`app/src/main/res/values{,-night}/`），浅色主题下不再先闪黑屏。
+- 本地：5 个模块单测 **1221 个通过**（modbus-core 58、flashing-core 164、feature-modbus 948、feature-flashing 27、app 24）；
+  三个模块 `lintDebug` 通过；`:app:assembleDebug` / `assembleRelease` 通过；`verify_offline_apks.py` 通过。
+  Roborazzi 出图确认浅色连接页是 `#F6F4EE` 底 + 白卡片。
+  （这些是第二期改动最后一次完整跑的结果；之后只补了未使用函数清理与看板 / 文档，重跑了 `:app` 与 `:feature-flashing` 单测。）
+- 未验证：浅色 / 强调色在真机上的观感与对比度（只有 Robolectric 渲染与单测）；烧录模式浅色下的实机截图；
+  真机切换模式 / USB 授权 / 前后台（本机无设备）。

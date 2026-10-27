@@ -3,7 +3,6 @@ package dev.corn.bench
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import dev.corn.ui.mode.BenchMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,13 +30,11 @@ interface ModeStore {
     suspend fun setMode(mode: BenchMode)
 }
 
-private val Context.benchModeStore by preferencesDataStore(name = "bench_ui")
-
 class DataStoreModeStore(
     context: Context,
     scope: CoroutineScope,
 ) : ModeStore {
-    private val store = context.applicationContext.benchModeStore
+    private val store = context.applicationContext.benchUiStore
 
     override val state: StateFlow<ModeState> = store.data
         .map { preferences ->
