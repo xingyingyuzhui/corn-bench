@@ -63,22 +63,37 @@
 - 字号只在 `CornTheme` 里叠一次（系统倍率 × App 倍率），`ModbusThemeDensityTest` 锁定 1.3 不会变成 1.69。
 - 系统栏图标深浅由外壳 `BenchSystemBars()` 按当前 token 设置（`BenchSystemBarsTest` 锁定系统浅色时仍是浅色图标）。
 
-## 本地已验证 / 未验证
+## 已验证 / 未验证
 
-已验证（本机，2026-10-27 / 第二期 2026-10-28）：
+按“在哪儿验证”分三类，**redroid 不等于真机**。
 
-- 5 个模块单测全绿，共 1221 个：`:modbus-core` 58、`:flashing-core` 164、`:feature-modbus` 948、`:feature-flashing` 27、`:app` 24。
-  - 第二期新增：`CornColorsThemeTest`（浅色下烧录页必须真的是浅底深字、强调色跟着外壳变）、
-    `BenchAppearanceTest`（改外壳外观要传到模式内容；切模式保持同一套 token；跟随系统按 uiMode 走）、
-    `AppearanceMigrationTest`（外观经 `bench_ui` 持久化；缺键时退回跟随系统 + 玉米）。
-- `:app` / `:feature-modbus` / `:feature-flashing` 的 `lintDebug` 通过（`abortOnError = true`）。
-- `:app:assembleDebug` / `:app:assembleRelease` 通过；`tools/modbus/verify_offline_apks.py` 通过；
-  合并后的 debug / release manifest 都没有 `INTERNET`。
-- `:app:recordRoborazziDebug` / `:feature-modbus:recordRoborazziDebug` 能出图（模式选择页、切换面板、拦截态、
-  上位机浅色各页）；浅色连接页实测底色 #F6F4EE + 白卡片，不是黑底。
+### 本机单测 / 构建（2026-10-28，`911f3b6`）
 
-未验证：
+- 单测全绿：`:app` 33、`:feature-flashing` 34、`:feature-modbus` 955（另 `:modbus-core` 58、`:flashing-core` 164 未改动，沿用上次结果）。
+  - 外观：`AppearanceMigrationTest` 9 个（仅 theme / 仅 accent / AMBER→CORN / 迁移后不覆盖 / 已有外壳值 / 无旧值 / 读旧值失败 / Loading / 往返），
+    `BenchAppearanceTest.shellWaitsForStoredAppearanceBeforeDrawing`。
+  - 守卫：`ModbusLeaveGuardTest` 7 个、`FlashingLeaveGuardTest` 7 个（各忙态文案 + 超时 false）。
+  - 外壳：`BenchShellTest.modeContentCanCreateAndroidViewModelsWithoutFactory`（下面 redroid 崩溃的回归）。
+- `:app:lintDebug` 通过。CI（GitHub Actions）每个提交的 push / PR run 结果见 PR #1。
 
-- **真机 / 模拟器的模式切换、USB 授权、前后台切换**：本机 `adb devices` 无设备，全部只有 Robolectric 渲染与单测。
-- 真实 ST-LINK 烧录与 USB-RS485 收发（第一期本来就没有硬件）。
-- GitHub Actions 上的最终结果（这轮推送后的 run 见 PR #1）。
+### Oracle redroid（Android 16，ARM64，无 USB Host；2026-10-28）
+
+构建机没有 NDK，验收包用临时分支 `tmp/redroid-acceptance` 打开 `corn.flashing.skipNative=true` 出的 debug APK
+（USBFS 原生库不在包里，烧录只能走模拟器后端）。已验证：
+
+- **发现并修复**：切到烧录模式 / last_mode=烧录 冷启动必崩（`FlashViewModel` 无法创建，见 board）。修复后两条路径都正常。
+- 上位机演示会话运行中：切换面板里“烧录”卡置灰、写“上位机演示会话正在运行：请先在连接页断开”，点击不切换；断开后可切到烧录。
+- 烧录模拟批次：等待下一块板时“上位机”卡置灰、写“批量烧录进行中：请先在工作台结束批次”；批次暂停后重开面板写
+  “批次已暂停但未结束：请先在工作台结束批次”；结束批次后可切回上位机。
+- 烧录页头无障碍树里只有一个“切换模式”按钮（`Button label=切换模式`）；上位机页头同样一个。
+- 两个模式共用外壳外观（默认跟随系统，redroid 为浅色，两边都是浅色）。
+- 桌面图标为无角标纯玉米（adaptive，深色底 `#1A1A1A`），启动画面同。
+- 观察到评审 P2 的已知限制：面板打开期间批次在后台自动暂停，卡片文案仍是打开时的“批量烧录进行中”，关掉重开才更新（不会切错）。
+
+### 未验证（需要真机 / 硬件）
+
+- 真实 ST-LINK 烧录与 USB-RS485 收发、USB 授权弹窗与回调（烧录侧 `FLAG_IMMUTABLE` 回调尤其要确认）、拔插、两种模式间的 USB 交接。
+- 真机前后台切换、`FlashService` 通知点击回到原实例。
+- 浅色 / 强调色在真机上的观感与对比度；TalkBack 实走 ModePicker 与切换面板。
+- “选了与系统相反主题”时冷启动的窗口底色（Compose 之前）仍跟系统，未在设备上量过闪烁时长。
+- 页面文案遗留：烧录页标题仍叫“Corn Flashing”、引导写“允许 Corn Flashing 访问”。

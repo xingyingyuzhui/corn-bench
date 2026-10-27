@@ -110,3 +110,11 @@
   - 修：owner 同时实现 `HasDefaultViewModelProviderFactory`（`AndroidViewModelFactory` + `APPLICATION_KEY`）。
   - 新增 `BenchShellTest.modeContentCanCreateAndroidViewModelsWithoutFactory`；去掉修复时该用例以同样的 `NoSuchMethodException` 红，修复后绿。
   - 本地：`:app:testDebugUnitTest` 33 个通过、`:app:lintDebug` 通过。
+- [x] redroid 设备验收（P1-4 后半）：见 `docs/bench-shell.md`「Oracle redroid」一节。构建机无 NDK，验收包来自临时分支
+  `tmp/redroid-acceptance`（只多一行 `corn.flashing.skipNative=true`，不合并，验收后删除）。
+  上位机演示会话忙 → 烧录卡置灰且不切换；断开后可切；烧录模拟批次忙 / 暂停各自文案正确、不切换；结束批次后可切回；
+  last_mode=烧录 冷启动正常；页头各只有一个“切换模式”节点；桌面图标无角标。
+  - 注意：redroid 上还装着旧仓的独立 Corn Flashing / Corn Modbus，崩溃后系统会退回旧应用的任务，验收时要看前台包名。
+- [x] 文档（P1-5）：`docs/bench-shell.md` 验证清单拆成「本机单测 / redroid / 未验证（真机）」三类。
+- 未验证：真机 USB（ST-LINK / RS485 授权、收发、拔插、FLAG_IMMUTABLE 回调）、前后台、TalkBack、真机浅色观感。
+- 下一步：P2——切换面板置灰改响应式；外层 `CornTheme` fontScale=1 加断言；烧录页文案“Corn Flashing”改名；Roborazzi 像素基线。
