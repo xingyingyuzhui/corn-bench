@@ -80,3 +80,7 @@
     底色仍走 `@color/ic_launcher_background`（#1A1A1A）。单色图是同轮廓白剪影 + 眼睛镂空。
   - `bench_corn_mark`（:ui-common）与 `corn_logo`（:feature-flashing）同步换成无角标版；透明底大图存 `assets/branding/corn-bench-plain-corn-1024.png`。
   - 已核对：各尺寸 PNG 生成、透明区与圆形遮罩模拟图人工目检无角标。未在桌面启动器上实机看。
+- [x] CI P0：`Install CJK fonts` 不再走 apt（两次 PR run 因 azure 镜像 50 kB/s、单步 20 分钟被 job 超时取消）。
+  改为从 GitHub 直下单个 `NotoSansCJKsc-Regular.otf`（Sans2.004，16 MB）+ `actions/cache/restore|save@v5`（只在装成功时存），
+  下载 / 安装各自 `timeout-minutes` 且 `continue-on-error`（没字体只影响截图里的中文字形，不影响“能渲染”检查）。
+  actions 升到 Node 24 版本：checkout@v5、setup-java@v5、setup-android@v4、setup-gradle@v5、setup-python@v6、upload-artifact@v6。
