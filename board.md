@@ -71,3 +71,12 @@
   （这些是第二期改动最后一次完整跑的结果；之后只补了未使用函数清理与看板 / 文档，重跑了 `:app` 与 `:feature-flashing` 单测。）
 - 未验证：浅色 / 强调色在真机上的观感与对比度（只有 Robolectric 渲染与单测）；烧录模式浅色下的实机截图；
   真机切换模式 / USB 授权 / 前后台（本机无设备）。
+
+## 2026-10-28 第二期收尾 · 按评审 E 修复后合并 PR #1
+
+- 依据：`corn-bench-review-E-20261028.md` 的 P0 + P1，另加「app 图标换成无角标纯玉米」。
+- [x] 图标：`:app` launcher（`ic_launcher` / `_round` / `_foreground` / `_monochrome`，mdpi–xxxhdpi）换成无芯片/闪电角标的纯玉米。
+  - 源图 `corn-bench-plain-corn-icon.png` 实为 2048² JPEG，自带深色圆角底；按连通域把底色抠成透明，前景放在 108dp 画布的中间 72dp，
+    底色仍走 `@color/ic_launcher_background`（#1A1A1A）。单色图是同轮廓白剪影 + 眼睛镂空。
+  - `bench_corn_mark`（:ui-common）与 `corn_logo`（:feature-flashing）同步换成无角标版；透明底大图存 `assets/branding/corn-bench-plain-corn-1024.png`。
+  - 已核对：各尺寸 PNG 生成、透明区与圆形遮罩模拟图人工目检无角标。未在桌面启动器上实机看。
