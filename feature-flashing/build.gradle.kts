@@ -1,21 +1,23 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.devtools.ksp")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
+
 android {
+    // 第一期不改 namespace / Kotlin 包名（dev.corn.flashing），applicationId 由 :app 决定。
     namespace = "dev.corn.flashing"
-    ndkVersion = "27.2.12479018"
-    externalNativeBuild {
-        cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" }
+    // `corn.flashing.skipNative=true` 只给没有 NDK 的验收构建机（Oracle redroid 云构建）用：不编 USBFS 原生库，
+    // `NativeUsbFs` 加载失败时自己降级为“不可用”，烧录侧只能走模拟器后端。正式构建与 CI 不设这个属性。
+    if (providers.gradleProperty("corn.flashing.skipNative").orNull != "true") {
+        ndkVersion = "27.2.12479018"
+        externalNativeBuild {
+            cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" }
+        }
     }
     compileSdk { version = release(37) { minorApiLevel = 2 } }
     defaultConfig {
-        applicationId = "dev.corn.flashing"
         minSdk = 29
-        targetSdk { version = release(37) }
-        versionCode = 23
-        versionName = "0.1.8"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -23,27 +25,39 @@ android {
     }
     buildFeatures { compose = true }
     lint { abortOnError = true }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.isReturnDefaultValues = true
+    }
 }
+
 kotlin {
     jvmToolchain(17)
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }
+
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+
 dependencies {
     implementation(project(":flashing-core"))
-    implementation(platform("androidx.compose:compose-bom:2026.09.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.activity:activity-compose:1.13.0")
-    implementation("androidx.core:core-ktx:1.19.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
-    implementation("androidx.room:room-runtime:2.8.5")
-    ksp("androidx.room:room-compiler:2.8.5")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    implementation(project(":ui-common"))
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.activity.compose)
+    implementation(libs.core.ktx)
+    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.viewmodel.ktx)
+    implementation(libs.coroutines.android)
+    implementation(libs.room.runtime)
+    ksp(libs.room.compiler)
+    debugImplementation(libs.compose.ui.tooling)
+    testImplementation(libs.junit4)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.robolectric)
+    // 第二期起烧录模式也要随外壳深浅色变化，这里补 Compose 渲染测试（只在本模块，不进 :app）。
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
-

@@ -87,4 +87,26 @@ class UiSettingsRoundTripTest {
     fun curveFullscreenDefaultsOff() {
         assertEquals(false, UiSettings().landscapeCurveFullscreen)
     }
+
+    /**
+     * 第二期起不再把主题归一成深色：旧数据里存过 LIGHT / TEAL 的，读回来必须原样保留，
+     * 由外壳首次启动时迁移到 `bench_ui`（见 ModeStoreTest / AppearanceMigrationTest）。
+     */
+    @Test
+    fun legacyThemeAndAccentAreNoLongerForcedToDark() {
+        val parsed = uiSettingsFrom(
+            mapOf(
+                UiSettingKeys.THEME to ThemeMode.LIGHT.name,
+                UiSettingKeys.ACCENT to AccentColor.TEAL.name,
+                UiSettingKeys.FONT to FontScale.LARGE.name,
+            ),
+        )
+        assertEquals(ThemeMode.LIGHT, parsed.theme)
+        assertEquals(AccentColor.TEAL, parsed.accent)
+        assertEquals(FontScale.LARGE, parsed.fontScale)
+        // 兼容函数保留但已是恒等：旧调用点不用改。
+        assertEquals(parsed, parsed.forPhase1())
+        assertEquals(UiSettings(), UiSettings().forPhase1())
+        assertEquals(ThemeMode.SYSTEM, UiSettings(theme = ThemeMode.SYSTEM).forPhase1().theme)
+    }
 }

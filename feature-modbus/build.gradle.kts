@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.roborazzi)
     alias(libs.plugins.ksp)
@@ -13,6 +13,7 @@ System.setProperty(
 )
 
 android {
+    // 第一期不改 namespace / Kotlin 包名，applicationId 由 :app 决定。
     namespace = "io.github.xingyingyuzhui.modbusmobile"
     compileSdk {
         version = release(37) {
@@ -21,13 +22,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "io.github.xingyingyuzhui.modbusmobile"
-        minSdk = 26
-        targetSdk {
-            version = release(37)
-        }
-        versionCode = 4
-        versionName = "0.1.3"
+        // Corn Bench 统一 minSdk 29（原 Corn Modbus 为 26）。
+        minSdk = 29
         // 署名：Corn Modbus by xingyingyuzhui（与 application/Authorship.kt 一致）
         buildConfigField("String", "APP_AUTHOR", "\"xingyingyuzhui\"")
         buildConfigField("String", "APP_REPO", "\"https://github.com/xingyingyuzhui/corn-modbus\"")
@@ -68,6 +64,7 @@ kotlin {
 
 dependencies {
     implementation(project(":modbus-core"))
+    implementation(project(":ui-common"))
     implementation(libs.coroutines.android)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

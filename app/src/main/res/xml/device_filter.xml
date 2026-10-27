@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 常见 USB-RS485 / ST-LINK 的 VID。USB_DEVICE_ATTACHED 只用来唤起 App 提示，不自动进模式。 -->
+    <usb-device vendor-id="1027" />
+    <usb-device vendor-id="4292" />
+    <usb-device vendor-id="1659" />
+    <usb-device vendor-id="6790" />
+    <usb-device vendor-id="9025" />
+    <usb-device vendor-id="1155" />
+    <usb-device vendor-id="8483" />
+    <usb-device vendor-id="3368" />
+    <usb-device class="2" />
+</resources>

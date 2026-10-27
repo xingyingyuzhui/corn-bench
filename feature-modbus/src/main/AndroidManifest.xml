@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 上位机模式（Corn Modbus）。Application / 启动 Activity 由 Corn Bench :app 提供。 -->
     <uses-feature
         android:name="android.hardware.usb.host"
         android:required="false" />
@@ -9,35 +10,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <application
-        android:name=".ModbusMobileApp"
-        android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.ModbusMobile">
+    <application>
         <!-- Corn Modbus · by xingyingyuzhui · PolyForm Noncommercial 1.0.0 -->
         <meta-data
-            android:name="io.github.xingyingyuzhui.author"
+            android:name="io.github.xingyingyuzhui.modbus.author"
             android:value="xingyingyuzhui" />
         <meta-data
-            android:name="io.github.xingyingyuzhui.repo"
+            android:name="io.github.xingyingyuzhui.modbus.repo"
             android:value="https://github.com/xingyingyuzhui/corn-modbus" />
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
-            </intent-filter>
-            <meta-data
-                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
-                android:resource="@xml/device_filter" />
-        </activity>
 
         <!-- 日志“分享”：把导出文件放在 cache/exports 下，经 FileProvider 给接收方临时读权限。 -->
         <provider

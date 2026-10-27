@@ -21,7 +21,7 @@ data class UsbProbe(
 
 class UsbProbeMonitor(private val context: Context) {
     private val manager = context.getSystemService(UsbManager::class.java)
-    private val permissionAction = "${context.packageName}.USB_PERMISSION"
+    private val permissionAction = permissionAction(context.packageName)
     private val _devices = MutableStateFlow<List<UsbProbe>>(emptyList())
     val devices = _devices.asStateFlow()
     private val _message = MutableStateFlow("USB 发现与授权；授权后可在设备页或工作台点「识别芯片」读真芯片")
@@ -99,9 +99,17 @@ class UsbProbeMonitor(private val context: Context) {
     }
 
     companion object {
+        /**
+         * USB 授权结果的广播 action。Corn Bench 里烧录和上位机两个模块在同一个包里，
+         * 都用 "<包名>.USB_PERMISSION" 会互相收到对方的授权结果，所以带上 ".flashing."。
+         */
+        fun permissionAction(packageName: String) = "$packageName.flashing.USB_PERMISSION"
+
         // Candidate IDs only. Matching a VID/PID is not a compatibility guarantee.
         private val STLINK_PRODUCTS = setOf(0x3748, 0x374B, 0x374A, 0x374D, 0x374E, 0x374F, 0x3753, 0x3754)
-        private fun isStLink(device: UsbDevice) =
-            device.vendorId == 0x0483 && device.productId in STLINK_PRODUCTS
+        private fun isStLink(device: UsbDevice) = isStLinkIds(device.vendorId, device.productId)
+
+        /** 按 VID/PID 判断是不是 ST-LINK 候选（外壳的“检测到 ST-LINK”提示也用它）。 */
+        fun isStLinkIds(vendorId: Int, productId: Int) = vendorId == 0x0483 && productId in STLINK_PRODUCTS
     }
 }

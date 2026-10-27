@@ -2,11 +2,15 @@ package io.github.xingyingyuzhui.modbusmobile.ui.theme
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import dev.corn.ui.theme.benchColors
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
 
 /**
- * 颜色 token（设计规范_v2 §4，值与 T-20261018-and-03_tokens_v2.json 一致，DesignTokensTest 比对）。
- * 字段名就是语义名；各屏只从这里取色，不写字面 Color(0x…)。
+ * 颜色 token。Corn Bench 第一期起，值全部来自 :ui-common 的语义 token（[benchColors]），
+ * 本类型只保留 Corn Modbus 的字段名，让各屏 246 处调用点不需要改名。
+ *
+ * 浅色一档也走 :ui-common 的暂定浅色（第一期界面只开放深色，浅色代码留给第二期）。
+ * [AccentColor] 参数为了兼容旧调用点保留，但不再生效：强调色固定为玉米色（token.accent）。
  */
 data class ModbusColors(
     val isDark: Boolean,
@@ -60,97 +64,45 @@ data class ModbusColors(
     fun wash(color: Color): Color = color.copy(alpha = washAlpha)
 }
 
-/** 浅色主题固定值（§4.1–4.3）。 */
-private object LightTokens {
-    val bg = Color(0xFFF4F6F9)
-    val surface1 = Color(0xFFFFFFFF)
-    val surface2 = Color(0xFFEEF1F5)
-    val surface3 = Color(0xFFE2E7EE)
-    val line = Color(0xFFDCE2EA)
-    val rowLine = Color(0xFFEDF0F4)
-    val outlineControl = Color(0xFF7A8494)
-    val island = Color(0xFFFFFFFF).copy(alpha = 0.95f)
-    val scrim = Color(0xFF0A1423).copy(alpha = 0.38f)
-    val text = Color(0xFF121A24)
-    val muted = Color(0xFF5A6574)
-    val dim = Color(0xFF7A8494)
-    val tx = Color(0xFFF5A524)
-    val txText = Color(0xFF955800)
-    val rxLocal = Color(0xFF177334)
-    val error = Color(0xFFCF222E)
-    val foreign = Color(0xFF0969DA)
-    val echo = Color(0xFF7A48D6)
-    val ambiguous = Color(0xFFB3347F)
-    val dropped = Color(0xFF656D76)
-    val warning = Color(0xFF955800)
-    val success = Color(0xFF177334)
-    val dangerFill = Color(0xFFCF222E)
-    val onDanger = Color(0xFFFFFFFF)
-    const val WASH_ALPHA = 0.07f
+/**
+ * 把 :ui-common 的语义 token 映射到 Corn Modbus 的字段名。
+ * [accent] 第一期不再生效（强调色固定为玉米色）；保留参数只是为了避免改所有预览 / 测试调用点。
+ */
+@Suppress("UNUSED_PARAMETER")
+fun modbusColors(dark: Boolean, accent: AccentColor = AccentColor.DEFAULT): ModbusColors {
+    val t = benchColors(dark)
+    return ModbusColors(
+        isDark = t.isDark,
+        bg = t.bg,
+        surface1 = t.surface1,
+        surface2 = t.surface2,
+        surface3 = t.surface3,
+        line = t.line,
+        rowLine = t.rowLine,
+        outlineControl = t.outlineControl,
+        island = t.island,
+        scrim = t.scrim,
+        text = t.text,
+        muted = t.muted,
+        dim = t.dim,
+        tx = t.tx,
+        txText = t.txText,
+        rxLocal = t.rx,
+        error = t.danger,
+        foreign = t.foreign,
+        echo = t.echo,
+        ambiguous = t.ambiguous,
+        dropped = t.dropped,
+        warning = t.warning,
+        success = t.success,
+        dangerFill = t.dangerFill,
+        onDanger = t.onDanger,
+        washAlpha = t.washAlpha,
+        accent = t.accent,
+        onAccent = t.onAccent,
+        accentText = t.accentText,
+        accentBorder = t.accentBorder,
+    )
 }
 
-/** 深色主题固定值（§4.1–4.3）。 */
-private object DarkTokens {
-    val bg = Color(0xFF0D1117)
-    val surface1 = Color(0xFF151B23)
-    val surface2 = Color(0xFF1C2430)
-    val surface3 = Color(0xFF253041)
-    val line = Color(0xFF2B3544)
-    val rowLine = Color(0xFF1E2631)
-    val outlineControl = Color(0xFF6E7A8A)
-    val island = Color(0xFF1C2430).copy(alpha = 0.94f)
-    val scrim = Color(0xFF010306).copy(alpha = 0.60f)
-    val text = Color(0xFFE6EDF3)
-    val muted = Color(0xFF8B98A8)
-    val dim = Color(0xFF6E7A8A)
-    val tx = Color(0xFFF5A524)
-    val txText = Color(0xFFF5A524)
-    val rxLocal = Color(0xFF3FB950)
-    val error = Color(0xFFF85149)
-    val foreign = Color(0xFF58A6FF)
-    val echo = Color(0xFFA371F7)
-    val ambiguous = Color(0xFFDB61A2)
-    val dropped = Color(0xFF8B949E)
-    val warning = Color(0xFFF5A524)
-    val success = Color(0xFF3FB950)
-    val dangerFill = Color(0xFFDA3633)
-    val onDanger = Color(0xFFFFFFFF)
-    const val WASH_ALPHA = 0.10f
-}
-
-private fun argb(value: Long): Color = Color(value.toInt())
-
-fun modbusColors(dark: Boolean, accent: AccentColor): ModbusColors {
-    val tones = accent.tones(dark)
-    return if (dark) {
-        DarkTokens.run {
-            ModbusColors(
-                isDark = true,
-                bg = bg, surface1 = surface1, surface2 = surface2, surface3 = surface3,
-                line = line, rowLine = rowLine, outlineControl = outlineControl, island = island, scrim = scrim,
-                text = text, muted = muted, dim = dim,
-                tx = tx, txText = txText, rxLocal = rxLocal, error = error, foreign = foreign, echo = echo,
-                ambiguous = ambiguous, dropped = dropped, warning = warning, success = success,
-                dangerFill = dangerFill, onDanger = onDanger, washAlpha = WASH_ALPHA,
-                accent = argb(tones.fill), onAccent = argb(tones.on),
-                accentText = argb(tones.text), accentBorder = argb(tones.border),
-            )
-        }
-    } else {
-        LightTokens.run {
-            ModbusColors(
-                isDark = false,
-                bg = bg, surface1 = surface1, surface2 = surface2, surface3 = surface3,
-                line = line, rowLine = rowLine, outlineControl = outlineControl, island = island, scrim = scrim,
-                text = text, muted = muted, dim = dim,
-                tx = tx, txText = txText, rxLocal = rxLocal, error = error, foreign = foreign, echo = echo,
-                ambiguous = ambiguous, dropped = dropped, warning = warning, success = success,
-                dangerFill = dangerFill, onDanger = onDanger, washAlpha = WASH_ALPHA,
-                accent = argb(tones.fill), onAccent = argb(tones.on),
-                accentText = argb(tones.text), accentBorder = argb(tones.border),
-            )
-        }
-    }
-}
-
-val LocalModbusColors = staticCompositionLocalOf { modbusColors(dark = true, AccentColor.DEFAULT) }
+val LocalModbusColors = staticCompositionLocalOf { modbusColors(dark = true) }

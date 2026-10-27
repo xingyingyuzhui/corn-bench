@@ -12,7 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
-import io.github.xingyingyuzhui.modbusmobile.ModbusMobileApp
+import io.github.xingyingyuzhui.modbusmobile.ModbusFeature
 import io.github.xingyingyuzhui.modbusmobile.R
 import io.github.xingyingyuzhui.modbusmobile.application.Parity
 import io.github.xingyingyuzhui.modbusmobile.io.SerialIoWorker
@@ -42,7 +42,7 @@ class SessionService : Service() {
         }
         when (intent?.action) {
             ACTION_STOP -> {
-                app.container.scope.launch { app.container.sessionManager.disconnect() }
+                app.scope.launch { app.sessionManager.disconnect() }
             }
             ACTION_OPEN -> scope.launch { open(intent) }
         }
@@ -57,7 +57,7 @@ class SessionService : Service() {
     }
 
     private fun open(intent: Intent) {
-        val bridge = app.container.bridge
+        val bridge = app.bridge
         try {
             val opened = openPort(intent)
             transport = opened
@@ -71,7 +71,7 @@ class SessionService : Service() {
     }
 
     private fun openPort(intent: Intent): UsbSerialTransport {
-        val repository = app.container.repository
+        val repository = app.repository
         val deviceId = intent.getIntExtra(EXTRA_DEVICE_ID, -1)
         val portIndex = intent.getIntExtra(EXTRA_PORT_INDEX, 0)
         val device = repository.find(deviceId) ?: error("USB 设备已不在列表中")
@@ -96,11 +96,11 @@ class SessionService : Service() {
         lateinit var serial: UsbSerialTransport
         val worker = SerialIoWorker(
             port = UsbRawSerialPort(port, connection),
-            clock = app.container.clock,
+            clock = app.clock,
             onChunk = { chunk -> serial.emit(chunk) },
             onError = { reason ->
                 serial.fail()
-                app.container.bridge.onIoError?.invoke(reason)
+                app.bridge.onIoError?.invoke(reason)
             },
         )
         serial = UsbSerialTransport(worker)
@@ -109,7 +109,7 @@ class SessionService : Service() {
     }
 
     private fun failStart(error: Exception) {
-        app.container.bridge.fail(error)
+        app.bridge.fail(error)
         stopSelf()
     }
 
@@ -148,8 +148,9 @@ class SessionService : Service() {
             .build()
     }
 
-    private val app: ModbusMobileApp
-        get() = application as ModbusMobileApp
+    /** 服务被系统重启时也按需创建上位机模式的容器（懒加载，不依赖模块自己的 Application）。 */
+    private val app: io.github.xingyingyuzhui.modbusmobile.ModbusContainer
+        get() = ModbusFeature.container(application)
 
     companion object {
         const val ACTION_OPEN = "io.github.xingyingyuzhui.modbusmobile.OPEN"

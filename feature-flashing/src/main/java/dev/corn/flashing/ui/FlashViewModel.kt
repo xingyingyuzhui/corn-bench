@@ -9,7 +9,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import dev.corn.flashing.CornApplication
+import dev.corn.flashing.FlashingFeature
 import dev.corn.flashing.core.BatchConfig
 import dev.corn.flashing.service.FlashService
 import kotlinx.coroutines.CancellationException
@@ -18,23 +18,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class FlashViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as CornApplication
-    private val repository = app.repository
-    private val batches = app.batches
+    private val container = FlashingFeature.container(application)
+    private val app = container.app
+    private val repository = container.repository
+    private val batches = container.batches
     val session = repository.state
     val history = repository.history
-    val devices = app.usb.devices
-    val usbMessage = app.usb.message
-    val usbDenied = app.usb.lastDenied
-    val hostSupported = app.usb.hostSupported
-    val reservedSettings = app.reservedRegions.state
-    val reservedPolicy get() = app.reservedRegions.policy(session.value.target)
+    val devices = container.usb.devices
+    val usbMessage = container.usb.message
+    val usbDenied = container.usb.lastDenied
+    val hostSupported = container.usb.hostSupported
+    val reservedSettings = container.reservedRegions.state
+    val reservedPolicy get() = container.reservedRegions.policy(session.value.target)
     fun profileFor(target: dev.corn.flashing.core.TargetInfo) = repository.profileFor(target)
-    val algorithmLibrary get() = app.algorithms
-    val installedAlgorithms = app.algorithms.installed
-    val algorithmBindings = app.algorithms.bindings
-    val experimentalAlgorithmsEnabled = app.algorithms.experimentalEnabled
-    val targetRegistry get() = app.algorithms.snapshot().targets
+    val algorithmLibrary get() = container.algorithms
+    val installedAlgorithms = container.algorithms.installed
+    val algorithmBindings = container.algorithms.bindings
+    val experimentalAlgorithmsEnabled = container.algorithms.experimentalEnabled
+    val targetRegistry get() = container.algorithms.snapshot().targets
     val profile get() = repository.profile
     val prefs = Prefs(application)
     val batch = batches.active
@@ -58,13 +59,13 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
         if (batchGuard()) viewModelScope.launch { repository.importFile(uri, addressText) }
     }
     fun clearImportError() = repository.clearImportError()
-    fun refreshUsb() = app.usb.refresh()
+    fun refreshUsb() = container.usb.refresh()
     fun authorize(id: Int) {
-        try { app.usb.requestPermission(id) }
+        try { container.usb.requestPermission(id) }
         catch (error: Exception) { _notice.value = "USB 授权失败：${error.message}" }
     }
     fun authorizeDenied() {
-        try { app.usb.requestPermissionForDenied() }
+        try { container.usb.requestPermissionForDenied() }
         catch (error: Exception) { _notice.value = "USB 授权失败：${error.message}" }
     }
 
@@ -101,7 +102,7 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
         if (session.value.probing || !batchGuard()) return
         viewModelScope.launch {
             val id = repository.prepareJob(singleRequest()) ?: return@launch
-            if (!app.launcher.start(id)) repository.startFailed("系统拒绝启动任务服务")
+            if (!container.launcher.start(id)) repository.startFailed("系统拒绝启动任务服务")
         }
     }
 
@@ -153,7 +154,7 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         out.toByteArray()
                     } ?: error("无法打开算法包")
-                    app.algorithms.candidates(name, bytes)
+                    container.algorithms.candidates(name, bytes)
                 }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
@@ -167,7 +168,7 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
         _algorithmBusy.value = true
         viewModelScope.launch {
             try {
-                val item = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.algorithms.install(candidate) }
+                val item = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { container.algorithms.install(candidate) }
                 dismissAlgorithmCandidates()
                 notify("算法已导入：${item.name}。尚未绑定芯片，不会执行擦写。")
             } catch (error: Exception) {
@@ -178,7 +179,7 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun setExperimentalAlgorithmsEnabled(enabled: Boolean) {
         if (!algorithmChangeAllowed()) return
-        app.algorithms.setExperimentalEnabled(enabled)
+        container.algorithms.setExperimentalEnabled(enabled)
         if (!enabled) notify("外部 FLM 实验执行已关闭：已保存的绑定停用，恢复内置支持。")
     }
     fun bindAlgorithm(hash: String, expectedTarget: dev.corn.flashing.core.TargetInfo) {
@@ -187,18 +188,18 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
             val target = requireNotNull(session.value.target) { "请先识别实际芯片" }
             require(target == expectedTarget) { "确认期间目标已变化，请重新核对后绑定" }
             require(!prefs.simulator) { "请关闭模拟模式并识别实际芯片" }
-            app.algorithms.bind(hash, target)
+            container.algorithms.bind(hash, target)
             notify("已为设备组0x${target.deviceId.toString(16)}绑定此算法。首次实板使用仍需验证。")
         } catch (error: Exception) { notify("绑定算法失败：${error.message}") }
     }
     fun restoreBuiltInAlgorithm() {
         if (!algorithmChangeAllowed()) return
-        try { session.value.target?.let { app.algorithms.useBuiltIn(it.deviceId) } }
+        try { session.value.target?.let { container.algorithms.useBuiltIn(it.deviceId) } }
         catch (error: Exception) { notify("恢复算法失败：${error.message}") }
     }
     fun removeAlgorithm(hash: String) {
         if (!algorithmChangeAllowed()) return
-        try { app.algorithms.remove(hash) }
+        try { container.algorithms.remove(hash) }
         catch (error: Exception) { notify("移除算法失败：${error.message}") }
     }
 
@@ -215,12 +216,12 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val target = requireNotNull(session.value.target) { "请先识别目标芯片" }
             val descriptor = requireNotNull(targetRegistry.find(target.deviceId)) { "目标芯片未登记" }
-            app.reservedRegions.update(target, descriptor, dev.corn.flashing.core.ReservedRegionPolicy(enabled, ranges))
+            container.reservedRegions.update(target, descriptor, dev.corn.flashing.core.ReservedRegionPolicy(enabled, ranges))
         } catch (error: Exception) { notify("保留区设置失败：${error.message}") }
     }
     fun resetReservedSettings() {
         if (!reservedChangeAllowed()) return
-        try { app.reservedRegions.reset() } catch (error: Exception) { notify("重置保留区失败：${error.message}") }
+        try { container.reservedRegions.reset() } catch (error: Exception) { notify("重置保留区失败：${error.message}") }
     }
 
     private var singleCounter = 0L
@@ -315,6 +316,17 @@ class FlashViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun stopWatchingNextBoard() = nextBoardWatcher.stop()
+
+    /** 外壳切走烧录模式时调用：先停掉“等待下一块板”，不再发起新的 USB 识别。 */
+    private val leaveHook: () -> Unit = { stopWatchingNextBoard() }
+
+    init { container.leaveHooks += leaveHook }
+
+    override fun onCleared() {
+        container.leaveHooks -= leaveHook
+        nextBoardWatcher.stop()
+        super.onCleared()
+    }
 
     /** Firmware and single runs are locked while a batch is open, so a batch never mixes inputs. */
     private fun batchGuard(): Boolean {

@@ -31,10 +31,12 @@ class DesignTokensTest {
 
     private fun hex(c: Color): String = "#%06X".format(c.toArgb() and 0xFFFFFF)
 
-    private fun parseHex(s: String): Int = s.removePrefix("#").toLong(16).toInt()
-
     private fun pick(name: String, f: (ModbusColors) -> Color): Pair<String, (ModbusColors) -> Color> = name to f
 
+    /**
+     * 第一期起本文件只剩“间距 / 圆角 / 字号仍与旧 tokens_v2.json 一致”的检查；
+     * 颜色已换成 :ui-common 的语义 token，由 `ModbusColorsMatchTokensTest` 逐项锁定映射关系。
+     */
     private val colorFields: Map<String, (ModbusColors) -> Color> = mapOf(
         pick("bg") { it.bg },
         pick("surface1") { it.surface1 },
@@ -62,18 +64,18 @@ class DesignTokensTest {
         pick("scrim") { it.scrim },
     )
 
+    /**
+     * 第一期起颜色改由 :ui-common 的语义 token 提供，旧 JSON 只锁间距 / 圆角 / 字号。
+     * 这里检查旧 JSON 的每个颜色名仍然有对应字段（字段没丢），具体取值由 `ModbusColorsMatchTokensTest` 逐项比对。
+     */
     @Test
-    fun bothThemesMatchTokensJsonColorByColor() {
+    fun legacyColorNamesStillHaveFields() {
         for (theme in listOf("light", "dark")) {
             val colors = modbusColors(theme == "dark", AccentColor.AMBER)
             val table = obj("color", theme)
             assertEquals("$theme：json 里每个颜色 token 都有 Kotlin 字段", table.keys, colorFields.keys)
             for ((name, field) in colorFields) {
-                val spec = table[name] as Map<*, *>
-                val actual = field(colors)
-                assertEquals("$theme.$name", (spec["value"] as String).uppercase(), hex(actual))
-                val alpha = (spec["alpha"] as Number?)?.toFloat() ?: 1f
-                assertEquals("$theme.$name alpha", alpha, actual.alpha, 0.005f)
+                assertNotNull("$theme.$name 不应为空", field(colors))
             }
         }
     }
@@ -85,29 +87,26 @@ class DesignTokensTest {
         val light = modbusColors(false, AccentColor.AMBER)
         assertEquals((wash["dark"] as Number).toFloat(), dark.washAlpha, 0.0001f)
         assertEquals((wash["light"] as Number).toFloat(), light.washAlpha, 0.0001f)
-        // 所有语义色同一档
+        // 所有语义色同一档（数值跟 :ui-common token 走）
         for (c in listOf(dark.tx, dark.rxLocal, dark.error, dark.dropped, dark.accent)) {
-            assertEquals(0.10f, dark.wash(c).alpha, 0.004f) // Color 的 alpha 按 8 位存（1/255 ≈ 0.004）
+            assertEquals(dark.washAlpha, dark.wash(c).alpha, 0.004f) // Color 的 alpha 按 8 位存（1/255 ≈ 0.004）
         }
         for (c in listOf(light.tx, light.rxLocal, light.error, light.dropped, light.accent)) {
-            assertEquals(0.07f, light.wash(c).alpha, 0.004f)
+            assertEquals(light.washAlpha, light.wash(c).alpha, 0.004f)
         }
     }
 
+    /** 第一期强调色固定为玉米色：5 个 AccentColor 枚举仍然保留，但不再改变界面颜色。 */
     @Test
-    fun everyAccentMatchesTokensJsonPerTheme() {
-        val table = obj("color", "accent")
-        assertEquals(table.keys, AccentColor.entries.map { it.name.lowercase() }.toSet())
+    fun everyAccentIsNowTheCornToken() {
         for (accent in AccentColor.entries) {
             for (theme in listOf("light", "dark")) {
-                val spec = obj("color", "accent", accent.name.lowercase(), theme)
                 val c = modbusColors(theme == "dark", accent)
-                val label = "${accent.name}.$theme"
-                assertEquals("$label.fill", (spec["fill"] as String).uppercase(), hex(c.accent))
-                assertEquals("$label.on", (spec["on"] as String).uppercase(), hex(c.onAccent))
-                assertEquals("$label.text", (spec["text"] as String).uppercase(), hex(c.accentText))
-                assertEquals("$label.border", (spec["border"] as String).uppercase(), hex(c.accentBorder))
-                assertEquals(parseHex(spec["fill"] as String), c.accent.toArgb() and 0xFFFFFF)
+                val token = dev.corn.ui.theme.benchColors(theme == "dark")
+                assertEquals("${accent.name}.$theme.fill", hex(token.accent), hex(c.accent))
+                assertEquals("${accent.name}.$theme.on", hex(token.onAccent), hex(c.onAccent))
+                assertEquals("${accent.name}.$theme.text", hex(token.accentText), hex(c.accentText))
+                assertEquals("${accent.name}.$theme.border", hex(token.accentBorder), hex(c.accentBorder))
             }
         }
     }

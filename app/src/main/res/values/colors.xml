@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动窗口底色，与 :ui-common 的 BenchColors 对齐（浅色 Paper50 / 深色 Charcoal950）。
+
+         第二期开放浅色后，冷启动的窗口底色也要跟系统深浅走，否则浅色主题下会先闪一下黑屏。
+         Compose 起来之后由 CornTheme 的底色盖住，这里只影响冷启动的第一帧。 -->
+    <color name="bench_window_background">#F6F4EE</color>
+</resources>

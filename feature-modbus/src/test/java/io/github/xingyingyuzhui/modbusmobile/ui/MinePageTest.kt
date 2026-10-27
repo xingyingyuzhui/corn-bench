@@ -352,6 +352,22 @@ class MinePageTest {
         compose.onNodeWithTag("about-author").assertTextContains("xingyingyuzhui", substring = true)
     }
 
+    /** 第二期：外观页重新显示主题（跟随系统 / 浅色 / 深色）与强调色，并且真的写进存储。 */
+    @Test
+    fun appearanceShowsThemeAndAccentAgain() {
+        show()
+        open("mine-row-appearance")
+        compose.onNodeWithText("主题").assertIsDisplayed()
+        compose.onNodeWithText("强调色").assertIsDisplayed()
+        compose.onNodeWithText("浅色").assertIsDisplayed()
+        compose.onNodeWithText("深色").assertIsDisplayed()
+        // 这个用例的仓库用的是默认 UiSettings（跟随系统），点「浅色」后必须真的写进存储。
+        assertEquals(ThemeMode.SYSTEM, repository.settings.value.theme)
+        compose.onNodeWithText("浅色").performClick()
+        compose.waitForIdle()
+        assertEquals(ThemeMode.LIGHT, repository.settings.value.theme)
+    }
+
     // ---- 截图（Roborazzi 渲染，不是实机）----
     @Test fun screenshotHomeDark() { show(ThemeMode.DARK); compose.onRoot().captureRoboImage("mine_home_dark_portrait.png") }
     @Test fun screenshotHomeLight() { show(ThemeMode.LIGHT); compose.onRoot().captureRoboImage("mine_home_light_portrait.png") }

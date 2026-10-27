@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -71,26 +72,36 @@ fun CornCard(
     )
 }
 
-enum class ChipTone(val fg: Color, val bg: Color) {
-    NEUTRAL(CornColors.Dim, CornColors.Surface2),
-    OK(CornColors.Leaf, CornColors.LeafContainer),
-    WARN(CornColors.Corn, CornColors.CornContainer),
-    BAD(CornColors.Red, CornColors.RedContainer),
-    INFO(CornColors.Blue, CornColors.BlueContainer),
+/**
+ * 语义色调。第二期起颜色随主题（深浅 / 强调色）变化，所以枚举只保留语义名，
+ * 具体颜色在 Composable 里用 [colors] 解析；枚举常量本身不再持有写死的颜色。
+ */
+enum class ChipTone { NEUTRAL, OK, WARN, BAD, INFO }
+
+/** 返回 (前景, 浅底) 两个颜色。只能在 Compose 作用域里调用。 */
+@Composable
+@ReadOnlyComposable
+fun ChipTone.colors(): Pair<Color, Color> = when (this) {
+    ChipTone.NEUTRAL -> CornColors.Dim to CornColors.Surface2
+    ChipTone.OK -> CornColors.Leaf to CornColors.LeafContainer
+    ChipTone.WARN -> CornColors.Corn to CornColors.CornContainer
+    ChipTone.BAD -> CornColors.Red to CornColors.RedContainer
+    ChipTone.INFO -> CornColors.Blue to CornColors.BlueContainer
 }
 
 /** `.chip`: 24 high, pill, 11.5 / 600, optional dot or leading icon. */
 @Composable
 fun Chip(text: String, tone: ChipTone = ChipTone.NEUTRAL, dot: Boolean = false, icon: ImageVector? = null,
          modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    val (fg, bg) = tone.colors()
     Row(
-        modifier.height(24.dp).clip(RoundedCornerShape(99.dp)).background(tone.bg)
+        modifier.height(24.dp).clip(RoundedCornerShape(99.dp)).background(bg)
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }.padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        if (dot) Box(Modifier.size(6.dp).clip(CircleShape).background(tone.fg))
-        icon?.let { Ico(it, tone.fg, 12.dp) }
-        T(text, tone.fg, 11.5.sp, FontWeight.SemiBold, maxLines = 1)
+        if (dot) Box(Modifier.size(6.dp).clip(CircleShape).background(fg))
+        icon?.let { Ico(it, fg, 12.dp) }
+        T(text, fg, 11.5.sp, FontWeight.SemiBold, maxLines = 1)
     }
 }
 
@@ -98,9 +109,10 @@ fun Chip(text: String, tone: ChipTone = ChipTone.NEUTRAL, dot: Boolean = false, 
 @Composable
 fun FormatBadge(format: String, width: Dp? = null) {
     val tone = when (format) { "HEX" -> ChipTone.WARN; "BIN" -> ChipTone.INFO; else -> ChipTone.OK }
-    Box(Modifier.let { if (width != null) it.width(width) else it }.clip(RoundedCornerShape(6.dp)).background(tone.bg)
+    val (fg, bg) = tone.colors()
+    Box(Modifier.let { if (width != null) it.width(width) else it }.clip(RoundedCornerShape(6.dp)).background(bg)
         .padding(horizontal = 7.dp, vertical = 3.dp), contentAlignment = Alignment.Center) {
-        T(format, tone.fg, 10.5.sp, FontWeight.Bold, mono = true)
+        T(format, fg, 10.5.sp, FontWeight.Bold, mono = true)
     }
 }
 
@@ -151,7 +163,9 @@ fun AppIcon(size: Dp = 30.dp) {
 fun TopBar(title: String, sub: String, right: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        AppIcon()
+        // 只有模式根页用 TopBar：在 Corn Bench 外壳里这里是模式切换器（玉米 + ▾，48dp 热区），否则是原来的图标。
+        val switcher = dev.corn.ui.mode.LocalModeSwitcher.current
+        if (switcher != null) dev.corn.ui.mode.BrandSwitcher(switcher) else AppIcon()
         Column(Modifier.weight(1f)) {
             T(title, size = 19.sp, weight = FontWeight.Bold, maxLines = 1)
             T(sub, CornColors.Dim, 11.5.sp, maxLines = 1)
@@ -264,11 +278,12 @@ fun DashedNote(modifier: Modifier = Modifier, border: Color = CornColors.Line, c
 @Composable
 fun Banner(title: String, body: String? = null, tone: ChipTone = ChipTone.BAD, icon: ImageVector = Lucide.Alert,
            action: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(tone.bg).border(1.dp, tone.fg.copy(alpha = .25f), RoundedCornerShape(16.dp))
+    val (fg, bg) = tone.colors()
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(bg).border(1.dp, fg.copy(alpha = .25f), RoundedCornerShape(16.dp))
         .padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Ico(icon, tone.fg, 18.dp, Modifier.padding(top = 1.dp))
+        Ico(icon, fg, 18.dp, Modifier.padding(top = 1.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            T(title, tone.fg, 13.5.sp, FontWeight.Bold)
+            T(title, fg, 13.5.sp, FontWeight.Bold)
             body?.let { T(it, CornColors.Dim, 12.sp) }
         }
         action?.invoke()
@@ -305,23 +320,28 @@ fun RoundIcon(icon: ImageVector, color: Color, background: Color, size: Int = 64
 
 /** Empty-state illustration: 96 ring with a 64 rounded box. */
 @Composable
-fun Illo(icon: ImageVector, color: Color = CornColors.Corn) {
+fun Illo(icon: ImageVector, color: Color? = null) {
     Box(Modifier.size(96.dp).clip(CircleShape).background(CornColors.Surface2), contentAlignment = Alignment.Center) {
         Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(CornColors.Surface3), contentAlignment = Alignment.Center) {
-            Ico(icon, color, 30.dp)
+            Ico(icon, color ?: CornColors.Corn, 30.dp)
         }
     }
 }
 
-/** Red 135° stripes used for reserved areas (`.hatch`). */
-fun Modifier.hatch(): Modifier = drawBehind {
-    drawRect(CornColors.Red.copy(alpha = .10f))
-    clipRect {
-        val step = 7.dp.toPx()
-        var x = -size.height
-        while (x < size.width + size.height) {
-            drawLine(CornColors.Red.copy(alpha = .45f), Offset(x, size.height), Offset(x + size.height, 0f), 2.dp.toPx())
-            x += step
+/** Red 135° stripes used for reserved areas (`.hatch`). 颜色随主题，所以是 @Composable。 */
+@Composable
+fun Modifier.hatch(): Modifier {
+    // drawBehind 的 lambda 不是 Composable，先把颜色读出来再进绘制作用域。
+    val hatchColor = CornColors.Red
+    return drawBehind {
+        drawRect(hatchColor.copy(alpha = .10f))
+        clipRect {
+            val step = 7.dp.toPx()
+            var x = -size.height
+            while (x < size.width + size.height) {
+                drawLine(hatchColor.copy(alpha = .45f), Offset(x, size.height), Offset(x + size.height, 0f), 2.dp.toPx())
+                x += step
+            }
         }
     }
 }
@@ -377,14 +397,17 @@ fun CheckBox(checked: Boolean) {
 
 /** Ring progress (screen 02): 180dp, r74, stroke 12. */
 @Composable
-fun Ring(progress: Float, size: Dp = 180.dp, color: Color = CornColors.Corn, content: @Composable BoxScope.() -> Unit) {
+fun Ring(progress: Float, size: Dp = 180.dp, color: Color? = null, content: @Composable BoxScope.() -> Unit) {
+    // Canvas 的绘制 lambda 不是 Composable，颜色先在 Composable 作用域里取好。
+    val track = CornColors.Surface3
+    val arc = color ?: CornColors.Corn
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 12.dp.toPx()
             val inset = size.toPx() / 2 - 74.dp.toPx()
             val arcSize = androidx.compose.ui.geometry.Size(this.size.width - inset * 2, this.size.height - inset * 2)
-            drawArc(CornColors.Surface3, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
-            drawArc(color, -90f, 360f * progress.coerceIn(0f, 1f), false, Offset(inset, inset), arcSize,
+            drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
+            drawArc(arc, -90f, 360f * progress.coerceIn(0f, 1f), false, Offset(inset, inset), arcSize,
                 style = Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
         }
         content()
@@ -411,6 +434,8 @@ fun OutcomeStrip(outcomes: List<BoardOutcome>, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+@ReadOnlyComposable
 fun outcomeColor(outcome: BoardOutcome): Color = when (outcome) {
     BoardOutcome.SUCCEEDED -> CornColors.Leaf
     BoardOutcome.FAILED -> CornColors.Red
@@ -429,7 +454,9 @@ fun statusLabel(status: String) = when (status) {
     else -> "排队中"
 }
 
-fun statusColor(status: String) = when (status) {
+@Composable
+@ReadOnlyComposable
+fun statusColor(status: String): Color = when (status) {
     "SIMULATED", "SUCCEEDED" -> CornColors.Leaf
     "FAILED" -> CornColors.Red
     "CANCELLED", "INTERRUPTED" -> CornColors.Dim

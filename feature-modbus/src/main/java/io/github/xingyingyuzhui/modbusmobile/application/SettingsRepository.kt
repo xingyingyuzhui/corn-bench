@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -52,4 +53,18 @@ private fun MutablePreferences.writeSettings(settings: UiSettings) {
             this[stringPreferencesKey(key)] = value
         }
     }
+}
+
+/**
+ * 第一期的主题 / 强调色存在本模块的 `ui_settings` 里。第二期外观改由外壳统一持有（`bench_ui`），
+ * 外壳启动时用这个函数读一次旧值做迁移，之后以外壳为准。
+ *
+ * 返回 null = 还没写过设置（新安装），不需要迁移。
+ */
+suspend fun legacyAppearance(context: Context): Pair<String?, String?>? {
+    val prefs = context.applicationContext.uiSettingsStore.data.first()
+    val theme = prefs[stringPreferencesKey(UiSettingKeys.THEME)] as? String
+    val accent = prefs[stringPreferencesKey(UiSettingKeys.ACCENT)] as? String
+    if (theme == null && accent == null) return null
+    return theme to accent
 }

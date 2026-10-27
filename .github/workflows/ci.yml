@@ -7,35 +7,86 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # 正常 5–6 分钟；有测试卡住（无限循环 + advanceUntilIdle 之类）时 30 分钟后失败，不再空跑几小时。
+    # 正常 8–12 分钟；有测试卡住（无限循环 + advanceUntilIdle 之类）时 30 分钟后失败，不再空跑几小时。
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: platform-tools
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-37.2" "build-tools;36.0.0"
-      - name: Install CJK fonts for screenshot tests
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-      - uses: gradle/actions/setup-gradle@v4
-      - uses: actions/setup-python@v5
+        # NDK / CMake 给 :feature-flashing 的原生构建用（与本地一致：27.2.12479018 / 3.22.1）。
+        run: sdkmanager "platforms;android-37.2" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      # 截图测试要中文字体。原来走 apt（fonts-noto-cjk），azure 镜像慢时 61 MB 要 20 分钟，PR run 两次被 job 超时取消。
+      # 现在只下一个 Noto Sans CJK SC Regular（约 16 MB，GitHub 直连），按版本缓存；这一步单独限时，
+      # 万一还是失败也不拖垮整个 job（没有字体时截图里中文成方块，但"能渲染"检查照样通过）。
+      - name: Cache CJK font
+        id: cjk-font
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/corn-fonts
+          key: noto-cjk-sc-regular-2.004
+      - name: Download CJK font
+        if: steps.cjk-font.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          mkdir -p ~/.cache/corn-fonts
+          curl -fsSL --retry 3 --retry-delay 5 --max-time 120 \
+            -o ~/.cache/corn-fonts/NotoSansCJKsc-Regular.otf \
+            https://github.com/notofonts/noto-cjk/raw/Sans2.004/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
+      - name: Install CJK font
+        id: cjk-install
+        timeout-minutes: 2
+        continue-on-error: true
+        run: |
+          test -s ~/.cache/corn-fonts/NotoSansCJKsc-Regular.otf
+          sudo mkdir -p /usr/share/fonts/opentype/noto-cjk
+          sudo cp ~/.cache/corn-fonts/*.otf /usr/share/fonts/opentype/noto-cjk/
+          sudo fc-cache -f /usr/share/fonts/opentype/noto-cjk
+          fc-list :lang=zh family
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+      - name: Save CJK font cache
+        # 只在真下到文件时才存，避免下载失败把空目录缓存成命中。
+        if: steps.cjk-font.outputs.cache-hit != 'true' && steps.cjk-install.outputs.ok == 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/corn-fonts
+          key: noto-cjk-sc-regular-2.004
+      - uses: gradle/actions/setup-gradle@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: tools/rtu_lab/requirements.txt
+          # 仓库导入后工具搬到了 tools/modbus/ 下；原来指 tools/rtu_lab 会让 setup-python 直接失败。
+          cache-dependency-path: tools/modbus/rtu_lab/requirements.txt
       - name: Test local virtual serial RTU lab
         run: |
-          python -m pip install -r tools/rtu_lab/requirements.txt
-          python -m unittest discover -s tools/rtu_lab/tests -v
+          python -m pip install -r tools/modbus/rtu_lab/requirements.txt
+          python -m unittest discover -s tools/modbus/rtu_lab/tests -v
       - name: Test, lint, assemble, and record screenshots
-        run: ./gradlew :modbus-core:test :app:testDebugUnitTest :app:recordRoborazziDebug :app:lintDebug :app:assembleDebug :app:assembleRelease
+        # 根工程把两个旧仓库并成 6 个模块：两个纯 JVM core、两个 feature、:ui-common、:app。
+        # 旧 CI 只跑 :app 的 test/lint，feature 模块的 968 个单测会漏掉。
+        run: >
+          ./gradlew
+          :modbus-core:test
+          :flashing-core:test
+          :feature-modbus:testDebugUnitTest
+          :feature-flashing:testDebugUnitTest
+          :app:testDebugUnitTest
+          :app:recordRoborazziDebug
+          :feature-modbus:recordRoborazziDebug
+          :app:lintDebug
+          :feature-modbus:lintDebug
+          :feature-flashing:lintDebug
+          :app:assembleDebug
+          :app:assembleRelease
       - name: Verify debug bridge stays out of release
-        run: python tools/verify_offline_apks.py
+        run: python tools/modbus/verify_offline_apks.py
       - name: Reject INTERNET permission
         run: |
           set -euo pipefail
@@ -47,13 +98,15 @@ jobs:
               exit 1
             fi
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: roborazzi-screenshots
-          path: app/src/test/screenshots/**/*.png
+          path: |
+            app/src/test/screenshots/**/*.png
+            feature-modbus/src/test/screenshots/**/*.png
           if-no-files-found: error
