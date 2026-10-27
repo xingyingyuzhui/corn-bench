@@ -38,6 +38,7 @@ import io.github.xingyingyuzhui.modbusmobile.application.FontScale
 import io.github.xingyingyuzhui.modbusmobile.application.NumberFormat
 import io.github.xingyingyuzhui.modbusmobile.application.ThemeMode
 import io.github.xingyingyuzhui.modbusmobile.application.TimeStyle
+import io.github.xingyingyuzhui.modbusmobile.application.PHASE1_DARK_ONLY
 import io.github.xingyingyuzhui.modbusmobile.application.UiSettings
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryOverview
 import io.github.xingyingyuzhui.modbusmobile.application.history.HistorySession
@@ -287,7 +288,7 @@ private fun pageTitle(page: MinePage): String = stringResource(
 
 @Composable
 private fun groupValue(group: MinePage, settings: UiSettings): String? = when (group) {
-    MinePage.APPEARANCE -> themeName(settings.theme)
+    MinePage.APPEARANCE -> stringResource(R.string.appearance_phase1_value)
     MinePage.DISPLAY -> addressName(settings.addressStyle)
     MinePage.SECURITY -> stringResource(R.string.mine_summary_security)
     MinePage.COMM -> stringResource(R.string.mine_summary_comm, settings.defaultResponseTimeoutMs)
@@ -342,10 +343,21 @@ private fun DeleteSessionSheet(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 private fun AppearanceGroup(model: MineViewModel, settings: UiSettings) {
     val spacing = LocalSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.s)) {
-        SectionLabel(stringResource(R.string.setting_theme))
-        SegmentedTextControl(ThemeMode.entries, settings.theme, model::setTheme) { themeName(it) }
-        SectionLabel(stringResource(R.string.setting_accent))
-        ColorSwatchRow(settings.accent, onSelect = model::setAccent)
+        // 第一期只开放深色：主题 / 强调色两项隐藏不删（第二期把 PHASE1_DARK_ONLY 改成 false 时恢复）。
+        if (!PHASE1_DARK_ONLY) {
+            SectionLabel(stringResource(R.string.setting_theme))
+            SegmentedTextControl(ThemeMode.entries, settings.theme, model::setTheme) { themeName(it) }
+            SectionLabel(stringResource(R.string.setting_accent))
+            ColorSwatchRow(settings.accent, onSelect = model::setAccent)
+        } else {
+            SectionLabel(stringResource(R.string.setting_appearance_phase1))
+            Text(
+                stringResource(R.string.appearance_phase1_hint),
+                color = LocalModbusColors.current.muted,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+            )
+        }
         SectionLabel(stringResource(R.string.setting_font))
         SegmentedTextControl(FontScale.entries, settings.fontScale, model::setFont) { fontName(it) }
         SectionLabel(stringResource(R.string.setting_density))

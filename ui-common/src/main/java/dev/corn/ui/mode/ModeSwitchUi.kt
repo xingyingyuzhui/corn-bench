@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -29,13 +27,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
@@ -136,13 +134,18 @@ fun ModeCard(option: ModeOption, onClick: () -> Unit, modifier: Modifier = Modif
     }
 }
 
-/** 页内遮罩：点遮罩 = 关闭。遮罩本身吃掉点击，不漏到下层页面。 */
+/**
+ * 页内遮罩：点遮罩 = 关闭。遮罩本身吃掉点击，不漏到下层页面。
+ *
+ * 这里用 pointerInput 而不是 clickable：clickable 会把整层子节点的语义合并成一个巨大的按钮，
+ * 面板里的卡片、说明文字在读屏和测试里就都找不到了。关闭仍有返回键与面板外的点击。
+ */
 @Composable
 private fun Scrim(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit) {
     val colors = LocalBenchColors.current
     Box(
         Modifier.fillMaxSize().background(colors.scrim)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+            .pointerInput(Unit) { detectTapGestures { onDismiss() } },
         content = content,
     )
 }

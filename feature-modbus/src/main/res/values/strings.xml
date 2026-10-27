@@ -401,6 +401,9 @@
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
     <string name="setting_accent">强调色</string>
+    <string name="setting_appearance_phase1">配色</string>
+    <string name="appearance_phase1_hint">当前版本固定深色（玉米 + 炭黑）。浅色与强调色会随第二版设计规范开放。</string>
+    <string name="appearance_phase1_value">深色</string>
     <string name="setting_font">字号</string>
     <string name="font_standard">标准</string>
     <string name="font_large">大</string>

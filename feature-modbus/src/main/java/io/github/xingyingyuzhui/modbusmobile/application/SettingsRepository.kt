@@ -28,8 +28,8 @@ class DataStoreSettingsRepository(
     private val store = context.applicationContext.uiSettingsStore
 
     override val settings: StateFlow<UiSettings> = store.data
-        .map { preferences -> preferences.readSettings() }
-        .stateIn(scope, SharingStarted.Eagerly, UiSettings())
+        .map { preferences -> preferences.readSettings().forPhase1() }
+        .stateIn(scope, SharingStarted.Eagerly, UiSettings().forPhase1())
 
     override suspend fun update(transform: (UiSettings) -> UiSettings) {
         store.edit { preferences ->

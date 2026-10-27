@@ -113,6 +113,15 @@ data class UiSettings(
     }
 }
 
+/**
+ * 第一期只开放深色（老板已拍板）：读盘和新建设置时把主题归一到 [ThemeMode.DARK]，
+ * 浅色值、强调色值都保留不删，第二期重新开放时把这里改回 false，并恢复设置页的两行即可。
+ */
+const val PHASE1_DARK_ONLY = true
+
+/** 按第一期规则归一设置：只动主题，其余字段原样保留。 */
+fun UiSettings.forPhase1(): UiSettings = if (PHASE1_DARK_ONLY) copy(theme = ThemeMode.DARK) else this
+
 internal object UiSettingKeys {
     const val THEME = "theme"
     const val ACCENT = "accent"

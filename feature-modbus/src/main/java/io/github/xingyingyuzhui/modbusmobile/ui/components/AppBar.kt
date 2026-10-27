@@ -43,6 +43,8 @@ fun PageHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing.s),
     ) {
+        // 页头最左边是玉米标：在外壳里它同时是模式切换器（48dp 热区，不撑高 52dp 页头）。
+        dev.corn.ui.mode.BrandMarkOrSwitcher()
         Text(title, color = colors.text, style = ModbusType.headline, modifier = Modifier.weight(1f))
         actions()
     }

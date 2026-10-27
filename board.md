@@ -23,6 +23,14 @@
 - [x] :feature-flashing 去 Activity / Application（`FlashingFeature` 懒加载容器 + `FlashingEntry`），USB 授权 action 改为 `<包名>.flashing.USB_PERMISSION`，SharedPreferences `ui` → `flashing_ui`，`CornColors` 改由 token 取值（`CornColorsMatchTokensTest` 锁定旧值）。
   - 本机补齐原生构建：SDK 已有 NDK 27.2.12479018；CMake 3.22.1 + ninja 用 pip 装在 /home/box/tc/tools/cmake-venv，经 local.properties 的 `cmake.dir` 指向（不入库）。
   - 本地：`:feature-flashing:compileDebugKotlin` + `externalNativeBuildDebug` 通过；`:feature-flashing:testDebugUnitTest` 22 个通过（含新增 1 个），加 `:flashing-core:test` 164 个，共 186 个。
-- [ ] :feature-modbus 同上 + token 换皮
-- [ ] :app 外壳、模式切换、last_mode
+- [x] :feature-modbus 去 Activity / Application（`ModbusFeature` / `ModbusContainer` 懒加载 + `ModbusEntry`），`ModbusColors` 改由 :ui-common token 取值（`ModbusColorsMatchTokensTest` 锁定映射），页头接模式切换器，USB 授权 action 改为 `<包名>.modbus.USB_PERMISSION`，第一期主题归一为深色（`PHASE1_DARK_ONLY`），外观页隐藏主题 / 强调色两项（不删代码）。
+  - 本地：`:feature-modbus:compileDebugKotlin` 通过；`:feature-modbus:testDebugUnitTest` 946 个通过（0 失败，含新增 4 个）。
+  - 收尾修正：`ModbusTheme` 原来自己 `provides LocalDensity(fontScale × appScale)`，外面再套 :ui-common 的 `CornTheme`（它乘一次），App 字号被叠两次（1.3 → 1.69）。现只由 `CornTheme` 叠一次，新增 `ModbusThemeDensityTest` 锁定（故意改回双乘时该测试会红）。
+  - 收尾修正：横屏 `FloatingRail` 里再加一个模式切换器会和页头里的重复（同屏两个 `brand-switcher`），已去掉，只保留页头一个；`AppBar` 重复的 `layout.size` import 一并清掉。
+- [x] :app 外壳、模式切换、last_mode
+  - `BenchApplication` 只登记 `FlashingFeature.install`（前台状态跟踪）；`:app` 唯一 `MainActivity`，两个模式都是 Compose 子图，切换不重启 Activity。
+  - `BenchRoot` / `ModeShell`：`bench_ui` DataStore 的 `last_mode` 决定进哪个模式；没有值时显示全屏选择页；读盘期间显示空底，不闪选择页。
+  - `ModeGuard`：`blockedReason()` 只查询不创建容器；`release()` 转给两个模块的 `releaseUsb()`。拦截时卡片置灰写原因，`release()` 返回 false 时不切换。
+  - 每个模式一个 `ViewModelStore`，切走时清掉；插入 USB 只弹 5 秒提示「不会自动切换模式」。
+  - 本地：`:app:testDebugUnitTest` 17 个通过（`BenchShellTest` 13 + `ModeStoreTest` 4，后者含 DataStore key 往返与「守卫不创建容器」）。
 - [ ] 测试 / Roborazzi / CI / docs

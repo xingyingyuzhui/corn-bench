@@ -24,7 +24,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-class AppContainer(app: Application) {
+/**
+ * 上位机模式的依赖（原 `ModbusMobileApp.container`）。
+ *
+ * Corn Bench 里没有模块自己的 Application：容器在第一次进入上位机模式、或系统重启 [SessionService] 时才创建。
+ * 烧录模式下不会初始化这里的 DataStore、USB 仓库、Room 历史等。
+ */
+class ModbusContainer(app: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val clock = SystemMonotonicClock
     val bridge = UsbSessionBridge()

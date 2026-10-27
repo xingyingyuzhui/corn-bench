@@ -87,4 +87,23 @@ class UiSettingsRoundTripTest {
     fun curveFullscreenDefaultsOff() {
         assertEquals(false, UiSettings().landscapeCurveFullscreen)
     }
+
+    /** 第一期只开放深色：旧数据里的 SYSTEM / LIGHT 读出来都要归一成 DARK，其余字段不动。 */
+    @Test
+    fun phase1NormalizesThemeToDarkAndKeepsEverythingElse() {
+        val parsed = uiSettingsFrom(
+            mapOf(
+                UiSettingKeys.THEME to ThemeMode.LIGHT.name,
+                UiSettingKeys.ACCENT to AccentColor.TEAL.name,
+                UiSettingKeys.FONT to FontScale.LARGE.name,
+            ),
+        )
+        assertEquals(ThemeMode.LIGHT, parsed.theme)
+        val normalized = parsed.forPhase1()
+        assertEquals(ThemeMode.DARK, normalized.theme)
+        assertEquals(AccentColor.TEAL, normalized.accent)
+        assertEquals(FontScale.LARGE, normalized.fontScale)
+        assertEquals(ThemeMode.DARK, UiSettings().forPhase1().theme)
+        assertEquals(ThemeMode.DARK, UiSettings(theme = ThemeMode.SYSTEM).forPhase1().theme)
+    }
 }

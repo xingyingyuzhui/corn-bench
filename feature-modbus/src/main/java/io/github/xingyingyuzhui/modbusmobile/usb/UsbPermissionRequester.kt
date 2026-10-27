@@ -15,7 +15,9 @@ class UsbPermissionRequester(
     private val context: Context,
     private val repository: UsbDeviceRepository,
 ) {
-    private val action = "${context.packageName}.USB_PERMISSION"
+    // Corn Bench 里烧录和上位机共用一个 applicationId：两边的授权广播 action 都必须带模块名，
+    // 否则一边收到另一边的授权结果（烧录侧是 "<包名>.flashing.USB_PERMISSION"）。
+    private val action = permissionAction(context.packageName)
 
     suspend fun request(deviceId: Int): Boolean {
         val device = repository.find(deviceId) ?: return false
@@ -47,5 +49,10 @@ class UsbPermissionRequester(
 
     private fun unregister(receiver: BroadcastReceiver) {
         runCatching { context.unregisterReceiver(receiver) }
+    }
+
+    companion object {
+        /** USB 授权结果广播的 action；与烧录模式的 `FlashingFeature` 侧保持不同。 */
+        fun permissionAction(packageName: String) = "$packageName.modbus.USB_PERMISSION"
     }
 }

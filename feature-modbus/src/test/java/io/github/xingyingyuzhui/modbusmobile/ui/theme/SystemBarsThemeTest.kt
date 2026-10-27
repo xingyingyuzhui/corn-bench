@@ -57,9 +57,13 @@ class SystemBarsThemeTest {
         assertTrue("浅色 App 主题下状态栏应为深色图标", lightIcons().first)
     }
 
+    /**
+     * Corn Bench 第一期起，上位机模式不再有自己的 Activity：入口 Composable 是 `ModbusEntry`，
+     * 它必须在外壳的 CornTheme 里调用 [SystemBarsFollowTheme]（否则系统栏图标还是跟系统走）。
+     */
     @Test
-    fun mainActivityAppliesIt() {
-        val source = File("src/main/java/io/github/xingyingyuzhui/modbusmobile/MainActivity.kt").readText()
-        assertTrue("MainActivity 的 ModbusTheme 里要调用 SystemBarsFollowTheme()", source.contains("SystemBarsFollowTheme()"))
+    fun modbusEntryAppliesIt() {
+        val source = File("src/main/java/io/github/xingyingyuzhui/modbusmobile/ModbusEntry.kt").readText()
+        assertTrue("ModbusEntry 的 ModbusTheme 里要调用 SystemBarsFollowTheme()", source.contains("SystemBarsFollowTheme()"))
     }
 }
