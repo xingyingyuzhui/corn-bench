@@ -6,13 +6,16 @@ local.properties
 *.jks
 *.keystore
 build/
+**/build/
 captures/
 .externalNativeBuild/
 .cxx/
+**/.cxx/
 *.apk
 *.ap_
 *.aab
 output-metadata.json
+dist/
 
 # Kotlin compiler session files
 .kotlin/
@@ -21,3 +24,6 @@ output-metadata.json
 __pycache__/
 *.pyc
 .venv/
+
+# Roborazzi 录制出来的基线 PNG 只留本地 / CI artifact，不进仓库
+**/src/test/screenshots/

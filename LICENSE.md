@@ -1,5 +1,7 @@
 Required Notice: Copyright 2026 xingyingyuzhui (https://github.com/xingyingyuzhui)
 Required Notice: Corn Modbus — https://github.com/xingyingyuzhui/corn-modbus
+Required Notice: Corn Flashing — https://github.com/xingyingyuzhui/Corn-Flashing
+Required Notice: Corn Bench — https://github.com/xingyingyuzhui/corn-bench
 
 # PolyForm Noncommercial License 1.0.0
 

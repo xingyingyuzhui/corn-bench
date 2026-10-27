@@ -7,7 +7,7 @@ dependencies {
 }
 
 tasks.test {
-    val demoHex = rootProject.file("app/src/main/assets/demo.hex")
+    val demoHex = rootProject.file("feature-flashing/src/main/assets/demo.hex")
     inputs.file(demoHex)
     systemProperty("corn.demoHex", demoHex.absolutePath)
 }

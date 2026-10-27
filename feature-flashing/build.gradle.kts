@@ -30,7 +30,7 @@ kotlin {
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 dependencies {
-    implementation(project(":core"))
+    implementation(project(":flashing-core"))
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
