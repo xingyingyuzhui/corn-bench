@@ -37,4 +37,14 @@
   - 合并成一个 Activity 后，原来烧录模式自己设的「固定浅色图标」没有了：外壳 `BenchSystemBars()` 按当前 token 设置系统栏图标深浅，
     `BenchSystemBarsTest` 先模拟 `enableEdgeToEdge()` 在系统浅色下给出深色图标，再断言外壳改回浅色。
   - `docs/bench-shell.md` 记录外壳结构、切换守卫与「本地已验证 / 未验证」清单；README 补全 6 个模块与构建命令。
-- [ ] 测试 / Roborazzi / CI / docs 收尾（CI 结果待这轮推送后确认；Roborazzi 只本地出图，未做像素基线）
+- [x] 测试 / Roborazzi / CI / docs
+  - CI 失败原因查清：`setup-python` 的 `cache-dependency-path` 还指向导入前的 `tools/rtu_lab/requirements.txt`，文件已挪到 `tools/modbus/rtu_lab/`，
+    setup 阶段直接报 “No file … matched”。同时把 NDK 27.2.12479018 / CMake 3.22.1 装进 runner，并补跑两个 feature 的单测 + lint + Roborazzi。
+  - `35a8977` 的 push run 与 PR run 已 **success**（12 分钟内）；`1e7c977` 的 push/PR run 也 success。
+  - 本地：5 个模块单测 1210 个通过（modbus-core 58、flashing-core 164、feature-modbus 948、feature-flashing 22、app 18）；
+    `:app` lintDebug + assembleDebug/Release、两个 feature 的 lintDebug 通过；`tools/modbus/verify_offline_apks.py` 通过；
+    合并后的 debug/release manifest 均无 `INTERNET`。
+  - Roborazzi：`:app:recordRoborazziDebug`（模式选择页 / 切换面板 / 拦截态）与 `:feature-modbus:recordRoborazziDebug` 能出图；
+    只做“能渲染”检查，没有像素基线比对，基线 PNG 不入库。
+  - docs：新增 `docs/bench-shell.md`（外壳结构与已验证/未验证清单）、`docs/注意事项.md`（合并后新增规则）、README 补全 6 个模块。
+- 未验证：真机 / 模拟器上的模式切换、USB 授权、前后台切换（本机 `adb devices` 无设备）；真实 ST-LINK / USB-RS485 收发。

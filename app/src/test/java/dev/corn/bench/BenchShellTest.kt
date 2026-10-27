@@ -168,7 +168,8 @@ class BenchShellTest {
         compose.onNodeWithTag(modeCardTag(BenchMode.FLASHING)).performClick()
         compose.waitForIdle()
         compose.onNodeWithTag(ModeConfirmTag).assertIsDisplayed()
-        compose.onNodeWithText("还没有释放完成", substring = true).assertDoesNotExist()
+        // 真的写了原因，而不是留一个永远不存在的字符串断言。
+        compose.onNodeWithText("当前模式仍在收尾", substring = true).assertIsDisplayed()
         compose.onNodeWithTag("content-modbus").assertIsDisplayed()
         assertEquals(ModeState.Selected(BenchMode.MODBUS), store.state.value)
     }
