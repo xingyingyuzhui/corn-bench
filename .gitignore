@@ -1,0 +1,23 @@
+*.iml
+.gradle/
+.idea/
+.DS_Store
+local.properties
+*.jks
+*.keystore
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.aab
+output-metadata.json
+
+# Kotlin compiler session files
+.kotlin/
+
+# Local Python tools and serial lab runtime
+__pycache__/
+*.pyc
+.venv/

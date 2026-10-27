@@ -1,0 +1,96 @@
+package io.github.xingyingyuzhui.modbusmobile
+
+import android.app.Application
+import io.github.xingyingyuzhui.modbusmobile.application.DataStoreSettingsRepository
+import io.github.xingyingyuzhui.modbusmobile.application.DefaultSessionManager
+import io.github.xingyingyuzhui.modbusmobile.application.SessionManager
+import io.github.xingyingyuzhui.modbusmobile.application.SettingsRepository
+import io.github.xingyingyuzhui.modbusmobile.application.TrafficRecorder
+import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryCatalog
+import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryPolicy
+import io.github.xingyingyuzhui.modbusmobile.application.history.HistoryRecorder
+import io.github.xingyingyuzhui.modbusmobile.application.history.StoreHistoryCatalog
+import io.github.xingyingyuzhui.modbusmobile.application.history.room.RoomHistoryStore
+import io.github.xingyingyuzhui.modbusmobile.application.slave.FileSlaveSetupStore
+import io.github.xingyingyuzhui.modbusmobile.core.transport.SystemMonotonicClock
+import io.github.xingyingyuzhui.modbusmobile.usb.AndroidUsbStack
+import io.github.xingyingyuzhui.modbusmobile.usb.UsbDeviceRepository
+import io.github.xingyingyuzhui.modbusmobile.usb.UsbPermissionRequester
+import io.github.xingyingyuzhui.modbusmobile.usb.UsbSessionBridge
+import io.github.xingyingyuzhui.modbusmobile.usb.withLocalSerialLab
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+class AppContainer(app: Application) {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val clock = SystemMonotonicClock
+    val bridge = UsbSessionBridge()
+    val repository = UsbDeviceRepository(app).also { it.start() }
+    private val permissions = UsbPermissionRequester(app, repository)
+    private val usb = withLocalSerialLab(AndroidUsbStack(app, repository, permissions, bridge), scope, clock)
+    val settingsRepository: SettingsRepository = DataStoreSettingsRepository(app, scope)
+    private val processStartedAtMs = System.currentTimeMillis()
+    private val projectDir = java.io.File(app.filesDir, "projects")
+    val slaveSetupStore = FileSlaveSetupStore(projectDir)
+    private val historyStore = RoomHistoryStore(app)
+    val historyRecorder = HistoryRecorder(
+        store = historyStore,
+        scope = scope,
+        policy = {
+            val settings = settingsRepository.settings.value
+            HistoryPolicy(
+                interval = settings.historyInterval,
+                retentionDays = settings.historyRetentionDays,
+                capacityBytes = settings.historyCapacityMb.toLong() * 1024L * 1024L,
+            )
+        },
+        nowMs = { System.currentTimeMillis() },
+    )
+    val historyCatalog: HistoryCatalog = StoreHistoryCatalog(historyStore, historyRecorder)
+    val sessionManager: SessionManager = DefaultSessionManager(
+        scope,
+        clock,
+        usb,
+        slaveSetupStore = slaveSetupStore,
+        history = historyRecorder,
+    )
+    val trafficRecorder = TrafficRecorder(sessionManager, scope)
+
+    /**
+     * 主站工作台的「每 N s」轮询（T-20261018-qa-02）：应用级作用域，离开工作台 / 退到后台都不停，
+     * 只在用户点停止、断开连接或 close() 时停。跑在主线程（和原来 viewModelScope 一样），结果直接交给工作台显示。
+     */
+    val masterPoller = io.github.xingyingyuzhui.modbusmobile.application.MasterPoller(
+        sessionManager,
+        CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate),
+    )
+    val pointStore = io.github.xingyingyuzhui.modbusmobile.application.panel.PointStore()
+    val sampleHistory = io.github.xingyingyuzhui.modbusmobile.application.panel.SampleHistory()
+    val pollScheduler = io.github.xingyingyuzhui.modbusmobile.application.panel.PollScheduler(
+        sessionManager,
+        scope,
+        pointStore,
+        nowMs = { System.nanoTime() / 1_000_000L },
+        history = sampleHistory,
+        diskHistory = historyRecorder,
+    )
+
+    init {
+        scope.launch {
+            try {
+                historyStore.closeDangling(processStartedAtMs, processStartedAtMs)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // 上次会话没收口就留到下次。不挡住这次启动。
+            }
+        }
+    }
+    val panelRuntime = io.github.xingyingyuzhui.modbusmobile.application.panel.PanelRuntime(pointStore, pollScheduler, sampleHistory) { previewScope ->
+        io.github.xingyingyuzhui.modbusmobile.application.panel.PointPreview(sessionManager, previewScope) { System.nanoTime() / 1_000_000L }
+    }
+    val projectRepository = io.github.xingyingyuzhui.modbusmobile.application.panel.ProjectRepository(projectDir)
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- T-20261018-and-07（CL-02）新增文案：按钮 / 输入状态。规范_v1 §6.0 §6.1 §6.2 §10。 -->
+<resources>
+    <string name="btn_loading_generic">正在处理…</string>
+    <string name="btn_loading_write">正在写入…</string>
+    <string name="btn_loading_read">正在读取…</string>
+    <string name="btn_loading_connect">正在连接…</string>
+    <string name="btn_loading_save">正在保存…</string>
+    <string name="input_readonly_hint">断开后可修改</string>
+    <string name="switch_state_on">开</string>
+    <string name="switch_state_off">关</string>
+    <!-- 仅预览用 -->
+    <string name="btn_preview_write">发送写入</string>
+    <string name="btn_preview_broadcast">广播 发送写入</string>
+    <string name="input_preview_address">起始地址</string>
+    <string name="input_preview_address_error">起始地址应在 0–65535 之间</string>
+    <string name="input_preview_name">名称</string>
+    <string name="input_preview_name_value">锅炉温度</string>
+</resources>

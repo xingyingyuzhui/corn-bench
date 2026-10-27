@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色启动窗口 = bg #0D1117（设计规范_v1 §11.4，G-14）。 -->
+    <color name="window_background">#0D1117</color>
+</resources>
