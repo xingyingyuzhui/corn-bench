@@ -84,3 +84,14 @@
   改为从 GitHub 直下单个 `NotoSansCJKsc-Regular.otf`（Sans2.004，16 MB）+ `actions/cache/restore|save@v5`（只在装成功时存），
   下载 / 安装各自 `timeout-minutes` 且 `continue-on-error`（没字体只影响截图里的中文字形，不影响“能渲染”检查）。
   actions 升到 Node 24 版本：checkout@v5、setup-java@v5、setup-android@v4、setup-gradle@v5、setup-python@v6、upload-artifact@v6。
+- [x] 外观迁移 bug（P1-2）：`migrateLegacyAppearance` 改用独立的 `appearance_migrated` 标记，不再拿 `theme_mode` 在不在判断
+  （旧数据只有 accent 时会每次冷启动重迁移、覆盖用户后来的强调色）。已有外壳外观值时只补标记不覆盖；读旧值抛异常不记标记、下次再试；
+  旧 `AMBER` 显式映射成 `CORN`（`legacyAccentToBench`）。迁移抽成可注入 `DataStore` / `legacy` 的顶层函数。
+  - `AppearanceMigrationTest` 重写为 9 个用例，每个用例独立临时 DataStore（不再共用全局单例、去掉 `Thread.sleep`）：
+    仅 theme / 仅 accent / AMBER→CORN / 迁移后用户改值不被覆盖 / 已有外壳值不读旧值 / 无旧值也记标记 / 读旧值失败退回默认且不记标记 / Loading / 往返持久化。
+  - 反证：临时把判定改回 `contains(theme_mode)`，该测试类 9 个中 3 个红；改回后全绿。
+- [x] 外观 Loading（P1-3）：`BenchAppearanceStore.loaded`，首次读盘（含迁移）完成前 `BenchRoot` 只放空的 `bench-loading` 占位、
+  不画模式内容（露出跟随系统的窗口底色），读完后第一帧即盘上主题。`BenchAppearanceTest.shellWaitsForStoredAppearanceBeforeDrawing` 锁定。
+  `BenchShellTest` 改注入内存外观（`FakeAppearance` 抽到单独文件），不再依赖真 `bench_ui` 读盘时序。
+  - 本地：`:app:testDebugUnitTest` 32 个通过（Shell 13、Migration 9、Appearance 5、ModeStore 4、SystemBars 1）。
+  - 仍有的残余：用户选了与系统相反的主题时，冷启动的**窗口底色**（Compose 起来之前）仍跟系统走，只是不再画一帧错色内容。

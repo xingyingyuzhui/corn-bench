@@ -3,50 +3,38 @@ package dev.corn.bench
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import dev.corn.ui.mode.BenchMode
 import dev.corn.ui.mode.BrandMarkOrSwitcher
 import dev.corn.ui.mode.BrandSwitcherTag
 import dev.corn.ui.mode.modeCardTag
-import dev.corn.ui.theme.AppearanceController
 import dev.corn.ui.theme.BenchAccent
-import dev.corn.ui.theme.BenchAppearanceState
 import dev.corn.ui.theme.BenchThemeMode
 import dev.corn.ui.theme.LocalBenchColors
 import dev.corn.ui.theme.benchColors
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-
-/** 内存版外观控制器：和外壳的 DataStore 实现同契约，测试不碰磁盘。 */
-private class FakeAppearance(
-    initial: BenchAppearanceState = BenchAppearanceState(),
-) : AppearanceController {
-    private val mutable = mutableStateOf(initial)
-    override val state: State<BenchAppearanceState> = mutable
-
-    override fun setThemeMode(mode: BenchThemeMode) {
-        mutable.value = mutable.value.copy(themeMode = mode)
-    }
-
-    override fun setAccent(accent: BenchAccent) {
-        mutable.value = mutable.value.copy(accent = accent)
-    }
-}
 
 /** 记录模式内容最后一次拿到的 token。 */
 private class Seen {
@@ -148,5 +136,43 @@ class BenchAppearanceTest {
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         show(themeMode = BenchThemeMode.SYSTEM)
         assertEquals("uiMode night=$night", night, seen.dark)
+    }
+
+    @get:Rule
+    val tmp = TemporaryFolder()
+
+    /**
+     * 首帧等读盘：外观读完之前外壳只放一个空的加载占位（露出窗口底色），不画模式内容；
+     * 读完后第一帧就是盘上的主题（这里是浅色），不会先按默认值画一帧。
+     */
+    @Test
+    fun shellWaitsForStoredAppearanceBeforeDrawing() {
+        val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val disk = PreferenceDataStoreFactory.create(scope = io) { tmp.root.resolve("bench_ui.preferences_pb") }
+            val gate = CompletableDeferred<Pair<String?, String?>?>()
+            val stored = BenchAppearanceStore(compose.activity, io, disk) { gate.await() }
+            compose.setContent {
+                BenchRoot(
+                    modeStore = MemoryModeStore(BenchMode.MODBUS),
+                    guard = noGuard,
+                    appearanceController = stored,
+                    modbusContent = { Probe(BenchMode.MODBUS) },
+                    flashingContent = { Probe(BenchMode.FLASHING) },
+                )
+            }
+            compose.waitForIdle()
+            compose.onNodeWithTag(BenchLoadingTag).assertExists()
+            compose.onNodeWithTag("content-modbus").assertDoesNotExist()
+            assertEquals("读盘前不应画过模式内容", null, seen.dark)
+
+            gate.complete("LIGHT" to null)
+            compose.waitUntil(10_000) { stored.loaded.value }
+            compose.waitForIdle()
+            compose.onNodeWithTag("content-modbus").assertIsDisplayed()
+            assertEquals(false, seen.dark)
+        } finally {
+            io.cancel()
+        }
     }
 }

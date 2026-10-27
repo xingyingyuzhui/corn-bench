@@ -118,6 +118,13 @@ fun BenchRoot(
     val appearanceStore = appearanceController
         ?: remember(context) { BenchAppearanceStore(context.applicationContext, scope) }
     val appearance by appearanceStore.state
+    // 外观还没读完盘时不画任何内容（只露出跟随系统的窗口底色）：用户选了和系统相反的主题时，
+    // 先按默认值画一帧再跳色会闪一下。读 bench_ui 一般只要几毫秒。
+    val appearanceLoaded = (appearanceStore as? BenchAppearanceStore)?.loaded?.value ?: true
+    if (!appearanceLoaded) {
+        Box(Modifier.fillMaxSize().testTag(BenchLoadingTag))
+        return
+    }
     val dark = appearance.isDark()
     CornTheme(
         appearance = BenchAppearance(

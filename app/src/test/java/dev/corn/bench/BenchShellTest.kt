@@ -94,6 +94,8 @@ class BenchShellTest {
                 modeStore = store,
                 guard = guard,
                 usbAttachTick = usbTick,
+                // 内存外观：不碰 bench_ui，外壳也就不会因为等读盘而停在空底。
+                appearanceController = FakeAppearance(),
                 modbusContent = { content(BenchMode.MODBUS) },
                 flashingContent = { content(BenchMode.FLASHING) },
             )
