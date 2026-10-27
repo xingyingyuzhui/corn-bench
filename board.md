@@ -102,3 +102,11 @@
   - `FlashingLeaveGuardTest` 7 个：空闲放行；单片烧录优先；PAUSED / FINISHED / WAITING_BOARD / FLASHING 文案；
     钩子先跑；仍被拦截直接 false；等识别结束；识别不结束超时 false。
   - 本地：`:app` 32、`:feature-flashing` 34、`:feature-modbus` 955 个单测全过（0 失败）。
+- [x] **redroid 验收发现并修复 P0 崩溃**：从上位机切到烧录模式（或 last_mode=烧录 冷启动）必崩——
+  `RuntimeException: Cannot create an instance of class dev.corn.flashing.ui.FlashViewModel`
+  ← `NoSuchMethodException: FlashViewModel.<init> []`。原因：外壳每个模式自建的 `ModeViewModelStoreOwner`
+  只实现了 `ViewModelStoreOwner`，`viewModel()` 不带工厂时退化成无参构造，而 `FlashViewModel` 是 `AndroidViewModel(Application)`。
+  单测里两个模式都用占位内容，所以一直没暴露；redroid 崩溃列表里 10-27 18:06–18:11 的 `dev.corn.bench` 崩溃也是同一处。
+  - 修：owner 同时实现 `HasDefaultViewModelProviderFactory`（`AndroidViewModelFactory` + `APPLICATION_KEY`）。
+  - 新增 `BenchShellTest.modeContentCanCreateAndroidViewModelsWithoutFactory`；去掉修复时该用例以同样的 `NoSuchMethodException` 红，修复后绿。
+  - 本地：`:app:testDebugUnitTest` 33 个通过、`:app:lintDebug` 通过。

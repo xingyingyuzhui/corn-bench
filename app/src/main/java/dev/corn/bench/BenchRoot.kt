@@ -1,5 +1,6 @@
 package dev.corn.bench
 
+import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -20,9 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.HasDefaultViewModelProviderFactory
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.MutableCreationExtras
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import dev.corn.flashing.FlashingEntry
 import dev.corn.flashing.FlashingFeature
@@ -72,9 +77,23 @@ object DefaultModeGuard : ModeGuard {
     }
 }
 
-/** 每个模式一份 ViewModelStore：切走时清掉，切回来是新的 ViewModel（旧数据不会串台）。 */
-private class ModeViewModelStoreOwner : ViewModelStoreOwner {
+/**
+ * 每个模式一份 ViewModelStore：切走时清掉，切回来是新的 ViewModel（旧数据不会串台）。
+ *
+ * 必须同时提供默认工厂：烧录的 `FlashViewModel` 是 `AndroidViewModel(Application)`，`viewModel()` 不带工厂时
+ * 走 owner 的默认工厂；只实现 [ViewModelStoreOwner] 会退化成无参构造，切到烧录模式直接崩
+ * （`NoSuchMethodException: FlashViewModel.<init> []`，redroid 上实测）。
+ */
+internal class ModeViewModelStoreOwner(application: Application) :
+    ViewModelStoreOwner,
+    HasDefaultViewModelProviderFactory {
     override val viewModelStore = ViewModelStore()
+
+    override val defaultViewModelProviderFactory: ViewModelProvider.Factory =
+        ViewModelProvider.AndroidViewModelFactory.getInstance(application)
+
+    override val defaultViewModelCreationExtras: CreationExtras =
+        MutableCreationExtras().apply { set(ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY, application) }
 
     fun clear() {
         viewModelStore.clear()
@@ -178,7 +197,8 @@ fun ModeShell(
 ) {
     val scope = rememberCoroutineScope()
     val colors = LocalBenchColors.current
-    val owner = remember(mode) { ModeViewModelStoreOwner() }
+    val application = LocalContext.current.applicationContext as Application
+    val owner = remember(mode) { ModeViewModelStoreOwner(application) }
     DisposableEffect(mode) {
         onDispose { owner.clear() }
     }

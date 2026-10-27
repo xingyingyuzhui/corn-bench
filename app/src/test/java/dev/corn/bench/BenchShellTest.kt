@@ -11,6 +11,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -70,6 +72,9 @@ class ProbeViewModel : ViewModel() {
         cleared = true
     }
 }
+
+/** 和烧录的 `FlashViewModel` 一样只有 `(Application)` 构造：靠 owner 的默认工厂才能建出来。 */
+class ProbeAndroidViewModel(application: Application) : AndroidViewModel(application)
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -252,5 +257,20 @@ class BenchShellTest {
         show(MemoryModeStore(BenchMode.FLASHING), guard)
         compose.onNodeWithTag(BrandSwitcherTag).performClick()
         compose.onNodeWithTag(ModeSheetTag).captureRoboImage("bench_mode_sheet_blocked.png")
+    }
+
+    /**
+     * redroid 实测回归：模式内容里不带工厂的 `viewModel()` 要能建出 `AndroidViewModel(Application)`。
+     * 原来外壳的 owner 没有默认工厂，切到烧录模式时 `FlashViewModel` 无参构造失败直接崩。
+     */
+    @Test
+    fun modeContentCanCreateAndroidViewModelsWithoutFactory() {
+        var created: ProbeAndroidViewModel? = null
+        show(MemoryModeStore(BenchMode.FLASHING), content = { mode ->
+            if (mode == BenchMode.FLASHING) created = viewModel<ProbeAndroidViewModel>()
+            FlashingPlaceholder()
+        })
+        compose.onNodeWithTag("content-flashing").assertIsDisplayed()
+        assertTrue("应由 AndroidViewModelFactory 带 Application 创建", created != null)
     }
 }
