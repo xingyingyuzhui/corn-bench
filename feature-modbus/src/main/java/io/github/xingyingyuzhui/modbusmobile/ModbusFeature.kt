@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -36,16 +37,7 @@ object ModbusFeature {
      */
     fun leaveBlockedReason(): String? {
         val c = created ?: return null
-        return when (val state = c.sessionManager.state.value) {
-            is SessionState.Running -> when (state.target) {
-                ConnectionTarget.Demo -> "上位机演示会话正在运行：请先在连接页断开"
-                is ConnectionTarget.Usb -> "串口已连接：请先在连接页断开后再切换"
-            }
-            SessionState.RequestingPermission -> "正在请求 USB 授权：等授权结果出来后再切换"
-            SessionState.Opening -> "正在打开串口：等连接结束或失败后再切换"
-            SessionState.Stopping -> "正在断开串口：等断开完成后再切换"
-            SessionState.Idle, is SessionState.Error -> null
-        }
+        return leaveBlockedReasonFor(c.sessionManager.state.value)
     }
 
     /**
@@ -54,17 +46,42 @@ object ModbusFeature {
      */
     suspend fun releaseUsb(timeoutMillis: Long = 5_000): Boolean {
         val c = created ?: return true
-        c.masterPoller.stop()
-        if (c.sessionManager.state.value !is SessionState.Idle && c.sessionManager.state.value !is SessionState.Error) {
-            c.sessionManager.disconnect()
-        }
-        return withTimeoutOrNull(timeoutMillis) {
-            c.sessionManager.state.first { it is SessionState.Idle || it is SessionState.Error }
-        } != null
+        return releaseSession(
+            state = c.sessionManager.state,
+            stopPolling = c.masterPoller::stop,
+            disconnect = c.sessionManager::disconnect,
+            timeoutMillis = timeoutMillis,
+        )
     }
 
     /** 只给测试 / 预览用：清掉单例，让下次 [container] 重新按传入的 Application 创建。 */
     internal fun resetForTest() {
         synchronized(this) { created = null }
     }
+}
+
+/** [ModbusFeature.leaveBlockedReason] 的判定本体：只看会话状态，单测直接喂各个状态。 */
+internal fun leaveBlockedReasonFor(state: SessionState): String? = when (state) {
+    is SessionState.Running -> when (state.target) {
+        ConnectionTarget.Demo -> "上位机演示会话正在运行：请先在连接页断开"
+        is ConnectionTarget.Usb -> "串口已连接：请先在连接页断开后再切换"
+    }
+    SessionState.RequestingPermission -> "正在请求 USB 授权：等授权结果出来后再切换"
+    SessionState.Opening -> "正在打开串口：等连接结束或失败后再切换"
+    SessionState.Stopping -> "正在断开串口：等断开完成后再切换"
+    SessionState.Idle, is SessionState.Error -> null
+}
+
+/** [ModbusFeature.releaseUsb] 的本体：停轮询 → 非空闲就断开 → 等回到空闲 / 出错；超时返回 false。 */
+internal suspend fun releaseSession(
+    state: StateFlow<SessionState>,
+    stopPolling: () -> Unit,
+    disconnect: suspend () -> Unit,
+    timeoutMillis: Long,
+): Boolean {
+    stopPolling()
+    if (state.value !is SessionState.Idle && state.value !is SessionState.Error) disconnect()
+    return withTimeoutOrNull(timeoutMillis) {
+        state.first { it is SessionState.Idle || it is SessionState.Error }
+    } != null
 }

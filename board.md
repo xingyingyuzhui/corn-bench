@@ -95,3 +95,10 @@
   `BenchShellTest` 改注入内存外观（`FakeAppearance` 抽到单独文件），不再依赖真 `bench_ui` 读盘时序。
   - 本地：`:app:testDebugUnitTest` 32 个通过（Shell 13、Migration 9、Appearance 5、ModeStore 4、SystemBars 1）。
   - 仍有的残余：用户选了与系统相反的主题时，冷启动的**窗口底色**（Compose 起来之前）仍跟系统走，只是不再画一帧错色内容。
+- [x] ModeGuard 单测（P1-4）：两个 Feature 的判定抽成纯函数（`leaveBlockedReasonFor` / `releaseSession`，
+  `flashingLeaveBlockedReason` / `releaseFlashingUsb`），对象方法只做转发，行为不变。
+  - `ModbusLeaveGuardTest` 7 个：Idle/Error 放行；Running(Demo)、Running(Usb)、RequestingPermission、Opening、Stopping 各自文案；
+    容器未创建时放行且不创建容器；空闲不断开；运行中断开并等回到 Idle；Error 视为已释放；卡在 Stopping 超时 false。
+  - `FlashingLeaveGuardTest` 7 个：空闲放行；单片烧录优先；PAUSED / FINISHED / WAITING_BOARD / FLASHING 文案；
+    钩子先跑；仍被拦截直接 false；等识别结束；识别不结束超时 false。
+  - 本地：`:app` 32、`:feature-flashing` 34、`:feature-modbus` 955 个单测全过（0 失败）。

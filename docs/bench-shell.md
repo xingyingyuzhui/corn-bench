@@ -33,6 +33,10 @@
 - 烧录：单片烧录中、批次未结束（含暂停 / 已烧完未结束）不能离开；`releaseUsb()` 停掉等待下一块板的轮询，
   并等正在识别芯片的操作收尾（默认 5 秒超时）。
 - 被拦截时目标卡置灰并写明原因，同时弹一个只读的确认框；不提供“强制断开”。
+- 判定本体是纯函数，单测直接覆盖：`leaveBlockedReasonFor(SessionState)` / `releaseSession(...)`（上位机，`ModbusLeaveGuardTest`）、
+  `flashingLeaveBlockedReason(running, phase)` / `releaseFlashingUsb(...)`（烧录，`FlashingLeaveGuardTest`），
+  各忙态文案与超时返回 false 都有用例。
+- 已知限制：切换面板打开后卡片的置灰是打开那一刻的快照，后台状态变了不会刷新；真正切换时 `requestSwitch` 会重查，不会切错。
 - 每个模式一个独立 `ViewModelStore`，切走时 `clear()`，切回来是新的 ViewModel。
 
 ## 外观（第二期：浅色 / 强调色开放）
@@ -49,6 +53,11 @@
     没有外壳时（预览 / 单测）退回读 `UiSettings.theme` / `UiSettings.accent`。
 - 外观页恢复“主题 / 强调色”两项，写入外壳控制器；`PHASE1_DARK_ONLY` 改为 `false`（函数保留为恒等，
   旧调用点与旧截图不用改）。第一期的 `ui_settings` 旧值在第一次启动时迁移到 `bench_ui`，之后以外壳为准。
+- 迁移只做一次，用独立的 `appearance_migrated` 标记判断（不能看 `theme_mode` 在不在：旧数据只有 accent 时
+  会每次冷启动重迁移、覆盖用户后来的选择）。已有外壳外观值时只补标记不覆盖；读旧值失败不记标记、下次再试；
+  旧上位机的 `AMBER` 显式映射为 `CORN`。
+- 首帧等读盘：`BenchAppearanceStore.loaded` 为 false 时外壳只放空的 `bench-loading` 占位（露出窗口底色），
+  不按默认外观先画一帧。残余：Compose 起来之前的窗口底色仍跟系统深浅。
 - 冷启动窗口底色跟随系统深浅（`app/src/main/res/values{,-night}`），浅色主题下不会先闪一下黑屏。
 - 颜色、间距、字号仍来自 `:ui-common` 语义 token；上位机自己的间距刻度（group 16 / card 12）先保留。
 - 字号只在 `CornTheme` 里叠一次（系统倍率 × App 倍率），`ModbusThemeDensityTest` 锁定 1.3 不会变成 1.69。

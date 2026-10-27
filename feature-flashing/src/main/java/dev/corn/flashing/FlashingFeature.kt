@@ -17,10 +17,12 @@ import dev.corn.flashing.storage.JobLauncher
 import dev.corn.flashing.usb.StLinkHardwareBackend
 import dev.corn.flashing.usb.UsbProbeMonitor
 import java.util.concurrent.CopyOnWriteArraySet
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -61,13 +63,7 @@ object FlashingFeature {
      */
     fun leaveBlockedReason(): String? {
         val c = created ?: return null
-        if (c.repository.state.value.running) return "正在烧录：等这一片完成后再切换"
-        val batch = c.batches.active.value ?: return null
-        return when (batch.phase) {
-            BatchPhase.PAUSED -> "批次已暂停但未结束：请先在工作台结束批次"
-            BatchPhase.FINISHED -> "批次已烧完但还没结束：请先在工作台结束批次"
-            else -> "批量烧录进行中：请先在工作台结束批次"
-        }
+        return flashingLeaveBlockedReason(c.repository.state.value.running, c.batches.active.value?.phase)
     }
 
     /**
@@ -76,9 +72,12 @@ object FlashingFeature {
      */
     suspend fun releaseUsb(timeoutMillis: Long = 5_000): Boolean {
         val c = created ?: return true
-        c.leaveHooks.forEach { it() }
-        if (leaveBlockedReason() != null) return false
-        return withTimeoutOrNull(timeoutMillis) { c.repository.state.first { !it.probing } } != null
+        return releaseFlashingUsb(
+            leaveHooks = c.leaveHooks,
+            blockedReason = ::leaveBlockedReason,
+            probing = c.repository.state.map { it.probing },
+            timeoutMillis = timeoutMillis,
+        )
     }
 
     private class ForegroundTracker(private val state: MutableStateFlow<Boolean>) : Application.ActivityLifecycleCallbacks {
@@ -91,6 +90,35 @@ object FlashingFeature {
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
         override fun onActivityDestroyed(activity: Activity) = Unit
     }
+}
+
+/**
+ * [FlashingFeature.leaveBlockedReason] 的判定本体。单片烧录进行中、或批次没结束（含暂停 / 已烧完未结束）都不能离开。
+ * [batchPhase] 为 null = 没有活动批次。
+ */
+internal fun flashingLeaveBlockedReason(running: Boolean, batchPhase: BatchPhase?): String? {
+    if (running) return "正在烧录：等这一片完成后再切换"
+    return when (batchPhase) {
+        null -> null
+        BatchPhase.PAUSED -> "批次已暂停但未结束：请先在工作台结束批次"
+        BatchPhase.FINISHED -> "批次已烧完但还没结束：请先在工作台结束批次"
+        BatchPhase.WAITING_BOARD, BatchPhase.FLASHING -> "批量烧录进行中：请先在工作台结束批次"
+    }
+}
+
+/**
+ * [FlashingFeature.releaseUsb] 的本体：先跑离开钩子（停“等待下一块板”轮询），仍被拦截就直接 false，
+ * 否则等识别芯片收尾（[probing] 变 false）；超时返回 false。
+ */
+internal suspend fun releaseFlashingUsb(
+    leaveHooks: Iterable<() -> Unit>,
+    blockedReason: () -> String?,
+    probing: Flow<Boolean>,
+    timeoutMillis: Long,
+): Boolean {
+    leaveHooks.forEach { it() }
+    if (blockedReason() != null) return false
+    return withTimeoutOrNull(timeoutMillis) { probing.first { !it } } != null
 }
 
 /** 烧录模式的依赖（与原 CornApplication 的字段、构造顺序一致）。 */
