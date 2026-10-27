@@ -13,3 +13,14 @@
 - 本地构建（本机无 NDK / CMake，只跑纯 JVM 模块）：
   - `:flashing-core:test` 164 个通过，`:modbus-core:test` 58 个通过（0 失败）。
   - 含原生代码的 `:feature-flashing` 本地未构建，交给 GitHub CI。
+
+## 2026-10-27 第一期 · 分支 feat/phase1-shell
+
+- 决策（老板已确认）：applicationId `dev.corn.bench`、versionName 0.2.0 / versionCode 1、minSdk 29、第一期只开放深色（可调项隐藏不删）、TX 色由开发选定。
+- [x] 构建结构：catalog 补 `android-library`；6 个模块（:app、:ui-common、:feature-flashing、:flashing-core、:feature-modbus、:modbus-core）；两个 feature 改为 library，Flashing 依赖改走 catalog。
+- [x] :ui-common token 初版（色板 → 语义 → 尺寸）+ 外壳组件；本地 `:ui-common:compileDebugKotlin` 通过。
+  - TX 色：青绿 #4FD1C5（与玉米 #F7C948 ΔE≈83；原 Modbus 琥珀 #F5A524 与玉米 ΔE≈19）。
+- [ ] :feature-flashing 去 Activity / Application、懒加载容器、USB 授权 action 隔离
+- [ ] :feature-modbus 同上 + token 换皮
+- [ ] :app 外壳、模式切换、last_mode
+- [ ] 测试 / Roborazzi / CI / docs

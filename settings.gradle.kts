@@ -22,8 +22,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "corn-bench"
 
-// 初始导入：两个源工程原样并排（各自仍是独立 application），由第一期把它们改成 library 并接入 :app 外壳。
+// Corn Bench：:app 外壳 + 共享设计系统 + 两个功能模块 + 两个纯 JVM 核心。
 include(
+    ":app",
+    ":ui-common",
     ":feature-flashing",
     ":flashing-core",
     ":feature-modbus",
