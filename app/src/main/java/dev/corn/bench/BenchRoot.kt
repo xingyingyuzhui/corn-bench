@@ -107,6 +107,8 @@ fun BenchRoot(
     }
 
     CornTheme {
+        // 系统栏图标深浅跟当前模式的主题走（系统浅色时炭黑底也需要浅色图标）。
+        BenchSystemBars()
         Box(Modifier.fillMaxSize().background(LocalBenchColors.current.bg)) {
             when {
                 chosen != null -> ModeShell(

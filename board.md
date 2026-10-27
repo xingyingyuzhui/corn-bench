@@ -32,5 +32,9 @@
   - `BenchRoot` / `ModeShell`：`bench_ui` DataStore 的 `last_mode` 决定进哪个模式；没有值时显示全屏选择页；读盘期间显示空底，不闪选择页。
   - `ModeGuard`：`blockedReason()` 只查询不创建容器；`release()` 转给两个模块的 `releaseUsb()`。拦截时卡片置灰写原因，`release()` 返回 false 时不切换。
   - 每个模式一个 `ViewModelStore`，切走时清掉；插入 USB 只弹 5 秒提示「不会自动切换模式」。
-  - 本地：`:app:testDebugUnitTest` 17 个通过（`BenchShellTest` 13 + `ModeStoreTest` 4，后者含 DataStore key 往返与「守卫不创建容器」）。
-- [ ] 测试 / Roborazzi / CI / docs
+  - 本地：`:app:testDebugUnitTest` 18 个通过（`BenchShellTest` 13 + `ModeStoreTest` 4 + `BenchSystemBarsTest` 1，前者含 DataStore key 往返与「守卫不创建容器」）。
+- [x] 外壳系统栏 + docs 初稿
+  - 合并成一个 Activity 后，原来烧录模式自己设的「固定浅色图标」没有了：外壳 `BenchSystemBars()` 按当前 token 设置系统栏图标深浅，
+    `BenchSystemBarsTest` 先模拟 `enableEdgeToEdge()` 在系统浅色下给出深色图标，再断言外壳改回浅色。
+  - `docs/bench-shell.md` 记录外壳结构、切换守卫与「本地已验证 / 未验证」清单；README 补全 6 个模块与构建命令。
+- [ ] 测试 / Roborazzi / CI / docs 收尾（CI 结果待这轮推送后确认；Roborazzi 只本地出图，未做像素基线）
