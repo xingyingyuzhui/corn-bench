@@ -216,3 +216,22 @@
 - 未验证：这个正式包的设备安装与启动（redroid 验收用的是 skipNative 的云构建包，签名也不同）；
   真机 USB（ST-LINK / RS485、授权回调、拔插、模式间 USB 交接）、前后台、`FlashService` 通知回原实例；
   真机浅色 / 强调色观感；TalkBack。
+
+## 2026-10-28 发版 · Corn Bench 0.2.1
+
+- 交互整理（E-20261028-ux1）三个 PR 依次合进 main（merge commit）：
+  - #3 `cbba07b` 连接页串口卡去预设 chip / 「…」 / 角标，四格点格子弹菜单（FieldTileMenu，菜单项 36dp）；
+  - #4 `813d868` 写入「格式」下拉、SelectChip 48dp 热区不占布局、我的→通信默认值→回显行尾菜单；
+  - #5 `f0a7504` 日志页头「锁定滚动」文字、回显 / 拓扑 / 时间窗口 / 少用数据类型统一为下拉、烧录状态链 / 1×1 / 从站来源列去按钮感、
+    我的去掉 ⚙ 与重复设置页、「最近写入」间距。
+- 版本：versionName 0.2.1 / versionCode 2（`ed58320`）；tag `v0.2.1`（annotated，指向 `ed58320`）。
+- Release：https://github.com/xingyingyuzhui/corn-bench/releases/tag/v0.2.1
+- 构建：本机 `./gradlew :app:assembleDebug`，**未设 skipNative**；签名沿用本机 debug keystore（证书 SHA-256 同 0.2.0，可覆盖安装）。
+  - 核对：`libcorn_usbfs_diag.so` 四个 ABI 都在包里；权限无 INTERNET；`apksigner verify` 通过。
+- 产物：`dist/Corn-Bench-0.2.1.apk`（41,840,141 字节）+ `.sha256`，不入库。
+  SHA-256 `f350558e8eef1d8f3d4efcc5d410b9f75219580f897b6be27c87f0ef6cddeeba`（与 GitHub 资产摘要一致）。
+- 发版前验证：三个 PR 合入前 CI 均为 pass（#3、#5 各有一次失败是 `:app` `AppearanceMigrationTest.appearanceRoundTripsThroughTheShellStore`
+  DataStore 超时，main@b5216b3 上同样出现过，与本批改动无关，重跑后通过）；本机 `:feature-modbus` / `:feature-flashing` 全量单测 + 像素基线 verify 通过。
+- 像素基线：上位机连接页 2 张（#3）、烧录工作台 3 张（#5）在本机重录；以 CI verify 为准。
+- 未验证：这个 APK 的设备安装与启动；真机 USB；36dp 紧凑菜单的真机手感；TalkBack。
+- 待办：`AppearanceMigrationTest` 偶发超时未根治（只重跑了），需要单独查。
