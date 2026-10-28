@@ -138,3 +138,11 @@
   - `:ui-common` 新增 `CornThemeFontScaleTest` 3 个（外 1 内 1.3、外 1.15 内 1、两层都 1.3 抛异常）；
     `:app` 新增 `ShellFontScaleTest` 2 个：系统字号 1.2 下真实 `BenchRoot` 套真实 `ModbusTheme(EXTRA)`，外壳层 = 1.2、模式层 = 1.56。
   - 反证：把 `shellAppearance` 改成 1.3，`ShellFontScaleTest` 2 个全红；改回后绿。
+- [x] 用户可见文案去掉独立应用名「Corn Flashing」
+  - 页头标题（单路 / 批量工作台）改为模式名 `BenchMode.FLASHING.title`（“烧录”），与切换面板一致；副标题不变。
+  - 引导第 3 步“允许 Corn Bench 访问”（系统 USB 授权框显示的就是 :app 的 `app_name`）；设置页关于卡“Corn Bench x.y.z · 烧录”、
+    署名“Corn Bench · by xingyingyuzhui”、仓库链接改 `github.com/xingyingyuzhui/corn-bench`；
+    USB 诊断剪贴板标签“Corn Bench 烧录 USB 诊断”；前台通知标题只写“烧录 / 模拟烧录 / ST-LINK 烧录”（通知头已显示应用名）；
+    导出记录默认文件名 `corn-bench-flashing-records.json`。
+  - 不改：Room 库文件名 `corn-flashing.db`（内部文件名，改了会丢旧记录）、注释里的历史来源。上位机侧的“Corn Modbus”署名不在本条范围，未动。
+  - `UserVisibleBrandingTest` 2 个：扫 `src/main` 的 Kotlin 字符串字面量与资源值（跳过注释和 `.db` 名）。反证：还原改名前的源码时红 1 个。

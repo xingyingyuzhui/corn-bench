@@ -101,7 +101,8 @@ class FlashService : Service() {
         val cancel = PendingIntent.getService(this, 0, Intent(this, FlashService::class.java).setAction(ACTION_CANCEL), PendingIntent.FLAG_IMMUTABLE)
         val notification = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_corn)
-            .setContentTitle(when { idle -> "Corn Flashing"; simulator -> "Corn Flashing · 模拟烧录"; else -> "Corn Flashing · ST-LINK 烧录" })
+            // 通知头部已显示应用名 Corn Bench，标题只写模式内的状态。
+            .setContentTitle(when { idle -> "烧录"; simulator -> "模拟烧录"; else -> "ST-LINK 烧录" })
             .setContentText(when { idle -> "任务服务已启动"; simulator -> "正在演示烧录流程，不操作真实芯片"; else -> "正在处理真实控制板，请勿断开 USB 或目标供电" })
             .setContentIntent(open).setOngoing(!idle)
             .addAction(Notification.Action.Builder(null, "取消", cancel).build()).build()

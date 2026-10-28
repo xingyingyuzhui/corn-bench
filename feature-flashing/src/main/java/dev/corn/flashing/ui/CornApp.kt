@@ -47,6 +47,7 @@ import dev.corn.flashing.storage.ImportedFirmware
 import dev.corn.flashing.storage.JobEntity
 import dev.corn.flashing.storage.SessionState
 import dev.corn.flashing.usb.UsbProbe
+import dev.corn.ui.mode.BenchMode
 import java.util.Calendar
 
 /** Overlay pages pushed above the tabs. */
@@ -165,7 +166,7 @@ fun CornApp(vm: FlashViewModel) {
                 }
                 page == Page.SETTINGS -> {
                     BackHandler { page = Page.NONE }
-                    SettingsScreen(vm, onBack = { page = Page.NONE }, onExport = { exporter.launch("corn-flashing-records.json") })
+                    SettingsScreen(vm, onBack = { page = Page.NONE }, onExport = { exporter.launch(RecordsExportName) })
                 }
                 page == Page.FIRMWARE_DETAIL && state.firmware != null -> {
                     BackHandler { page = Page.NONE }
@@ -202,7 +203,7 @@ fun CornApp(vm: FlashViewModel) {
                                 onPick = { picker.launch(arrayOf("*/*")) }, onDetail = { page = Page.FIRMWARE_DETAIL })
                             2 -> ConfigTab(vm)
                             3 -> DevicesTab(vm, devices)
-                            4 -> RecordsTab(vm, history, onExport = { exporter.launch("corn-flashing-records.json") })
+                            4 -> RecordsTab(vm, history, onExport = { exporter.launch(RecordsExportName) })
                         }
                     }
                   }
@@ -250,6 +251,9 @@ private fun FinishFeedback(vm: FlashViewModel, state: SessionState) {
 
 // Only tab pages reserve scrollable trailing space for the overlay; detail pages have no dock.
 val LocalDockClearance = staticCompositionLocalOf { 0.dp }
+/** 导出烧录记录的默认文件名：应用已是 Corn Bench，不再用独立应用名 corn-flashing。 */
+internal const val RecordsExportName = "corn-bench-flashing-records.json"
+
 private val DockClearance = 88.dp // Island height (68) plus its outer vertical spacing (20).
 
 @Composable
@@ -308,7 +312,7 @@ private fun Workbench(
         BatchWorkbench(vm, state, batch, onMode, onSettings, onNewBatch)
         return
     }
-    TopBar("Corn Flashing", when {
+    TopBar(BenchMode.FLASHING.title, when {
         sim -> "模拟烧录 · 演示板"
         state.target != null -> "离线烧录 · ${state.target.family}"
         else -> "离线烧录 · 自动识别目标"
@@ -557,7 +561,7 @@ private fun NoProbeCard(probe: UsbProbe?, anyUsb: Boolean, vm: FlashViewModel) {
         }
         HintRow("1", "OTG 转接头插到手机", "Type-C → USB-A 母口", done = vm.hostSupported && (anyUsb || true))
         HintRow("2", "接上 ST-LINK", "ST-LINK/V2 插到转接头上", done = probe != null)
-        HintRow("3", "允许 Corn Flashing 访问", "系统会弹出 USB 授权窗口", done = probe?.permissionGranted == true, last = true)
+        HintRow("3", "允许 Corn Bench 访问", "系统会弹出 USB 授权窗口", done = probe?.permissionGranted == true, last = true)
         if (probe != null && !probe.permissionGranted) {
             CornButton("授权", { vm.authorize(probe.connectionId) }, Modifier.fillMaxWidth(), primary = true, height = 44)
         }

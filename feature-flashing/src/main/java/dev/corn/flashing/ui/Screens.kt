@@ -426,7 +426,7 @@ private fun UsbDiagnosticCard(diagnostic: String, vm: FlashViewModel) {
         CornButton("复制 USB 诊断", {
             try {
                 val clipboard = context.getSystemService(ClipboardManager::class.java)
-                clipboard.setPrimaryClip(ClipData.newPlainText("Corn Flashing USB 诊断", diagnostic))
+                clipboard.setPrimaryClip(ClipData.newPlainText("Corn Bench 烧录 USB 诊断", diagnostic))
                 vm.notify("已复制完整 USB 诊断")
             } catch (_: Exception) {
                 vm.notify("复制失败，请重试")
@@ -683,14 +683,14 @@ fun SettingsScreen(vm: FlashViewModel, onBack: () -> Unit, onExport: () -> Unit)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     AppIcon(44.dp)
                     Column {
-                        T("Corn Flashing $version", size = 15.sp, weight = FontWeight.Bold)
+                        T("Corn Bench $version · 烧录", size = 15.sp, weight = FontWeight.Bold)
                         T("非商业授权 · PolyForm NC 1.0.0", CornColors.Dim, 12.sp)
                     }
                 }
             }
             Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                T("Corn Flashing · by xingyingyuzhui", CornColors.Corn, 12.sp, FontWeight.SemiBold)
-                T("github.com/xingyingyuzhui/Corn-Flashing", CornColors.Mute, 11.sp, mono = true)
+                T("Corn Bench · by xingyingyuzhui", CornColors.Corn, 12.sp, FontWeight.SemiBold)
+                T("github.com/xingyingyuzhui/corn-bench", CornColors.Mute, 11.sp, mono = true)
             }
         }
     }

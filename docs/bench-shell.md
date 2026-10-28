@@ -67,6 +67,13 @@
   `CornThemeFontScaleTest`（:ui-common）与 `ShellFontScaleTest`（:app，系统 1.2 × EXTRA 1.3 = 1.56）锁定。
 - 系统栏图标深浅由外壳 `BenchSystemBars()` 按当前 token 设置（`BenchSystemBarsTest` 锁定系统浅色时仍是浅色图标）。
 
+## 命名
+
+- 用户可见的应用名只有 **Corn Bench**；模式内用模式名（“上位机” / “烧录”）。烧录页头标题就是 `BenchMode.FLASHING.title`。
+- 烧录侧不再出现独立应用名“Corn Flashing”（`UserVisibleBrandingTest` 扫字符串字面量与资源）；
+  例外：Room 库文件名 `corn-flashing.db`（内部，改名会丢旧记录）与注释里的历史来源。
+- 上位机侧的“Corn Modbus”署名（设置页最后一行、导出 ZIP 注释）尚未统一，留待单独决定。
+
 ## 已验证 / 未验证
 
 按“在哪儿验证”分三类，**redroid 不等于真机**。
@@ -100,4 +107,4 @@
 - 真机前后台切换、`FlashService` 通知点击回到原实例。
 - 浅色 / 强调色在真机上的观感与对比度；TalkBack 实走 ModePicker 与切换面板。
 - “选了与系统相反主题”时冷启动的窗口底色（Compose 之前）仍跟系统，未在设备上量过闪烁时长。
-- 页面文案遗留：烧录页标题仍叫“Corn Flashing”、引导写“允许 Corn Flashing 访问”。
+
