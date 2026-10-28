@@ -328,6 +328,7 @@ fun FieldTile(
     sub: String? = null,
     modifier: Modifier = Modifier,
     mono: Boolean = true,
+    minHeight: Dp = ModbusSize.fieldTile,
     open: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
@@ -337,7 +338,7 @@ fun FieldTile(
     // 传了 [onClick] 就是下拉格：整格可点、值后画 ⌄，菜单展开（[open]）时 1.5dp accent.border 描边，同输入格聚焦态。
     Column(
         modifier
-            .heightIn(min = ModbusSize.fieldTile)
+            .heightIn(min = minHeight)
             .clip(shape)
             .background(colors.surface2, shape)
             .then(if (open) Modifier.border(StrokeControl, colors.accentBorder, shape) else Modifier)

@@ -54,6 +54,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.LocalMasterPoller
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ChoiceTile
+import io.github.xingyingyuzhui.modbusmobile.ui.components.FieldTileMenu
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ConfirmSheet
 import io.github.xingyingyuzhui.modbusmobile.ui.components.GearIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
@@ -328,11 +329,14 @@ private fun RequestCard(model: WorkbenchViewModel, settings: UiSettings, landsca
                     readOnly = model.busy,
                 ) { model.quantity = it }
             } else if (model.writeArea == RegisterArea.HOLDING_REGISTER) {
-                ChoiceTile(
+                FieldTileMenu(
                     stringResource(R.string.field_format),
-                    stringResource(if (model.writeFormat == WriteFormat.DEC) R.string.format_dec else R.string.format_hex),
-                    model::toggleWriteFormat,
-                    Modifier.weight(1f),
+                    model.writeFormat,
+                    WriteFormat.entries,
+                    { stringResource(if (it == WriteFormat.DEC) R.string.format_dec else R.string.format_hex) },
+                    model::selectWriteFormat,
+                    Modifier.weight(1f).testTag("write-format"),
+                    mono = false,
                     minHeight = tileMin,
                 )
             }

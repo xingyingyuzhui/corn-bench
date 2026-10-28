@@ -21,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.xingyingyuzhui.modbusmobile.ui.theme.ModbusSize
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
 
 /** ⋮ 菜单的容器：设计令牌里的 surface1 底 + 1dp line 描边 + 圆角 14，不用 Material 默认的浅紫色底。稿面没有画菜单，样式取自令牌。 */
@@ -79,11 +81,12 @@ fun <T> FieldTileMenu(
     onPick: (T) -> Unit,
     modifier: Modifier = Modifier,
     mono: Boolean = true,
+    minHeight: Dp = ModbusSize.fieldTile,
 ) {
     val colors = LocalModbusColors.current
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        FieldTile(label, optionLabel(value), modifier = Modifier.fillMaxWidth(), mono = mono, open = open, onClick = { open = true })
+        FieldTile(label, optionLabel(value), modifier = Modifier.fillMaxWidth(), mono = mono, minHeight = minHeight, open = open, onClick = { open = true })
         ModbusMenu(expanded = open, onDismiss = { open = false }, modifier = Modifier.testTag("field-menu")) {
             options.forEach { option ->
                 val selected = option == value
