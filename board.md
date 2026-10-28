@@ -132,3 +132,9 @@
     （状态序列 → 文案序列，重复文案不重发）。
   - `BenchShellTest` +2：面板开着时忙→闲（卡片解除置灰、同一面板内直接能切）、闲→忙→换文案（置灰、文案即时变、点了不切）。
     反证：把 `ModeShell` 改回组合期读一次快照，这 2 个用例红（16 个中 2 个失败），改回后全绿。
+- [x] 外层 `CornTheme` fontScale 必须为 1（P2-7）
+  - `CornTheme` 用私有 `LocalAppliedAppFontScale` 记外层已乘的 App 倍率；嵌套时两层都 ≠1 直接 `check` 失败（报“乘了两次”），不再悄悄变 1.69。
+  - 外壳改用 `shellAppearance(dark, accent)`（显式 `fontScale = 1f` + 注释）。
+  - `:ui-common` 新增 `CornThemeFontScaleTest` 3 个（外 1 内 1.3、外 1.15 内 1、两层都 1.3 抛异常）；
+    `:app` 新增 `ShellFontScaleTest` 2 个：系统字号 1.2 下真实 `BenchRoot` 套真实 `ModbusTheme(EXTRA)`，外壳层 = 1.2、模式层 = 1.56。
+  - 反证：把 `shellAppearance` 改成 1.3，`ShellFontScaleTest` 2 个全红；改回后绿。

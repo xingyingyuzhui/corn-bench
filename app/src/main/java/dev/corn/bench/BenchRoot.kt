@@ -113,6 +113,13 @@ internal class ModeViewModelStoreOwner(application: Application) :
 }
 
 const val BenchLoadingTag = "bench-loading"
+
+/**
+ * 外壳这一层的外观。**fontScale 必须保持 1**：App 字号倍率只由模式自己的主题（`ModbusTheme` 内层的 `CornTheme`）乘一次，
+ * 外壳也乘就会叠成 1.3 → 1.69（第一期修过的双乘）。`CornTheme` 嵌套时两层都 ≠1 会直接 check 失败，
+ * `ShellFontScaleTest` 锁定外壳内的最终倍率。
+ */
+internal fun shellAppearance(dark: Boolean, accent: BenchAccent) = BenchAppearance(dark = dark, accent = accent, fontScale = 1f)
 const val BenchUsbHintTag = "bench-usb-hint"
 
 /**
@@ -157,12 +164,7 @@ fun BenchRoot(
         return
     }
     val dark = appearance.isDark()
-    CornTheme(
-        appearance = BenchAppearance(
-            dark = dark,
-            accent = appearance.accent,
-        ),
-    ) {
+    CornTheme(appearance = shellAppearance(dark, appearance.accent)) {
         CompositionLocalProvider(LocalAppearanceController provides appearanceStore) {
             // 系统栏图标深浅跟当前模式的主题走（系统浅色时炭黑底也需要浅色图标）。
             BenchSystemBars()

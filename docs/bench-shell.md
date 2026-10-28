@@ -63,6 +63,8 @@
 - 冷启动窗口底色跟随系统深浅（`app/src/main/res/values{,-night}`），浅色主题下不会先闪一下黑屏。
 - 颜色、间距、字号仍来自 `:ui-common` 语义 token；上位机自己的间距刻度（group 16 / card 12）先保留。
 - 字号只在 `CornTheme` 里叠一次（系统倍率 × App 倍率），`ModbusThemeDensityTest` 锁定 1.3 不会变成 1.69。
+  外壳那层（`shellAppearance`）fontScale 固定为 1；`CornTheme` 嵌套时两层都 ≠1 会 `check` 失败，
+  `CornThemeFontScaleTest`（:ui-common）与 `ShellFontScaleTest`（:app，系统 1.2 × EXTRA 1.3 = 1.56）锁定。
 - 系统栏图标深浅由外壳 `BenchSystemBars()` 按当前 token 设置（`BenchSystemBarsTest` 锁定系统浅色时仍是浅色图标）。
 
 ## 已验证 / 未验证
