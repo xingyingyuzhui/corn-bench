@@ -24,9 +24,9 @@ android {
     defaultConfig {
         // Corn Bench 统一 minSdk 29（原 Corn Modbus 为 26）。
         minSdk = 29
-        // 署名：Corn Modbus by xingyingyuzhui（与 application/Authorship.kt 一致）
+        // 署名：Corn Bench by xingyingyuzhui（与 application/Authorship.kt 一致）
         buildConfigField("String", "APP_AUTHOR", "\"xingyingyuzhui\"")
-        buildConfigField("String", "APP_REPO", "\"https://github.com/xingyingyuzhui/corn-modbus\"")
+        buildConfigField("String", "APP_REPO", "\"https://github.com/xingyingyuzhui/corn-bench\"")
     }
 
     compileOptions {

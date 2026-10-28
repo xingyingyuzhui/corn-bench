@@ -341,12 +341,14 @@ class MinePageTest {
         compose.waitForIdle()
         val credit = compose.onNodeWithTag("author-credit").performScrollTo()
         credit.assertTextContains("by xingyingyuzhui", substring = true)
+        // 并入 Corn Bench 后署名不再用独立应用名 Corn Modbus。
+        credit.assertTextContains("Corn Bench", substring = true)
         // 在设置分组（最后一行“关于”）之后
         val about = compose.onNodeWithTag("mine-row-about").getBoundsInRoot()
         assertTrue(credit.getBoundsInRoot().top >= about.bottom)
         assertTrue("热区至少 48dp", credit.getBoundsInRoot().height >= androidx.compose.ui.unit.Dp(48f))
         credit.performClick()
-        assertEquals(listOf("https://github.com/xingyingyuzhui/corn-modbus"), opened)
+        assertEquals(listOf("https://github.com/xingyingyuzhui/corn-bench"), opened)
         // 关于页有作者行
         open("mine-row-about")
         compose.onNodeWithTag("about-author").assertTextContains("xingyingyuzhui", substring = true)

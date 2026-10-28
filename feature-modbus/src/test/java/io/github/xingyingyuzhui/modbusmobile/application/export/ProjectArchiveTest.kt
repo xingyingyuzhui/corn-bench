@@ -169,6 +169,10 @@ class ProjectArchiveTest {
         file.writeBytes(archiveBytes(setOf(ArchivePart.POINTS), ArchiveInput(zone = utc)))
         java.util.zip.ZipFile(file).use { zip ->
             assertEquals(io.github.xingyingyuzhui.modbusmobile.application.Authorship.SIGNATURE, zip.comment)
+            assertEquals(
+                "Corn Bench · by xingyingyuzhui · https://github.com/xingyingyuzhui/corn-bench · PolyForm-Noncommercial-1.0.0",
+                zip.comment,
+            )
             assertTrue(zip.comment.contains("xingyingyuzhui"))
         }
     }

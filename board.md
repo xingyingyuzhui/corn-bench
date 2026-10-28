@@ -193,3 +193,11 @@
 - 未验证：TalkBack 实机朗读；真机 USB（ST-LINK / RS485、授权回调、拔插、模式间 USB 交接）、前后台、`FlashService` 通知回原实例
   （评审 P2-8，本轮不做）；真机浅色 / 强调色观感。
 - 待主人决定：上位机侧“Corn Modbus”署名是否也统一为 Corn Bench；`feature-modbus/src/test/screenshots/` 里 24 张历史跟踪的非基线截图是否删除。
+
+## 2026-10-28 P2 追加 · 主人拍板的两项
+
+- [x] 上位机署名改为 Corn Bench：`Authorship.APP = "Corn Bench"`、`REPO_URL` → `github.com/xingyingyuzhui/corn-bench`
+  （设置页最后一行“Corn Bench · by xingyingyuzhui”、点击打开新仓库、导出 ZIP 注释、manifest `modbus.repo` meta-data、
+  BuildConfig `APP_REPO`、`author_signature` / 模块内 `app_name` 字符串同步）。`MinePageTest` 断言署名含 Corn Bench 并打开新仓库，
+  `ProjectArchiveTest` 断言 ZIP 注释全文。注释里写历史来源的“Corn Modbus”保留。
+- [x] 删除 `feature-modbus/src/test/screenshots/` 下 24 张历史跟踪的非基线截图；仓库里截图只剩 `baseline/` 的 5 张（`.gitignore` 不变）。

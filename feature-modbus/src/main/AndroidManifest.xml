@@ -11,13 +11,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application>
-        <!-- Corn Modbus · by xingyingyuzhui · PolyForm Noncommercial 1.0.0 -->
+        <!-- Corn Bench（上位机模式）· by xingyingyuzhui · PolyForm Noncommercial 1.0.0 -->
         <meta-data
             android:name="io.github.xingyingyuzhui.modbus.author"
             android:value="xingyingyuzhui" />
         <meta-data
             android:name="io.github.xingyingyuzhui.modbus.repo"
-            android:value="https://github.com/xingyingyuzhui/corn-modbus" />
+            android:value="https://github.com/xingyingyuzhui/corn-bench" />
 
         <!-- 日志“分享”：把导出文件放在 cache/exports 下，经 FileProvider 给接收方临时读权限。 -->
         <provider

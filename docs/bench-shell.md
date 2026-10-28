@@ -72,7 +72,7 @@
 - 用户可见的应用名只有 **Corn Bench**；模式内用模式名（“上位机” / “烧录”）。烧录页头标题就是 `BenchMode.FLASHING.title`。
 - 烧录侧不再出现独立应用名“Corn Flashing”（`UserVisibleBrandingTest` 扫字符串字面量与资源）；
   例外：Room 库文件名 `corn-flashing.db`（内部，改名会丢旧记录）与注释里的历史来源。
-- 上位机侧的“Corn Modbus”署名（设置页最后一行、导出 ZIP 注释）尚未统一，留待单独决定。
+- 上位机侧署名（设置页最后一行、导出 ZIP 注释、manifest / BuildConfig 的仓库地址）也统一为 Corn Bench（`Authorship.APP` / `REPO_URL`）。
 
 ## 已验证 / 未验证
 
