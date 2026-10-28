@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
+import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.MemorySettingsRepository
 import io.github.xingyingyuzhui.modbusmobile.application.SerialSettings
@@ -71,6 +72,13 @@ class ShellScreenshotTest {
         )
     }
 
+    // ---- 像素基线（入库，CI 逐像素比对；约定见 docs/screenshots.md）：连接页 浅色 × 默认玉米 / 浅色 × 蓝 ----
+    @Test fun baseline_connection_light_corn() =
+        page(ThemeMode.LIGHT, Destination.Connection.route, idle(), baseline = "modbus_connection_light_corn")
+
+    @Test fun baseline_connection_light_blue() =
+        page(ThemeMode.LIGHT, Destination.Connection.route, idle(), AccentColor.BLUE, baseline = "modbus_connection_light_blue")
+
     @Test fun connection_dark_portrait() = page(ThemeMode.DARK, Destination.Connection.route, idle())
     @Test fun connection_light_portrait() = page(ThemeMode.LIGHT, Destination.Connection.route, idle())
     @Test fun workbench_dark_portrait() = page(ThemeMode.DARK, Destination.Workbench.route, running())
@@ -120,8 +128,14 @@ class ShellScreenshotTest {
     @Test @Config(qualifiers = "w780dp-h360dp-land")
     fun curve_light_landscape() = page(ThemeMode.LIGHT, CurveRoute, running())
 
-    private fun page(theme: ThemeMode, route: String, session: SessionManager) {
-        val settings = UiSettings(theme = theme)
+    private fun page(
+        theme: ThemeMode,
+        route: String,
+        session: SessionManager,
+        accent: AccentColor = UiSettings().accent,
+        baseline: String? = null,
+    ) {
+        val settings = UiSettings(theme = theme, accent = accent)
         val repository = MemorySettingsRepository(settings)
         compose.setContent {
             CompositionLocalProvider(
@@ -134,7 +148,7 @@ class ShellScreenshotTest {
             }
         }
         compose.waitForIdle()
-        compose.onRoot().captureRoboImage()
+        if (baseline != null) compose.onRoot().captureBaseline(baseline) else compose.onRoot().captureRoboImage()
     }
 }
 

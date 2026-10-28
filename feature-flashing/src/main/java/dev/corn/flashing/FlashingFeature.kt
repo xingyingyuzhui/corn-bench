@@ -97,6 +97,11 @@ object FlashingFeature {
         )
     }
 
+    /** 只给测试用：清掉单例容器，让下次 [container] 按当前测试的 Application 重新创建。 */
+    internal fun resetForTest() {
+        synchronized(this) { createdState.value = null }
+    }
+
     private class ForegroundTracker(private val state: MutableStateFlow<Boolean>) : Application.ActivityLifecycleCallbacks {
         private var started = 0
         override fun onActivityStarted(activity: Activity) { started++; state.value = true }

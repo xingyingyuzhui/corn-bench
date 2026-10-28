@@ -156,3 +156,14 @@
   - 测试：新增 `ModbusThemeAccentTest` 2 个（有外壳以外壳 BLUE 为准且与 `LocalBenchColors` 一致；无外壳用设置里的 GREEN）；
     `ModbusColorsMatchTokensTest` / `DesignTokensTest` 里锁“强调色不生效”的两个用例改为锁“取同名强调色 token”。
     反证：`ModbusTheme` 改回 `modbusColors(dark)`，`ModbusThemeAccentTest` 2 个全红。
+- [x] Roborazzi 像素基线（P2-10）：约定见新文档 `docs/screenshots.md`
+  - 入库 5 张：上位机连接页 浅色×玉米 / 浅色×蓝；烧录工作台（真实 `FlashViewModel` + `CornApp`，未接探针首屏）浅色×玉米 / 浅色×蓝 / 深色×玉米。
+    放在 `src/test/screenshots/baseline/`（`.gitignore` 只放行这个子目录），其余截图仍只做“能渲染”、不入库。
+  - `captureBaseline(name)`（两个 feature 各一份）按 `-Pcorn.baseline=verify|record` 强制比对 / 重录；`:feature-flashing` 接入 Roborazzi 插件。
+    `FlashingFeature.resetForTest()` 让每个用例用当前 Application 重建容器。
+  - CI：Gradle 加 `-Pcorn.baseline=verify` 与 `:feature-flashing:recordRoborazziDebug`；失败条件写死：
+    像素差 / 基线缺失 → 单测失败，并上传 `pixel-baseline-diffs`（`_compare` / `_actual`）；CJK 字体没装上 → 单独一步直接失败。
+    另加 `workflow_dispatch` 的 `record_baselines`（合进 main 后才能用）在 CI 环境重录并上传 `pixel-baselines`。
+  - 本机反证：蓝色强调色主色改成红 → `workbench_light_blue` 失败并出对比图；删掉一张基线 → `was not found` 失败；
+    浅色底改 1 个色阶不报（Roborazzi 默认容差，单像素色距 ≤0.007，已写进文档）。
+  - 基线先用本机渲染入库；CI runner 字体若与本机不同，以 CI 的 `_actual` 图替换（见文档“渲染环境与重录”）。结果见下一条。

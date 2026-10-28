@@ -106,4 +106,6 @@ tasks.withType<Test>().configureEach {
         "roborazzi.record.filePathStrategy",
         "relativePathFromRoborazziContextOutputDirectory",
     )
+    // 像素基线开关（docs/screenshots.md）：verify = 与入库基线逐像素比对，record = 重录基线。不传 = 跟 Roborazzi 任务走。
+    providers.gradleProperty("corn.baseline").orNull?.let { systemProperty("corn.baseline", it) }
 }

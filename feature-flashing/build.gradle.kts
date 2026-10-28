@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -59,5 +60,20 @@ dependencies {
     // 第二期起烧录模式也要随外壳深浅色变化，这里补 Compose 渲染测试（只在本模块，不进 :app）。
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
     debugImplementation(libs.compose.ui.test.manifest)
+}
+
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
+}
+
+tasks.withType<Test>().configureEach {
+    systemProperty(
+        "roborazzi.record.filePathStrategy",
+        "relativePathFromRoborazziContextOutputDirectory",
+    )
+    // 像素基线开关（docs/screenshots.md）：verify = 与入库基线逐像素比对，record = 重录基线。不传 = 跟 Roborazzi 任务走。
+    providers.gradleProperty("corn.baseline").orNull?.let { systemProperty("corn.baseline", it) }
 }
