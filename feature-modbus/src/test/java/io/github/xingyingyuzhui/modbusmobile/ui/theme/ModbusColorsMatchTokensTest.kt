@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import dev.corn.ui.theme.benchColors
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
@@ -18,12 +19,21 @@ class ModbusColorsMatchTokensTest {
     @Test
     fun lightFieldsMatchUiCommonTokens() = assertMapping(dark = false)
 
+    /** 第二期起强调色生效：每个旧枚举都映射到外壳同名强调色的 token（AMBER = 玉米）。 */
     @Test
-    fun accentParameterNoLongerChangesColors() {
+    fun accentFollowsTheBenchAccentTokens() {
         for (accent in AccentColor.entries) {
-            assertEquals(modbusColors(true, AccentColor.AMBER), modbusColors(true, accent))
-            assertEquals(modbusColors(false, AccentColor.AMBER), modbusColors(false, accent))
+            for (dark in listOf(true, false)) {
+                val t = benchColors(dark, accent.toBenchAccent())
+                val c = modbusColors(dark, accent)
+                assertEquals("$accent/$dark accent", t.accent, c.accent)
+                assertEquals("$accent/$dark onAccent", t.onAccent, c.onAccent)
+                assertEquals("$accent/$dark accentText", t.accentText, c.accentText)
+                assertEquals("$accent/$dark accentBorder", t.accentBorder, c.accentBorder)
+                assertEquals(c, modbusColors(dark, accent.toBenchAccent()))
+            }
         }
+        assertNotEquals("蓝色强调色不能还是玉米", modbusColors(false, AccentColor.AMBER).accent, modbusColors(false, AccentColor.BLUE).accent)
     }
 
     private fun assertMapping(dark: Boolean) {

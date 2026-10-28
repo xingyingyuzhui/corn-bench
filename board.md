@@ -146,3 +146,13 @@
     导出记录默认文件名 `corn-bench-flashing-records.json`。
   - 不改：Room 库文件名 `corn-flashing.db`（内部文件名，改了会丢旧记录）、注释里的历史来源。上位机侧的“Corn Modbus”署名不在本条范围，未动。
   - `UserVisibleBrandingTest` 2 个：扫 `src/main` 的 Kotlin 字符串字面量与资源值（跳过注释和 `.db` 名）。反证：还原改名前的源码时红 1 个。
+- [x] **P2 像素基线发现并修复：上位机强调色一直不生效**
+  - 录“连接页 浅色 × 蓝”基线时图里仍是玉米黄。原因：`ModbusTheme` 按 `modbusColors(dark)` 提供 `LocalModbusColors`，
+    `modbusColors` 内部也固定 `benchColors(dark)`（第一期“强调色固定玉米”，第二期只开放了外观页与 `CornTheme`，这里漏改；
+    `ModbusColorsMatchTokensTest.accentParameterNoLongerChangesColors` 还在锁旧行为）。所以第二期起上位机选任何强调色都还是玉米，
+    烧录模式正常（它读 `LocalBenchColors`）。
+  - 修：`modbusColors(dark, BenchAccent)` 取 `benchColors(dark, accent)`，旧 `AccentColor` 重载按 `toBenchAccent()` 转（AMBER = 玉米）；
+    `ModbusTheme` 传入外壳（或旧设置）的强调色。
+  - 测试：新增 `ModbusThemeAccentTest` 2 个（有外壳以外壳 BLUE 为准且与 `LocalBenchColors` 一致；无外壳用设置里的 GREEN）；
+    `ModbusColorsMatchTokensTest` / `DesignTokensTest` 里锁“强调色不生效”的两个用例改为锁“取同名强调色 token”。
+    反证：`ModbusTheme` 改回 `modbusColors(dark)`，`ModbusThemeAccentTest` 2 个全红。
