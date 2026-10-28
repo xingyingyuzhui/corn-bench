@@ -166,7 +166,12 @@ class PanelCurveWizardTest {
     }
 
     private fun bounds(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).getBoundsInRoot()
-    private fun touch(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().touchBoundsInRoot
+    /** 带 tag 的包装 Box 本身不可点时，量它里面的可点节点（chip 的 48dp 热区不占布局，包装 Box 只有视觉高）。 */
+    private fun touch(tag: String): androidx.compose.ui.geometry.Rect {
+        val node = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode()
+        val clickable = { n: androidx.compose.ui.semantics.SemanticsNode -> androidx.compose.ui.semantics.SemanticsActions.OnClick in n.config }
+        return (if (clickable(node)) node else node.children.firstOrNull(clickable) ?: node).touchBoundsInRoot
+    }
     private fun count(tag: String) = compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
     private val dp get() = compose.density.density
     private fun curve() = state!!.curve!!
