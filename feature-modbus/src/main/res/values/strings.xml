@@ -45,8 +45,6 @@
     <string name="role_master_hint">主动读写外部从站</string>
     <string name="role_slave_hint">响应外部主站</string>
 
-    <string name="preset_custom">…</string>
-    <string name="preset_custom_description">自定义</string>
     <string name="action_help">帮助</string>
     <string name="help_title">连接说明</string>
     <string name="help_role">主站：手机主动读写外部从站设备。\n从站：手机模拟从站，响应外部主站的请求。</string>

@@ -1,14 +1,25 @@
 package io.github.xingyingyuzhui.modbusmobile.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalModbusColors
@@ -37,9 +48,10 @@ fun ModbusMenu(
 
 /** 菜单项：文字用 text 色，当前项（[selected]）用强调色文字 + 半粗。 */
 @Composable
-fun ModbusMenuItem(text: String, onClick: () -> Unit, selected: Boolean = false) {
+fun ModbusMenuItem(text: String, onClick: () -> Unit, selected: Boolean = false, modifier: Modifier = Modifier) {
     val colors = LocalModbusColors.current
     DropdownMenuItem(
+        modifier = modifier,
         text = {
             Text(
                 text,
@@ -50,4 +62,42 @@ fun ModbusMenuItem(text: String, onClick: () -> Unit, selected: Boolean = false)
         onClick = onClick,
         colors = MenuDefaults.itemColors(textColor = colors.text),
     )
+}
+
+private val MenuItemDense = 36.dp
+
+/**
+ * 点格子弹菜单选值（连接页串口四格）：菜单锚在格子下方，当前值强调色 + wash 底，选中即关。
+ * 项高 36（紧凑菜单，Material 默认 48）：8 档波特率 48 高放不进格子下方，菜单会被挤到盖住格子本身。
+ */
+@Composable
+fun <T> FieldTileMenu(
+    label: String,
+    value: T,
+    options: List<T>,
+    optionLabel: @Composable (T) -> String,
+    onPick: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    mono: Boolean = true,
+) {
+    val colors = LocalModbusColors.current
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        FieldTile(label, optionLabel(value), modifier = Modifier.fillMaxWidth(), mono = mono, open = open, onClick = { open = true })
+        ModbusMenu(expanded = open, onDismiss = { open = false }, modifier = Modifier.testTag("field-menu")) {
+            options.forEach { option ->
+                val selected = option == value
+                ModbusMenuItem(
+                    optionLabel(option),
+                    onClick = { open = false; onPick(option) },
+                    selected = selected,
+                    modifier = Modifier
+                        .height(MenuItemDense)
+                        .padding(horizontal = 6.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .then(if (selected) Modifier.background(colors.wash(colors.accent)) else Modifier),
+                )
+            }
+        }
+    }
 }

@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -309,20 +310,48 @@ fun FieldTile(
     sub: String? = null,
     modifier: Modifier = Modifier,
     mono: Boolean = true,
+    open: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     val colors = LocalModbusColors.current
+    val shape = RoundedCornerShape(FieldRadius)
     // §6.2 v2：label caption 11/16、值 monoValueM 17/24；内边距 12×8，最小高 56（8 + 16 + 24 + 8）。原 10×7 / 50。
+    // 传了 [onClick] 就是下拉格：整格可点、值后画 ⌄，菜单展开（[open]）时 1.5dp accent.border 描边，同输入格聚焦态。
     Column(
         modifier
             .heightIn(min = ModbusSize.fieldTile)
-            .background(colors.surface2, RoundedCornerShape(FieldRadius))
+            .clip(shape)
+            .background(colors.surface2, shape)
+            .then(if (open) Modifier.border(StrokeControl, colors.accentBorder, shape) else Modifier)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClickLabel = label, role = Role.DropdownList, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(fieldPadding()),
     ) {
-        Text(label, color = colors.muted, style = ModbusType.caption)
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, color = colors.text, style = if (mono) ModbusType.monoValueM else ModbusType.titleS)
+        Text(label, color = colors.muted, style = ModbusType.caption, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                value,
+                color = colors.text,
+                style = if (mono) ModbusType.monoValueM else ModbusType.titleS,
+                maxLines = 1,
+                softWrap = false,
+                modifier = if (onClick != null) Modifier.weight(1f) else Modifier,
+            )
             if (sub != null) {
                 Text(sub, color = colors.dim, style = ModbusType.monoCaption, modifier = Modifier.padding(start = LocalSpacing.current.xs))
+            }
+            if (onClick != null) {
+                ChevronIcon(
+                    colors.dim,
+                    expanded = true,
+                    size = 12.dp,
+                    modifier = Modifier.padding(start = LocalSpacing.current.xs).then(if (open) Modifier.rotate(180f) else Modifier),
+                )
             }
         }
     }
