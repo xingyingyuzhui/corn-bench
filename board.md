@@ -178,7 +178,7 @@
   （“Require CJK font” 跳过）——本机录的 5 张基线在 runner 上比对通过，无需用 CI 图替换。`deed20d` push run 40619093684 success。
 - 本地单测（`deed20d`）：`:app` 39、`:feature-flashing` 42、`:feature-modbus` 962（全量 960 + 之后新增 `PageHeaderA11yTest` 2，
   后者与 `ShellScreenshotTest` 单独重跑）、`:ui-common` 3，全过；`:modbus-core` 58、`:flashing-core` 164 未改动（CI 全量跑过）。
-  本轮新增 26 个用例。本机内存不足（他进程占 12G），一次性全量 + lint 的 Gradle 守护进程被 OOM 杀过一次，之后按模块拆跑；lint / assemble 以 CI 为准。
+  本轮新增 24 个用例（app 6、feature-flashing 8、feature-modbus 7、ui-common 3）。本机内存不足（他进程占 12G），一次性全量 + lint 的 Gradle 守护进程被 OOM 杀过一次，之后按模块拆跑；lint / assemble 以 CI 为准。
 - [x] redroid 验收（`deed20d` + 临时分支 `tmp/redroid-p2` 只多一行 skipNative，云构建 d40754af44be481f，验收后已删除）
   - 旧验收包签名不同（换了构建机 debug key），先卸载 redroid 上的 `dev.corn.bench` 再装。
   - **响应式置灰实机通过**：烧录模拟批次“等待下一块板”时打开切换面板，上位机卡写“批量烧录进行中”；面板不关，
