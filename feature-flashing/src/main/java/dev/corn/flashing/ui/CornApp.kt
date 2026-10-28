@@ -430,9 +430,8 @@ fun Chain(vararg nodes: ChainNode) {
             nodes.forEachIndexed { index, node ->
                 if (index > 0) Ico(Lucide.Chev, CornColors.Mute, 14.dp, Modifier.padding(horizontal = 2.dp))
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(CornColors.Surface2), contentAlignment = Alignment.Center) {
-                        Ico(node.icon, node.color, 15.dp)
-                    }
+                    // 只是状态，不可点：图标不加底块，免得像一排可点的小卡片（E-20261028-ux1 B4）。
+                    Ico(node.icon, node.color, 16.dp)
                     Column {
                         T(node.name, size = 11.5.sp, weight = FontWeight.SemiBold, maxLines = 1)
                         T(node.status, node.color, 10.5.sp, mono = true, maxLines = 1)
