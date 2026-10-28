@@ -7,6 +7,10 @@ Roborazzi（Robolectric `GraphicsMode.NATIVE`）截图分两类：
 | **像素基线** | `<模块>/src/test/screenshots/baseline/*.png` | 是 | 逐像素比对，有差异或缺图 → 对应单测失败 → job 红 |
 | “能渲染”截图 | `<模块>/src/test/screenshots/` 其它文件 | 否（`.gitignore`） | 只 record，作为 artifact `roborazzi-screenshots` 给人看 |
 
+> 历史遗留：`feature-modbus/src/test/screenshots/` 下有 24 张导入旧仓库时就已被 git 跟踪的“能渲染”截图
+> （`.gitignore` 对已跟踪文件不起作用）。它们**不是**基线，不参与比对；本地 record 后会显示为已修改，提交前 `git checkout` 掉即可。
+> 是否从仓库删掉留给主人决定。
+
 ## 现有基线
 
 | 文件 | 测试 | 内容 |

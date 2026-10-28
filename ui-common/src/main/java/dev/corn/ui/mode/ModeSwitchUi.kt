@@ -37,9 +37,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.corn.ui.theme.BenchRadius
@@ -94,6 +97,11 @@ fun ModeCard(option: ModeOption, onClick: () -> Unit, modifier: Modifier = Modif
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 selected = option.current
+                // 读屏只念“已停用”听不出为什么；状态里直接说清（原因文字本身也合并在卡片里）。
+                when {
+                    option.current -> stateDescription = "当前模式"
+                    blocked -> stateDescription = "现在不能切换"
+                }
                 if (!clickable) disabled()
             }
             .clickable(enabled = clickable, onClick = onClick)
@@ -175,6 +183,8 @@ fun ModeSwitchSheet(
                 .clip(RoundedCornerShape(topStart = BenchRadius.sheet, topEnd = BenchRadius.sheet))
                 .background(colors.surface1)
                 .swallowClicks()
+                // 读屏：面板出现时播报“切换模式”窗格，标题可按标题跳转。
+                .semantics { paneTitle = "切换模式" }
                 .testTag(ModeSheetTag)
                 .navigationBarsPadding()
                 .padding(start = spacing.page, end = spacing.page, bottom = spacing.page),
@@ -184,7 +194,7 @@ fun ModeSwitchSheet(
                 Box(Modifier.width(36.dp).height(4.dp).clip(RoundedCornerShape(BenchRadius.pill)).background(colors.surface3))
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("切换模式", color = colors.text, style = BenchType.headline)
+                Text("切换模式", color = colors.text, style = BenchType.headline, modifier = Modifier.semantics { heading() })
                 Text("同一时刻只运行一个模式，切换后另一个模式的 USB 连接会释放", color = colors.muted, style = BenchType.caption)
             }
             options.forEach { option -> ModeCard(option, onClick = { onPick(option.mode) }) }
@@ -219,11 +229,12 @@ fun ModeConfirmDialog(
                 .background(colors.surface1)
                 .border(1.dp, colors.line, RoundedCornerShape(BenchRadius.xl))
                 .swallowClicks()
+                .semantics { paneTitle = title }
                 .testTag(ModeConfirmTag)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(title, color = colors.text, style = BenchType.title)
+            Text(title, color = colors.text, style = BenchType.title, modifier = Modifier.semantics { heading() })
             Text(message, color = colors.muted, style = BenchType.body)
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -269,12 +280,12 @@ fun ModePickerScreen(onPick: (BenchMode) -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CornMark(size = 44.dp)
                 Column {
-                    Text("Corn Bench", color = colors.text, style = BenchType.display)
+                    Text("Corn Bench", color = colors.text, style = BenchType.display, modifier = Modifier.semantics { heading() })
                     Text("上位机 + 离线烧录", color = colors.muted, style = BenchType.caption)
                 }
             }
             Spacer(Modifier.height(spacing.s))
-            Text("先选一个模式", color = colors.text, style = BenchType.headline)
+            Text("先选一个模式", color = colors.text, style = BenchType.headline, modifier = Modifier.semantics { heading() })
             Text(
                 "之后随时可以点页面左上角的玉米图标切换。同一时刻只运行一个模式。",
                 color = colors.muted,

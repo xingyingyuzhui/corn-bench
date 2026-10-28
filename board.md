@@ -167,3 +167,10 @@
   - 本机反证：蓝色强调色主色改成红 → `workbench_light_blue` 失败并出对比图；删掉一张基线 → `was not found` 失败；
     浅色底改 1 个色阶不报（Roborazzi 默认容差，单像素色距 ≤0.007，已写进文档）。
   - 基线先用本机渲染入库；CI runner 字体若与本机不同，以 CI 的 `_actual` 图替换（见文档“渲染环境与重录”）。结果见下一条。
+- [x] a11y（P2-9，代码 + Robolectric 部分）
+  - 页头 label：上位机 `PageHeader` 标题、烧录 `TopBar` 标题 + 副标题（合并成一个节点）标为 heading。
+    结论：没有外壳时左上角玉米标是装饰（`contentDescription = null`，不进无障碍树），页头靠标题 heading 就有 label，不另加；
+    有外壳时另有且只有一个“切换模式”按钮。`PageHeaderA11yTest`（上位机）/ `TopBarA11yTest`（烧录）各 2 个锁定两种情况。
+  - 切换面板：`paneTitle = "切换模式"`（出现时读屏播报窗格）+ 标题 heading；卡片 `stateDescription`：当前卡“当前模式”、
+    被拦截卡“现在不能切换”（原因文字本来就合并在卡片节点里）。确认框 `paneTitle` = 标题 + 标题 heading。选择页两个标题 heading。
+  - `BenchShellTest` +2：面板 / 卡片语义（页头只一个切换按钮、窗格名、当前 / 拦截卡状态与原因、Role.Button）、选择页 heading。

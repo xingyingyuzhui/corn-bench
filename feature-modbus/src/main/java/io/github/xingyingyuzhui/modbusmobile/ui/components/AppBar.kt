@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
@@ -45,7 +46,9 @@ fun PageHeader(
     ) {
         // 页头最左边是玉米标：在外壳里它同时是模式切换器（48dp 热区，不撑高 52dp 页头）。
         dev.corn.ui.mode.BrandMarkOrSwitcher()
-        Text(title, color = colors.text, style = ModbusType.headline, modifier = Modifier.weight(1f))
+        // 页头的“名字”就是标题：标成 heading（读屏可按标题跳转）。左边的玉米标在没有外壳时只是装饰（不进无障碍树），
+        // 有外壳时是“切换模式”按钮，两种情况页头都有可读的 label。
+        Text(title, color = colors.text, style = ModbusType.headline, modifier = Modifier.weight(1f).semantics { heading() })
         actions()
     }
 }

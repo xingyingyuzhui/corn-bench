@@ -4,7 +4,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.activity.ComponentActivity
@@ -286,6 +295,36 @@ class BenchShellTest {
         show(loading)
         compose.onNodeWithTag(BenchLoadingTag).assertIsDisplayed()
         compose.onNodeWithTag(ModePickerTag).assertDoesNotExist()
+    }
+
+    // ---- 无障碍（评审 E P2-9）：读屏能听出面板 / 标题 / 卡片状态 ----
+
+    @Test
+    fun switchSheetAnnouncesItselfAndCardStates() {
+        val guard = RecordingGuard(blocked = "正在烧录：等这一片完成后再切换")
+        show(MemoryModeStore(BenchMode.FLASHING), guard)
+        // 页头只有一个“切换模式”按钮。
+        compose.onAllNodes(hasContentDescription("切换模式") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertCountEquals(1)
+        compose.onNodeWithTag(BrandSwitcherTag).performClick()
+        compose.onNodeWithTag(ModeSheetTag).assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "切换模式"))
+        compose.onNode(isHeading() and hasText("切换模式")).assertIsDisplayed()
+        compose.onNodeWithTag(modeCardTag(BenchMode.FLASHING))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "当前模式"))
+            .assertIsSelected()
+        // 被拦截的卡：停用 + 状态说明 + 原因文字合并在同一个节点里（读屏一次念完）。
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS))
+            .assertIsNotEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "现在不能切换"))
+            .assert(hasText("正在烧录：等这一片完成后再切换"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun pickerHasHeadings() {
+        show(MemoryModeStore(null))
+        compose.onNode(isHeading() and hasText("先选一个模式")).assertIsDisplayed()
+        compose.onNode(isHeading() and hasText("Corn Bench")).assertIsDisplayed()
     }
 
     // ---- Roborazzi 截图（渲染，不是实机）----
