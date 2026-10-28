@@ -118,3 +118,17 @@
 - [x] 文档（P1-5）：`docs/bench-shell.md` 验证清单拆成「本机单测 / redroid / 未验证（真机）」三类。
 - 未验证：真机 USB（ST-LINK / RS485 授权、收发、拔插、FLAG_IMMUTABLE 回调）、前后台、TalkBack、真机浅色观感。
 - 下一步：P2——切换面板置灰改响应式；外层 `CornTheme` fontScale=1 加断言；烧录页文案“Corn Flashing”改名；Roborazzi 像素基线。
+
+## 2026-10-28 P2 · 分支 feat/p2-shell-polish（基于 main@5d49e51）
+
+- 交接：原定 DeepSeek 做，已叫停；分支上没有它留下的提交或改动（与 main 同 SHA、远端无此分支），从这里接着做。
+- 范围：board「下一步：P2」+ 评审 E P2 第 6、7、9、10 条（第 8 条真机专项不在本轮）。不扩协议、不碰真机 USB。
+- [x] 切换面板置灰改响应式（P2-6）
+  - `ModeGuard` 新增 `blockedReasonFlow(mode)`；`ModeShell` 订阅它（初值仍用同步 `blockedReason`，面板第一帧就对），
+    真正切换前仍用 `blockedReason` 重查一次。
+  - 两个 Feature 的“已创建容器”从普通字段改成 `MutableStateFlow`，`leaveBlockedReasonFlow()` 在容器没建时恒为 null、
+    建了以后自动接上状态，**仍不创建容器**（`ModeStoreTest.defaultGuardQueriesWithoutCreatingContainers` 补了 flow 一路）。
+  - 纯函数：`leaveBlockedReasonFlowOf(...)`（上位机）、`flashingLeaveBlockedReasonFlow(running, phase)`（烧录），各 1 个用例
+    （状态序列 → 文案序列，重复文案不重发）。
+  - `BenchShellTest` +2：面板开着时忙→闲（卡片解除置灰、同一面板内直接能切）、闲→忙→换文案（置灰、文案即时变、点了不切）。
+    反证：把 `ModeShell` 改回组合期读一次快照，这 2 个用例红（16 个中 2 个失败），改回后全绿。

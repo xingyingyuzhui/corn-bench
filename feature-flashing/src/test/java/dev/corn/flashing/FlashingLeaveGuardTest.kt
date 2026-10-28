@@ -3,6 +3,8 @@ package dev.corn.flashing
 import dev.corn.flashing.storage.BatchPhase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -83,5 +85,33 @@ class FlashingLeaveGuardTest {
     fun releaseTimesOutWhileProbing() = runTest {
         val ok = releaseFlashingUsb(emptyList(), { null }, MutableStateFlow(true), timeoutMillis = 5_000)
         assertFalse(ok)
+    }
+
+    /** 切换面板订阅的那一路：任一路状态变化就重算（如面板开着时批次自动暂停），重复值不重发。 */
+    @Test
+    fun reasonFlowRecomputesOnEitherInput() = runTest(UnconfinedTestDispatcher()) {
+        val running = MutableStateFlow(false)
+        val phase = MutableStateFlow<BatchPhase?>(null)
+        val seen = mutableListOf<String?>()
+        val job = launch { flashingLeaveBlockedReasonFlow(running, phase).toList(seen) }
+
+        phase.value = BatchPhase.WAITING_BOARD
+        phase.value = BatchPhase.FLASHING // 同一文案不重发
+        phase.value = BatchPhase.PAUSED
+        phase.value = null
+        running.value = true
+        running.value = false
+        assertEquals(
+            listOf(
+                null,
+                "批量烧录进行中：请先在工作台结束批次",
+                "批次已暂停但未结束：请先在工作台结束批次",
+                null,
+                "正在烧录：等这一片完成后再切换",
+                null,
+            ),
+            seen,
+        )
+        job.cancel()
     }
 }

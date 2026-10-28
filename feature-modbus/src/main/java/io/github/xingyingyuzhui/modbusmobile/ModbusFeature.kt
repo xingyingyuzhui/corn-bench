@@ -4,7 +4,14 @@ import android.app.Application
 import android.content.Context
 import io.github.xingyingyuzhui.modbusmobile.application.ConnectionTarget
 import io.github.xingyingyuzhui.modbusmobile.application.SessionState
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -15,7 +22,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * [ModbusContainer]；烧录模式运行期间进程里不会出现 DataStore / USB 仓库 / Room 历史。
  */
 object ModbusFeature {
-    @Volatile private var created: ModbusContainer? = null
+    /** 已创建的容器；用 StateFlow 而不是普通字段，[leaveBlockedReasonFlow] 才能在容器稍后创建时接上。 */
+    private val createdState = MutableStateFlow<ModbusContainer?>(null)
+    private val created: ModbusContainer? get() = createdState.value
 
     /** 容器是否已经创建（没创建 = 上位机模式本进程里没用过，一定不持有 USB）。 */
     val isCreated: Boolean get() = created != null
@@ -25,7 +34,7 @@ object ModbusFeature {
         synchronized(this) {
             created?.let { return it }
             val app = context.applicationContext as Application
-            return ModbusContainer(app).also { created = it }
+            return ModbusContainer(app).also { createdState.value = it }
         }
     }
 
@@ -39,6 +48,13 @@ object ModbusFeature {
         val c = created ?: return null
         return leaveBlockedReasonFor(c.sessionManager.state.value)
     }
+
+    /**
+     * [leaveBlockedReason] 的可观察版本：外壳切换面板开着时，会话在后台断开 / 出错，卡片文案与置灰即时跟着变。
+     * 同样不创建容器：容器没建时一直是 null，建了以后自动接上会话状态。
+     */
+    fun leaveBlockedReasonFlow(): Flow<String?> =
+        leaveBlockedReasonFlowOf(createdState.map { it?.sessionManager?.state })
 
     /**
      * 离开上位机模式前释放 USB：停掉应用级轮询、断开会话（关闭串口线程与前台服务），并等状态回到空闲 / 出错。
@@ -56,7 +72,7 @@ object ModbusFeature {
 
     /** 只给测试 / 预览用：清掉单例，让下次 [container] 重新按传入的 Application 创建。 */
     internal fun resetForTest() {
-        synchronized(this) { created = null }
+        synchronized(this) { createdState.value = null }
     }
 }
 
@@ -71,6 +87,11 @@ internal fun leaveBlockedReasonFor(state: SessionState): String? = when (state) 
     SessionState.Stopping -> "正在断开串口：等断开完成后再切换"
     SessionState.Idle, is SessionState.Error -> null
 }
+
+/** [ModbusFeature.leaveBlockedReasonFlow] 的本体：[session] 为 null = 容器还没建（可以离开）。 */
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun leaveBlockedReasonFlowOf(session: Flow<Flow<SessionState>?>): Flow<String?> =
+    session.flatMapLatest { it?.map(::leaveBlockedReasonFor) ?: flowOf(null) }.distinctUntilChanged()
 
 /** [ModbusFeature.releaseUsb] 的本体：停轮询 → 非空闲就断开 → 等回到空闲 / 出错；超时返回 false。 */
 internal suspend fun releaseSession(

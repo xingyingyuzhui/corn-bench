@@ -26,7 +26,8 @@
 
 | 方法 | 作用 |
 | --- | --- |
-| `blockedReason(mode)` | 不能离开这个模式的原因；null = 可以离开。**只查询，不创建容器。** |
+| `blockedReason(mode)` | 不能离开这个模式的原因；null = 可以离开。**只查询，不创建容器。** 真正切换前重查一次。 |
+| `blockedReasonFlow(mode)` | 同一判定的可观察版本，切换面板订阅它。同样不创建容器（容器建好后自动接上状态）。 |
 | `release(mode)` | 离开前释放资源（停轮询、断串口、停“等待下一块板”）；false = 超时，不切换。 |
 
 - 上位机：会话运行中 / 正在请求 USB 授权 / 正在打开 / 正在断开时不能离开；空闲或出错可以。
@@ -36,7 +37,8 @@
 - 判定本体是纯函数，单测直接覆盖：`leaveBlockedReasonFor(SessionState)` / `releaseSession(...)`（上位机，`ModbusLeaveGuardTest`）、
   `flashingLeaveBlockedReason(running, phase)` / `releaseFlashingUsb(...)`（烧录，`FlashingLeaveGuardTest`），
   各忙态文案与超时返回 false 都有用例。
-- 已知限制：切换面板打开后卡片的置灰是打开那一刻的快照，后台状态变了不会刷新；真正切换时 `requestSwitch` 会重查，不会切错。
+- 置灰是响应式的（P2）：面板开着时后台忙态变化（批次自动暂停 / 结束、会话断开），卡片的置灰与文案即时更新，
+  不用关掉重开；`BenchShellTest.openSheet*` 两个用例锁定。纯函数 `leaveBlockedReasonFlowOf` / `flashingLeaveBlockedReasonFlow` 各有单测。
 - 每个模式一个独立 `ViewModelStore`，切走时 `clear()`，切回来是新的 ViewModel。
 
 ## 外观（第二期：浅色 / 强调色开放）
