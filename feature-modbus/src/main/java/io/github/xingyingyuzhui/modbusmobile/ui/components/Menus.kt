@@ -82,6 +82,8 @@ fun <T> FieldTileMenu(
     modifier: Modifier = Modifier,
     mono: Boolean = true,
     minHeight: Dp = ModbusSize.fieldTile,
+    /** 菜单项的 testTag（测试按项点选用）；null = 不打。 */
+    optionTag: (T) -> String? = { null },
 ) {
     val colors = LocalModbusColors.current
     var open by remember { mutableStateOf(false) }
@@ -95,6 +97,7 @@ fun <T> FieldTileMenu(
                     onClick = { open = false; onPick(option) },
                     selected = selected,
                     modifier = Modifier
+                        .then(optionTag(option)?.let { Modifier.testTag(it) } ?: Modifier)
                         .height(MenuItemDense)
                         .padding(horizontal = 6.dp)
                         .clip(RoundedCornerShape(8.dp))

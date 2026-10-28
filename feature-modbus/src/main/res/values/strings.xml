@@ -267,7 +267,6 @@
     <string name="panel_wiz_group_control_tag">会写设备 · 每次都要确认</string>
     <string name="panel_wiz_sec_point">数据点位</string>
     <string name="panel_wiz_type_more">更多 ▾</string>
-    <string name="panel_wiz_type_less">收起 ▴</string>
     <string name="panel_wiz_address_modicon">= %1$s</string>
     <string name="panel_wiz_conv_title">换算</string>
     <string name="panel_wiz_conv_summary">× %1$s + %2$s</string>

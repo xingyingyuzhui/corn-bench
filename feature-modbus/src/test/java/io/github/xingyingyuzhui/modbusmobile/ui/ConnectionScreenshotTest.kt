@@ -104,6 +104,21 @@ class ConnectionScreenshotTest {
         }
     }
 
+    /** 「高级」里的回显也是下拉格（同串口四格），不再是一排 chip。 */
+    @Test
+    fun advancedEchoIsPickedFromATileMenu() {
+        show(ThemeMode.LIGHT, idleWithUsb())
+        compose.onNodeWithTag("advanced-row").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("自动").assertDoesNotExist()
+        compose.onNode(hasClickAction() and hasParent(hasTestTag("advanced-echo"))).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("echo-AUTO").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("field-menu").assertDoesNotExist()
+        compose.onNodeWithText("回显 自动", substring = true).assertExists()
+    }
+
     @Test
     fun pickingFromATileMenuChangesTheValueAndClosesTheMenu() {
         show(ThemeMode.LIGHT, idleWithUsb())

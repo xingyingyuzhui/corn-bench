@@ -60,7 +60,6 @@ import io.github.xingyingyuzhui.modbusmobile.application.UsbDeviceSummary
 import io.github.xingyingyuzhui.modbusmobile.application.InputError
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import io.github.xingyingyuzhui.modbusmobile.ui.LocalSession
-import io.github.xingyingyuzhui.modbusmobile.ui.components.ChipRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.FieldTileMenu
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ModbusCard
 import io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput
@@ -338,26 +337,25 @@ private fun AdvancedCard(model: ConnectionViewModel, state: SessionState, echoDe
             ChevronIcon(colors.dim, expanded = model.advancedOpen)
         }
         if (model.advancedOpen) {
-            SectionLabel(stringResource(R.string.section_echo))
-            ChipRow(
-                EchoMode.entries,
-                { it == model.echoMode },
-                { echoName(it) },
-                { model.echoMode = it },
-                design = true,
-            )
+            // 回显 / 拓扑和串口四格一样用下拉格（点格子弹菜单），不再用 chip 行。
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FieldTileMenu(
+                    stringResource(R.string.section_echo), model.echoMode, EchoMode.entries, { echoName(it) }, { model.echoMode = it },
+                    Modifier.weight(1f).testTag("advanced-echo"),
+                    mono = false,
+                    optionTag = { "echo-${it.name}" },
+                )
+                if (model.role == Role.SLAVE) {
+                    FieldTileMenu(
+                        stringResource(R.string.section_topology), model.topology, BusTopology.entries, { topologyName(it) }, { model.topology = it },
+                        Modifier.weight(1f).testTag("advanced-topology"),
+                        mono = false,
+                        optionTag = { "topology-${it.name}" },
+                    )
+                }
+            }
             if (state is SessionState.Running) {
                 Text(echoDetected.caption(), color = colors.muted, fontSize = 12.sp)
-            }
-            if (model.role == Role.SLAVE) {
-                SectionLabel(stringResource(R.string.section_topology))
-                ChipRow(
-                    BusTopology.entries,
-                    { it == model.topology },
-                    { topologyName(it) },
-                    { model.topology = it },
-                    design = true,
-                )
             }
             NumberInput(
                 stringResource(R.string.field_timeout),
