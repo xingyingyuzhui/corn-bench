@@ -3,7 +3,10 @@ package io.github.xingyingyuzhui.modbusmobile.ui.components
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.semantics.Role
@@ -252,20 +255,31 @@ fun <T> ChipRow(
 }
 
 /**
- * 只把高度补到 [min]（默认 48dp），宽度不动。chip 成排放时不能像 minimumInteractiveComponentSize 那样把窄 chip（“…”）也撑到 48 宽，
- * 否则 4 个预设挤不进一行。窄 chip 的横向热区靠 Compose 默认的触控目标扩展（真机未验证）。
+ * 触控热区补到 [MinTouch] 高，但外扩部分不占布局：[touchPad] 量出视觉高、在上下补边距，
+ * [touchOverhang] 再把补的部分从报给父布局的高度里减掉、往上挪回去，热区画在自己的上下边距之外。
+ * 原来的 minimumTouchHeight 把 33dp 的 chip 撑成 48dp 布局高，上下各多出约 7.5dp 看不见的空白，
+ * 标题 → chip、chip → 卡底都显得比别处松（E-20261028-ux1 A2）。两段之间夹 clickable，热区 = 补齐后的 48dp。
+ * 横向不扩：窄 chip 的横向热区靠 [SelectChip] 的 minWidth 和 Compose 默认的触控目标扩展。
  */
-private fun Modifier.minimumTouchHeight(min: Dp = MinTouch): Modifier = layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    val height = maxOf(placeable.height, min.roundToPx())
-    layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
+private class TouchPad { var extra = 0 }
+
+private fun Modifier.touchOverhang(pad: TouchPad): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0))
+    val extra = pad.extra
+    layout(placeable.width, placeable.height - 2 * extra) { placeable.placeRelative(0, -extra) }
+}
+
+private fun Modifier.touchPad(pad: TouchPad, min: Dp = MinTouch): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0))
+    pad.extra = maxOf(0, (min.roundToPx() - placeable.height) / 2)
+    layout(placeable.width, placeable.height + 2 * pad.extra) { placeable.placeRelative(0, pad.extra) }
 }
 
 /**
  * [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。
  * [design] = 稿面普通 chip：高 33、字 12.5、内边距 9（G#1，只在显式开启的页面生效，全局默认仍是 48dp）。
- * [description] 给只有符号的 chip（例如“…”）补读屏文字。
- * 视觉保持稿面尺寸，触控高度用 [minimumTouchHeight] 补到 48dp（真机未验证）。
+ * [description] 给只有符号的 chip 补读屏文字。
+ * 视觉保持稿面尺寸，触控高度用 [touchOverhang] 外扩到 48dp，外扩部分不占布局。
  */
 @Composable
 fun SelectChip(
@@ -282,16 +296,20 @@ fun SelectChip(
     val shape = RoundedCornerShape(ChipRadius)
     val minHeight = if (xs) 25.dp else if (design) 33.dp else MinTouch
     val horizontal = if (xs) 8.dp else if (design) 9.dp else 12.dp
+    val pad = remember { TouchPad() }
+    val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier
-            .minimumTouchHeight()
+            .touchOverhang(pad)
+            .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .touchPad(pad)
             .widthIn(min = minWidth)
             .heightIn(min = minHeight)
             .clip(shape)
             .background(if (selected) colors.wash(colors.accent) else colors.surface1)
             .border(1.dp, if (selected) colors.accent else colors.line, shape)
-            .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
-            .clickable(onClick = onClick)
+            .indication(interaction, LocalIndication.current)
             .padding(horizontal = horizontal, vertical = if (xs) 3.dp else if (design) 6.dp else 0.dp),
         contentAlignment = Alignment.Center,
     ) {
