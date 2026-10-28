@@ -12,8 +12,8 @@ android {
         applicationId = "dev.corn.bench"
         minSdk = 29
         targetSdk { version = release(37) }
-        versionCode = 1
-        versionName = "0.2.0"
+        versionCode = 2
+        versionName = "0.2.1"
     }
 
     compileOptions {
