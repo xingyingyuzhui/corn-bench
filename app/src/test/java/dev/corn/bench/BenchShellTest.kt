@@ -4,7 +4,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -23,6 +33,8 @@ import dev.corn.ui.mode.ModeConfirmTag
 import dev.corn.ui.mode.ModePickerTag
 import dev.corn.ui.mode.ModeSheetTag
 import dev.corn.ui.mode.modeCardTag
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -45,18 +57,21 @@ private fun FlashingPlaceholder() {
     BrandMarkOrSwitcher()
 }
 
-/** 记录调用顺序的假守卫。 */
+/** 记录调用顺序的假守卫。[blocked] 是可观察状态：测试里改它 = 后台忙态变化。 */
 private class RecordingGuard(
-    var blocked: String? = null,
+    blocked: String? = null,
     var released: Boolean = true,
 ) : ModeGuard {
+    val blocked = MutableStateFlow(blocked)
     val releasedModes = mutableListOf<BenchMode>()
     val blockedQueries = mutableListOf<BenchMode>()
 
     override fun blockedReason(mode: BenchMode): String? {
         blockedQueries += mode
-        return blocked
+        return blocked.value
     }
+
+    override fun blockedReasonFlow(mode: BenchMode): Flow<String?> = blocked
 
     override suspend fun release(mode: BenchMode): Boolean {
         releasedModes += mode
@@ -166,6 +181,52 @@ class BenchShellTest {
         assertTrue("拦截时不应调用 release", guard.releasedModes.isEmpty())
     }
 
+    /** 评审 E P2-6：面板开着时后台忙态结束（批次结束 / 会话断开），卡片即时解除置灰，不用关掉重开。 */
+    @Test
+    fun openSheetUnblocksWhenTheBackgroundTaskEnds() {
+        val reason = "批量烧录进行中：请先在工作台结束批次"
+        val guard = RecordingGuard(blocked = reason)
+        val store = MemoryModeStore(BenchMode.FLASHING)
+        show(store, guard)
+        compose.onNodeWithTag(BrandSwitcherTag).performClick()
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS)).assertIsNotEnabled()
+        compose.onNodeWithText(reason).assertIsDisplayed()
+
+        guard.blocked.value = null
+        compose.waitForIdle()
+        compose.onNodeWithText(reason).assertDoesNotExist()
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS)).assertIsEnabled()
+        // 解除后在同一个面板里直接能切。
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("content-modbus").assertIsDisplayed()
+        assertEquals(listOf(BenchMode.FLASHING), guard.releasedModes)
+    }
+
+    /** 反方向：面板开着时后台变忙（如批次自动暂停 / 文案变化），卡片即时置灰、文案跟着换。 */
+    @Test
+    fun openSheetBlocksAndUpdatesTheReasonWhileOpen() {
+        val guard = RecordingGuard(blocked = null)
+        val store = MemoryModeStore(BenchMode.FLASHING)
+        show(store, guard)
+        compose.onNodeWithTag(BrandSwitcherTag).performClick()
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS)).assertIsEnabled()
+
+        guard.blocked.value = "批量烧录进行中：请先在工作台结束批次"
+        compose.waitForIdle()
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS)).assertIsNotEnabled()
+        compose.onNodeWithText("批量烧录进行中：请先在工作台结束批次").assertIsDisplayed()
+
+        guard.blocked.value = "批次已暂停但未结束：请先在工作台结束批次"
+        compose.waitForIdle()
+        compose.onNodeWithText("批量烧录进行中", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("批次已暂停但未结束：请先在工作台结束批次").assertIsDisplayed()
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("content-flashing").assertIsDisplayed()
+        assertTrue("拦截时不应调用 release", guard.releasedModes.isEmpty())
+    }
+
     @Test
     fun releaseTimeoutKeepsTheCurrentMode() {
         val guard = RecordingGuard(released = false)
@@ -234,6 +295,36 @@ class BenchShellTest {
         show(loading)
         compose.onNodeWithTag(BenchLoadingTag).assertIsDisplayed()
         compose.onNodeWithTag(ModePickerTag).assertDoesNotExist()
+    }
+
+    // ---- 无障碍（评审 E P2-9）：读屏能听出面板 / 标题 / 卡片状态 ----
+
+    @Test
+    fun switchSheetAnnouncesItselfAndCardStates() {
+        val guard = RecordingGuard(blocked = "正在烧录：等这一片完成后再切换")
+        show(MemoryModeStore(BenchMode.FLASHING), guard)
+        // 页头只有一个“切换模式”按钮。
+        compose.onAllNodes(hasContentDescription("切换模式") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertCountEquals(1)
+        compose.onNodeWithTag(BrandSwitcherTag).performClick()
+        compose.onNodeWithTag(ModeSheetTag).assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "切换模式"))
+        compose.onNode(isHeading() and hasText("切换模式")).assertIsDisplayed()
+        compose.onNodeWithTag(modeCardTag(BenchMode.FLASHING))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "当前模式"))
+            .assertIsSelected()
+        // 被拦截的卡：停用 + 状态说明 + 原因文字合并在同一个节点里（读屏一次念完）。
+        compose.onNodeWithTag(modeCardTag(BenchMode.MODBUS))
+            .assertIsNotEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "现在不能切换"))
+            .assert(hasText("正在烧录：等这一片完成后再切换"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun pickerHasHeadings() {
+        show(MemoryModeStore(null))
+        compose.onNode(isHeading() and hasText("先选一个模式")).assertIsDisplayed()
+        compose.onNode(isHeading() and hasText("Corn Bench")).assertIsDisplayed()
     }
 
     // ---- Roborazzi 截图（渲染，不是实机）----

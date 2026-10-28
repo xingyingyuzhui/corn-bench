@@ -60,7 +60,7 @@ fun ModbusTheme(
     }
     val accent = shell?.accent ?: settings.accent.toBenchAccent()
     CompositionLocalProvider(
-        LocalModbusColors provides modbusColors(dark),
+        LocalModbusColors provides modbusColors(dark, accent),
         LocalUiSettings provides settings,
         // Modbus 的间距刻度（group 16 / card 12）与 ui-common 默认（12 / 14）不同；
         // 第一期先保留 Modbus 自己的间距，避免所有页面的卡片节奏一起变。

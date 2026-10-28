@@ -96,13 +96,13 @@ class DesignTokensTest {
         }
     }
 
-    /** 第一期强调色固定为玉米色：5 个 AccentColor 枚举仍然保留，但不再改变界面颜色。 */
+    /** 第二期起强调色生效：每个 AccentColor 取外壳同名强调色的 token（AMBER = 玉米）。 */
     @Test
-    fun everyAccentIsNowTheCornToken() {
+    fun everyAccentUsesItsBenchToken() {
         for (accent in AccentColor.entries) {
             for (theme in listOf("light", "dark")) {
                 val c = modbusColors(theme == "dark", accent)
-                val token = dev.corn.ui.theme.benchColors(theme == "dark")
+                val token = dev.corn.ui.theme.benchColors(theme == "dark", accent.toBenchAccent())
                 assertEquals("${accent.name}.$theme.fill", hex(token.accent), hex(c.accent))
                 assertEquals("${accent.name}.$theme.on", hex(token.onAccent), hex(c.onAccent))
                 assertEquals("${accent.name}.$theme.text", hex(token.accentText), hex(c.accentText))

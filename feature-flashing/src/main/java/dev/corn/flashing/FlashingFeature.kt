@@ -17,11 +17,16 @@ import dev.corn.flashing.storage.JobLauncher
 import dev.corn.flashing.usb.StLinkHardwareBackend
 import dev.corn.flashing.usb.UsbProbeMonitor
 import java.util.concurrent.CopyOnWriteArraySet
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -33,7 +38,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 object FlashingFeature {
     @Volatile private var application: Application? = null
-    @Volatile private var created: FlashingContainer? = null
+    /** 已创建的容器；用 StateFlow 而不是普通字段，[leaveBlockedReasonFlow] 才能在容器稍后创建时接上。 */
+    private val createdState = MutableStateFlow<FlashingContainer?>(null)
+    private val created: FlashingContainer? get() = createdState.value
     private val foreground = MutableStateFlow(false)
 
     /** 由宿主 Application.onCreate 调用；重复调用无副作用。 */
@@ -50,7 +57,7 @@ object FlashingFeature {
         synchronized(this) {
             created?.let { return it }
             val app = application ?: (context.applicationContext as Application).also(::install)
-            return FlashingContainer(app, foreground.asStateFlow()).also { created = it }
+            return FlashingContainer(app, foreground.asStateFlow()).also { createdState.value = it }
         }
     }
 
@@ -67,6 +74,16 @@ object FlashingFeature {
     }
 
     /**
+     * [leaveBlockedReason] 的可观察版本：外壳切换面板开着时，后台批次暂停 / 结束、单片烧完，卡片文案与置灰即时跟着变。
+     * 同样不创建容器：容器没建时一直是 null，建了以后自动接上它的状态。
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun leaveBlockedReasonFlow(): Flow<String?> = createdState.flatMapLatest { c ->
+        if (c == null) flowOf(null)
+        else flashingLeaveBlockedReasonFlow(c.repository.state.map { it.running }, c.batches.active.map { it?.phase })
+    }.distinctUntilChanged()
+
+    /**
      * 离开烧录模式前释放 USB：停掉“等待下一块板”的轮询，并等正在进行的识别芯片（[StLinkHardwareBackend]
      * 每次操作都 `StLinkUsbSession.open().use {}`）收尾。返回 false = 超时仍在识别，外壳不切换。
      */
@@ -78,6 +95,11 @@ object FlashingFeature {
             probing = c.repository.state.map { it.probing },
             timeoutMillis = timeoutMillis,
         )
+    }
+
+    /** 只给测试用：清掉单例容器，让下次 [container] 按当前测试的 Application 重新创建。 */
+    internal fun resetForTest() {
+        synchronized(this) { createdState.value = null }
     }
 
     private class ForegroundTracker(private val state: MutableStateFlow<Boolean>) : Application.ActivityLifecycleCallbacks {
@@ -105,6 +127,10 @@ internal fun flashingLeaveBlockedReason(running: Boolean, batchPhase: BatchPhase
         BatchPhase.WAITING_BOARD, BatchPhase.FLASHING -> "批量烧录进行中：请先在工作台结束批次"
     }
 }
+
+/** [FlashingFeature.leaveBlockedReasonFlow] 的本体：两路状态任一变化就按 [flashingLeaveBlockedReason] 重算。 */
+internal fun flashingLeaveBlockedReasonFlow(running: Flow<Boolean>, batchPhase: Flow<BatchPhase?>): Flow<String?> =
+    combine(running, batchPhase, ::flashingLeaveBlockedReason).distinctUntilChanged()
 
 /**
  * [FlashingFeature.releaseUsb] 的本体：先跑离开钩子（停“等待下一块板”轮询），仍被拦截就直接 false，

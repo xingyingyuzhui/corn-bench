@@ -3,6 +3,13 @@ name: ci
 on:
   push:
   pull_request:
+  # 手动跑一次 record_baselines=true：不比对，在 CI 环境里重录像素基线并上传 pixel-baselines（下载后入库）。
+  workflow_dispatch:
+    inputs:
+      record_baselines:
+        description: 重录像素基线（不比对）
+        type: boolean
+        default: false
 
 jobs:
   check:
@@ -57,6 +64,13 @@ jobs:
         with:
           path: ~/.cache/corn-fonts
           key: noto-cjk-sc-regular-2.004
+      # 像素基线（docs/screenshots.md）是在装了这个字体的 runner 上录的；没有字体时中文成方块，比对必然失败。
+      # 与其让比对报一堆像素差，不如在这里明确失败。
+      - name: Require CJK font for pixel baselines
+        if: steps.cjk-install.outputs.ok != 'true'
+        run: |
+          echo "::error::CJK 字体没装上（下载或安装失败），像素基线无法比对。重跑这个 job；若 GitHub 下载持续失败，见 docs/screenshots.md。"
+          exit 1
       - uses: gradle/actions/setup-gradle@v5
       - uses: actions/setup-python@v6
         with:
@@ -71,6 +85,8 @@ jobs:
       - name: Test, lint, assemble, and record screenshots
         # 根工程把两个旧仓库并成 6 个模块：两个纯 JVM core、两个 feature、:ui-common、:app。
         # 旧 CI 只跑 :app 的 test/lint，feature 模块的 968 个单测会漏掉。
+        # corn.baseline=verify：入库的像素基线（src/test/screenshots/baseline/）逐像素比对，有差异 / 缺图即单测失败；
+        # 其余截图仍只 record（“能渲染”检查，不入库）。
         run: >
           ./gradlew
           :modbus-core:test
@@ -80,11 +96,13 @@ jobs:
           :app:testDebugUnitTest
           :app:recordRoborazziDebug
           :feature-modbus:recordRoborazziDebug
+          :feature-flashing:recordRoborazziDebug
           :app:lintDebug
           :feature-modbus:lintDebug
           :feature-flashing:lintDebug
           :app:assembleDebug
           :app:assembleRelease
+          -Pcorn.baseline=${{ inputs.record_baselines && 'record' || 'verify' }}
       - name: Verify debug bridge stays out of release
         run: python tools/modbus/verify_offline_apks.py
       - name: Reject INTERNET permission
@@ -109,4 +127,22 @@ jobs:
           path: |
             app/src/test/screenshots/**/*.png
             feature-modbus/src/test/screenshots/**/*.png
+            feature-flashing/src/test/screenshots/**/*.png
+          if-no-files-found: error
+      # 比对失败时上传实际图与对比图（*_actual.png / *_compare.png），在 artifact 里直接看差在哪。
+      - name: Upload pixel baseline diffs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pixel-baseline-diffs
+          path: |
+            */build/outputs/roborazzi/**
+            */build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: ignore
+      - name: Upload recorded pixel baselines
+        if: inputs.record_baselines
+        uses: actions/upload-artifact@v6
+        with:
+          name: pixel-baselines
+          path: '*/src/test/screenshots/baseline/*.png'
           if-no-files-found: error

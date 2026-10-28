@@ -48,6 +48,7 @@ import dev.corn.ui.theme.LocalBenchColors
 import io.github.xingyingyuzhui.modbusmobile.ModbusEntry
 import io.github.xingyingyuzhui.modbusmobile.ModbusFeature
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 /**
@@ -57,8 +58,14 @@ import kotlinx.coroutines.launch
  * 不必真的创建 Room / USB / DataStore。
  */
 interface ModeGuard {
-    /** 不能离开这个模式的原因；null = 可以离开。 */
+    /** 不能离开这个模式的原因；null = 可以离开。真正切换前 [ModeShell] 用它重查一次。 */
     fun blockedReason(mode: BenchMode): String?
+
+    /**
+     * [blockedReason] 的可观察版本，切换面板的置灰 / 文案订阅它：面板开着时后台忙态变化（批次暂停、会话断开）
+     * 会即时反映到卡片上。同样只查询、不创建容器。
+     */
+    fun blockedReasonFlow(mode: BenchMode): Flow<String?>
 
     /** 离开这个模式前释放资源（USB、轮询、前台服务）。true = 已释放，可以切换。 */
     suspend fun release(mode: BenchMode): Boolean
@@ -69,6 +76,11 @@ object DefaultModeGuard : ModeGuard {
     override fun blockedReason(mode: BenchMode): String? = when (mode) {
         BenchMode.MODBUS -> ModbusFeature.leaveBlockedReason()
         BenchMode.FLASHING -> FlashingFeature.leaveBlockedReason()
+    }
+
+    override fun blockedReasonFlow(mode: BenchMode): Flow<String?> = when (mode) {
+        BenchMode.MODBUS -> ModbusFeature.leaveBlockedReasonFlow()
+        BenchMode.FLASHING -> FlashingFeature.leaveBlockedReasonFlow()
     }
 
     override suspend fun release(mode: BenchMode): Boolean = when (mode) {
@@ -101,6 +113,13 @@ internal class ModeViewModelStoreOwner(application: Application) :
 }
 
 const val BenchLoadingTag = "bench-loading"
+
+/**
+ * 外壳这一层的外观。**fontScale 必须保持 1**：App 字号倍率只由模式自己的主题（`ModbusTheme` 内层的 `CornTheme`）乘一次，
+ * 外壳也乘就会叠成 1.3 → 1.69（第一期修过的双乘）。`CornTheme` 嵌套时两层都 ≠1 会直接 check 失败，
+ * `ShellFontScaleTest` 锁定外壳内的最终倍率。
+ */
+internal fun shellAppearance(dark: Boolean, accent: BenchAccent) = BenchAppearance(dark = dark, accent = accent, fontScale = 1f)
 const val BenchUsbHintTag = "bench-usb-hint"
 
 /**
@@ -145,12 +164,7 @@ fun BenchRoot(
         return
     }
     val dark = appearance.isDark()
-    CornTheme(
-        appearance = BenchAppearance(
-            dark = dark,
-            accent = appearance.accent,
-        ),
-    ) {
+    CornTheme(appearance = shellAppearance(dark, appearance.accent)) {
         CompositionLocalProvider(LocalAppearanceController provides appearanceStore) {
             // 系统栏图标深浅跟当前模式的主题走（系统浅色时炭黑底也需要浅色图标）。
             BenchSystemBars()
@@ -219,7 +233,11 @@ fun ModeShell(
     }
 
     // 卡片置灰只看“能不能离开当前模式”：切换前必须释放的是当前模式的 USB / 任务。
-    val leaveReason = guard.blockedReason(mode)
+    // 订阅而不是组合时读一次：面板开着时后台忙态变了（批次自动暂停、会话断开），卡片即时刷新。
+    // 初值用同步查询，面板第一帧就是对的。
+    val leaveReasonFlow = remember(guard, mode) { guard.blockedReasonFlow(mode) }
+    val initialReason = remember(guard, mode) { guard.blockedReason(mode) }
+    val leaveReason by leaveReasonFlow.collectAsStateWithLifecycle(initialValue = initialReason)
     val options = BenchMode.entries.map { candidate ->
         ModeOption(
             mode = candidate,

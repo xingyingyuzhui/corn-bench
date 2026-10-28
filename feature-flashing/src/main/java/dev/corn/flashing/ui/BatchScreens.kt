@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.corn.flashing.core.*
 import dev.corn.flashing.storage.*
 import dev.corn.flashing.usb.UsbProbe
+import dev.corn.ui.mode.BenchMode
 
 // ---------------------------------------------------------------- batch workbench (13)
 
@@ -36,7 +37,7 @@ import dev.corn.flashing.usb.UsbProbe
 fun BatchWorkbench(vm: FlashViewModel, state: SessionState, view: BatchView?, onMode: (Boolean) -> Unit,
                    onSettings: () -> Unit, onNewBatch: () -> Unit) {
     val fwName = view?.batch?.firmwareName ?: state.firmware?.name ?: "未选固件"
-    TopBar("Corn Flashing", "批量 · 工位 1 · $fwName") {
+    TopBar(BenchMode.FLASHING.title, "批量 · 工位 1 · $fwName") {
         when {
             view == null -> Chip("未开始")
             view.phase == BatchPhase.PAUSED -> Chip("已暂停", ChipTone.WARN, dot = true)

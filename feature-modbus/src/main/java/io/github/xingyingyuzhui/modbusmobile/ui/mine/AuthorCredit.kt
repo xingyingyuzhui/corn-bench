@@ -32,7 +32,7 @@ internal fun rememberOpenRepo(): () -> Unit {
     return { runCatching { uri.openUri(Authorship.REPO_URL) } }
 }
 
-/** 设置列表最后一行的署名：“Corn Modbus · by xingyingyuzhui”，点一下打开仓库（热区 ≥ 48dp）。 */
+/** 设置列表最后一行的署名：“Corn Bench · by xingyingyuzhui”，点一下打开仓库（热区 ≥ 48dp）。 */
 @Composable
 internal fun AuthorCredit(modifier: Modifier = Modifier) {
     val colors = LocalModbusColors.current

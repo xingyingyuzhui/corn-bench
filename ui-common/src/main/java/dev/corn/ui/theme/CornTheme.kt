@@ -24,7 +24,11 @@ import androidx.compose.ui.unit.sp
  */
 data class BenchAppearance(
     val dark: Boolean = true,
-    /** App 字号倍率，与系统字号叠乘。 */
+    /**
+     * App 字号倍率，与系统字号叠乘。**整条 [CornTheme] 嵌套链里最多只能有一层不是 1**：
+     * 外壳那层固定为 1，App 字号只由模式自己的主题（如 `ModbusTheme`）那一层乘；两层都乘就是 1.3 → 1.69 的双乘，
+     * [CornTheme] 会直接 `check` 失败。
+     */
     val fontScale: Float = 1f,
     val density: BenchDensity = BenchDensity.COMFORTABLE,
     val accent: BenchAccent = BenchAccent.DEFAULT,
@@ -94,6 +98,12 @@ val BenchTypography = Typography().run {
     )
 }
 
+/**
+ * 外层各级 [CornTheme] 已经乘进 [LocalDensity] 的 App 字号倍率（1 = 还没乘过）。
+ * 只给 [CornTheme] 自己做双乘检查，不对外。
+ */
+private val LocalAppliedAppFontScale = staticCompositionLocalOf { 1f }
+
 /** 系统倍率 × App 倍率（不封顶，与 Corn Modbus 的现行规则一致）。 */
 fun totalFontScale(system: Float, app: Float): Float = system * app
 
@@ -107,7 +117,13 @@ fun CornTheme(
 ) {
     val colors = benchColors(appearance.dark, appearance.accent)
     val density = LocalDensity.current
+    // 防字号双乘：外层已经乘过 App 倍率（≠1）时，内层只能传 1。评审 E P2-7。
+    val applied = LocalAppliedAppFontScale.current
+    check(applied == 1f || appearance.fontScale == 1f) {
+        "CornTheme 嵌套时 App 字号被乘了两次（外层 $applied × 内层 ${appearance.fontScale}）：外层（外壳）必须传 fontScale = 1"
+    }
     CompositionLocalProvider(
+        LocalAppliedAppFontScale provides applied * appearance.fontScale,
         LocalBenchColors provides colors,
         LocalBenchSpacing provides BenchSpacing.of(appearance.density),
         LocalBenchAppearance provides appearance,

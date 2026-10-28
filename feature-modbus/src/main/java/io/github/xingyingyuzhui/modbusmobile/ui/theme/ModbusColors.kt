@@ -2,6 +2,7 @@ package io.github.xingyingyuzhui.modbusmobile.ui.theme
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import dev.corn.ui.theme.BenchAccent
 import dev.corn.ui.theme.benchColors
 import io.github.xingyingyuzhui.modbusmobile.application.AccentColor
 
@@ -65,12 +66,15 @@ data class ModbusColors(
 }
 
 /**
- * 把 :ui-common 的语义 token 映射到 Corn Modbus 的字段名。
- * [accent] 第一期不再生效（强调色固定为玉米色）；保留参数只是为了避免改所有预览 / 测试调用点。
+ * 把 :ui-common 的语义 token 映射到 Corn Modbus 的字段名。旧枚举 [AccentColor] 按 [toBenchAccent] 换成外壳强调色
+ * （`AMBER` = 玉米）。第二期起强调色真正生效（第一期这里固定玉米，第二期漏改，P2 像素基线发现）。
  */
-@Suppress("UNUSED_PARAMETER")
-fun modbusColors(dark: Boolean, accent: AccentColor = AccentColor.DEFAULT): ModbusColors {
-    val t = benchColors(dark)
+fun modbusColors(dark: Boolean, accent: AccentColor = AccentColor.DEFAULT): ModbusColors =
+    modbusColors(dark, accent.toBenchAccent())
+
+/** 同上，直接用外壳强调色（`ModbusTheme` 走这一路）。 */
+fun modbusColors(dark: Boolean, accent: BenchAccent): ModbusColors {
+    val t = benchColors(dark, accent)
     return ModbusColors(
         isDark = t.isDark,
         bg = t.bg,

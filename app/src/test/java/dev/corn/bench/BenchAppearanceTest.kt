@@ -54,6 +54,7 @@ class BenchAppearanceTest {
     private val appearance = FakeAppearance()
     private val noGuard = object : ModeGuard {
         override fun blockedReason(mode: BenchMode): String? = null
+        override fun blockedReasonFlow(mode: BenchMode) = kotlinx.coroutines.flow.flowOf<String?>(null)
         override suspend fun release(mode: BenchMode) = true
     }
 

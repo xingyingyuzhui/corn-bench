@@ -5,6 +5,8 @@ import io.github.xingyingyuzhui.modbusmobile.application.SessionState
 import io.github.xingyingyuzhui.modbusmobile.core.model.Role
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -90,5 +92,33 @@ class ModbusLeaveGuardTest {
         val ok = releaseSession(state, {}, { disconnects++ }, 5_000)
         assertFalse(ok)
         assertEquals(1, disconnects)
+    }
+
+    /** 切换面板订阅的那一路：容器没建是 null；建了以后跟着会话状态变，重复值不重发。 */
+    @Test
+    fun reasonFlowFollowsContainerAndSessionState() = runTest(UnconfinedTestDispatcher()) {
+        val container = MutableStateFlow<MutableStateFlow<SessionState>?>(null)
+        val seen = mutableListOf<String?>()
+        val job = launch { leaveBlockedReasonFlowOf(container).toList(seen) }
+        assertEquals(listOf<String?>(null), seen)
+
+        val session = MutableStateFlow<SessionState>(SessionState.Idle)
+        container.value = session // 容器建好、会话空闲：仍是 null，不重发
+        assertEquals(listOf<String?>(null), seen)
+
+        session.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, epoch = 1)
+        session.value = SessionState.Running(Role.MASTER, ConnectionTarget.Demo, epoch = 2) // 同一文案不重发
+        session.value = SessionState.Stopping
+        session.value = SessionState.Idle
+        assertEquals(
+            listOf(
+                null,
+                "上位机演示会话正在运行：请先在连接页断开",
+                "正在断开串口：等断开完成后再切换",
+                null,
+            ),
+            seen,
+        )
+        job.cancel()
     }
 }

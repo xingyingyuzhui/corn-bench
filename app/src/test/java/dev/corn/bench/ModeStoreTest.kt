@@ -84,6 +84,9 @@ class ModeStoreTest {
 
         assertNull(DefaultModeGuard.blockedReason(BenchMode.MODBUS))
         assertNull(DefaultModeGuard.blockedReason(BenchMode.FLASHING))
+        // 可观察版本（切换面板订阅的那一路）同样不创建容器。
+        assertNull(DefaultModeGuard.blockedReasonFlow(BenchMode.MODBUS).first())
+        assertNull(DefaultModeGuard.blockedReasonFlow(BenchMode.FLASHING).first())
         assertTrue(DefaultModeGuard.release(BenchMode.MODBUS))
         assertTrue(DefaultModeGuard.release(BenchMode.FLASHING))
 

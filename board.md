@@ -118,3 +118,86 @@
 - [x] 文档（P1-5）：`docs/bench-shell.md` 验证清单拆成「本机单测 / redroid / 未验证（真机）」三类。
 - 未验证：真机 USB（ST-LINK / RS485 授权、收发、拔插、FLAG_IMMUTABLE 回调）、前后台、TalkBack、真机浅色观感。
 - 下一步：P2——切换面板置灰改响应式；外层 `CornTheme` fontScale=1 加断言；烧录页文案“Corn Flashing”改名；Roborazzi 像素基线。
+
+## 2026-10-28 P2 · 分支 feat/p2-shell-polish（基于 main@5d49e51）
+
+- 交接：原定 DeepSeek 做，已叫停；分支上没有它留下的提交或改动（与 main 同 SHA、远端无此分支），从这里接着做。
+- 范围：board「下一步：P2」+ 评审 E P2 第 6、7、9、10 条（第 8 条真机专项不在本轮）。不扩协议、不碰真机 USB。
+- [x] 切换面板置灰改响应式（P2-6）
+  - `ModeGuard` 新增 `blockedReasonFlow(mode)`；`ModeShell` 订阅它（初值仍用同步 `blockedReason`，面板第一帧就对），
+    真正切换前仍用 `blockedReason` 重查一次。
+  - 两个 Feature 的“已创建容器”从普通字段改成 `MutableStateFlow`，`leaveBlockedReasonFlow()` 在容器没建时恒为 null、
+    建了以后自动接上状态，**仍不创建容器**（`ModeStoreTest.defaultGuardQueriesWithoutCreatingContainers` 补了 flow 一路）。
+  - 纯函数：`leaveBlockedReasonFlowOf(...)`（上位机）、`flashingLeaveBlockedReasonFlow(running, phase)`（烧录），各 1 个用例
+    （状态序列 → 文案序列，重复文案不重发）。
+  - `BenchShellTest` +2：面板开着时忙→闲（卡片解除置灰、同一面板内直接能切）、闲→忙→换文案（置灰、文案即时变、点了不切）。
+    反证：把 `ModeShell` 改回组合期读一次快照，这 2 个用例红（16 个中 2 个失败），改回后全绿。
+- [x] 外层 `CornTheme` fontScale 必须为 1（P2-7）
+  - `CornTheme` 用私有 `LocalAppliedAppFontScale` 记外层已乘的 App 倍率；嵌套时两层都 ≠1 直接 `check` 失败（报“乘了两次”），不再悄悄变 1.69。
+  - 外壳改用 `shellAppearance(dark, accent)`（显式 `fontScale = 1f` + 注释）。
+  - `:ui-common` 新增 `CornThemeFontScaleTest` 3 个（外 1 内 1.3、外 1.15 内 1、两层都 1.3 抛异常）；
+    `:app` 新增 `ShellFontScaleTest` 2 个：系统字号 1.2 下真实 `BenchRoot` 套真实 `ModbusTheme(EXTRA)`，外壳层 = 1.2、模式层 = 1.56。
+  - 反证：把 `shellAppearance` 改成 1.3，`ShellFontScaleTest` 2 个全红；改回后绿。
+- [x] 用户可见文案去掉独立应用名「Corn Flashing」
+  - 页头标题（单路 / 批量工作台）改为模式名 `BenchMode.FLASHING.title`（“烧录”），与切换面板一致；副标题不变。
+  - 引导第 3 步“允许 Corn Bench 访问”（系统 USB 授权框显示的就是 :app 的 `app_name`）；设置页关于卡“Corn Bench x.y.z · 烧录”、
+    署名“Corn Bench · by xingyingyuzhui”、仓库链接改 `github.com/xingyingyuzhui/corn-bench`；
+    USB 诊断剪贴板标签“Corn Bench 烧录 USB 诊断”；前台通知标题只写“烧录 / 模拟烧录 / ST-LINK 烧录”（通知头已显示应用名）；
+    导出记录默认文件名 `corn-bench-flashing-records.json`。
+  - 不改：Room 库文件名 `corn-flashing.db`（内部文件名，改了会丢旧记录）、注释里的历史来源。上位机侧的“Corn Modbus”署名不在本条范围，未动。
+  - `UserVisibleBrandingTest` 2 个：扫 `src/main` 的 Kotlin 字符串字面量与资源值（跳过注释和 `.db` 名）。反证：还原改名前的源码时红 1 个。
+- [x] **P2 像素基线发现并修复：上位机强调色一直不生效**
+  - 录“连接页 浅色 × 蓝”基线时图里仍是玉米黄。原因：`ModbusTheme` 按 `modbusColors(dark)` 提供 `LocalModbusColors`，
+    `modbusColors` 内部也固定 `benchColors(dark)`（第一期“强调色固定玉米”，第二期只开放了外观页与 `CornTheme`，这里漏改；
+    `ModbusColorsMatchTokensTest.accentParameterNoLongerChangesColors` 还在锁旧行为）。所以第二期起上位机选任何强调色都还是玉米，
+    烧录模式正常（它读 `LocalBenchColors`）。
+  - 修：`modbusColors(dark, BenchAccent)` 取 `benchColors(dark, accent)`，旧 `AccentColor` 重载按 `toBenchAccent()` 转（AMBER = 玉米）；
+    `ModbusTheme` 传入外壳（或旧设置）的强调色。
+  - 测试：新增 `ModbusThemeAccentTest` 2 个（有外壳以外壳 BLUE 为准且与 `LocalBenchColors` 一致；无外壳用设置里的 GREEN）；
+    `ModbusColorsMatchTokensTest` / `DesignTokensTest` 里锁“强调色不生效”的两个用例改为锁“取同名强调色 token”。
+    反证：`ModbusTheme` 改回 `modbusColors(dark)`，`ModbusThemeAccentTest` 2 个全红。
+- [x] Roborazzi 像素基线（P2-10）：约定见新文档 `docs/screenshots.md`
+  - 入库 5 张：上位机连接页 浅色×玉米 / 浅色×蓝；烧录工作台（真实 `FlashViewModel` + `CornApp`，未接探针首屏）浅色×玉米 / 浅色×蓝 / 深色×玉米。
+    放在 `src/test/screenshots/baseline/`（`.gitignore` 只放行这个子目录），其余截图仍只做“能渲染”、不入库。
+  - `captureBaseline(name)`（两个 feature 各一份）按 `-Pcorn.baseline=verify|record` 强制比对 / 重录；`:feature-flashing` 接入 Roborazzi 插件。
+    `FlashingFeature.resetForTest()` 让每个用例用当前 Application 重建容器。
+  - CI：Gradle 加 `-Pcorn.baseline=verify` 与 `:feature-flashing:recordRoborazziDebug`；失败条件写死：
+    像素差 / 基线缺失 → 单测失败，并上传 `pixel-baseline-diffs`（`_compare` / `_actual`）；CJK 字体没装上 → 单独一步直接失败。
+    另加 `workflow_dispatch` 的 `record_baselines`（合进 main 后才能用）在 CI 环境重录并上传 `pixel-baselines`。
+  - 本机反证：蓝色强调色主色改成红 → `workbench_light_blue` 失败并出对比图；删掉一张基线 → `was not found` 失败；
+    浅色底改 1 个色阶不报（Roborazzi 默认容差，单像素色距 ≤0.007，已写进文档）。
+  - 基线先用本机渲染入库；CI runner 字体若与本机不同，以 CI 的 `_actual` 图替换（见文档“渲染环境与重录”）。结果见下一条。
+- [x] a11y（P2-9，代码 + Robolectric 部分）
+  - 页头 label：上位机 `PageHeader` 标题、烧录 `TopBar` 标题 + 副标题（合并成一个节点）标为 heading。
+    结论：没有外壳时左上角玉米标是装饰（`contentDescription = null`，不进无障碍树），页头靠标题 heading 就有 label，不另加；
+    有外壳时另有且只有一个“切换模式”按钮。`PageHeaderA11yTest`（上位机）/ `TopBarA11yTest`（烧录）各 2 个锁定两种情况。
+  - 切换面板：`paneTitle = "切换模式"`（出现时读屏播报窗格）+ 标题 heading；卡片 `stateDescription`：当前卡“当前模式”、
+    被拦截卡“现在不能切换”（原因文字本来就合并在卡片节点里）。确认框 `paneTitle` = 标题 + 标题 heading。选择页两个标题 heading。
+  - `BenchShellTest` +2：面板 / 卡片语义（页头只一个切换按钮、窗格名、当前 / 拦截卡状态与原因、Role.Button）、选择页 heading。
+- [x] CI：`808a674`（基线入库）push run 40619061297 **success**，日志确认带 `-Pcorn.baseline=verify`、CJK 字体就绪
+  （“Require CJK font” 跳过）——本机录的 5 张基线在 runner 上比对通过，无需用 CI 图替换。`deed20d` push run 40619093684 success。
+- 本地单测（`deed20d`）：`:app` 39、`:feature-flashing` 42、`:feature-modbus` 962（全量 960 + 之后新增 `PageHeaderA11yTest` 2，
+  后者与 `ShellScreenshotTest` 单独重跑）、`:ui-common` 3，全过；`:modbus-core` 58、`:flashing-core` 164 未改动（CI 全量跑过）。
+  本轮新增 24 个用例（app 6、feature-flashing 8、feature-modbus 7、ui-common 3）。本机内存不足（他进程占 12G），一次性全量 + lint 的 Gradle 守护进程被 OOM 杀过一次，之后按模块拆跑；lint / assemble 以 CI 为准。
+- [x] redroid 验收（`deed20d` + 临时分支 `tmp/redroid-p2` 只多一行 skipNative，云构建 d40754af44be481f，验收后已删除）
+  - 旧验收包签名不同（换了构建机 debug key），先卸载 redroid 上的 `dev.corn.bench` 再装。
+  - **响应式置灰实机通过**：烧录模拟批次“等待下一块板”时打开切换面板，上位机卡写“批量烧录进行中”；面板不关，
+    批次在后台因模拟新板配置不一致自动暂停，约 20 秒内卡片文案自动变成“批次已暂停但未结束”（上次 redroid 记录的已知限制消除）。
+    结束批次后重开面板卡片可点，切到上位机成功。
+  - 改名：烧录单路 / 批量页头标题“烧录”，引导“允许 Corn Bench 访问”。
+  - 上位机强调色修复：外观页选蓝 → 连接页设备卡、波特率胶囊、主按钮均为蓝；切回烧录也是蓝。
+  - a11y：两个模式页头无障碍树里各只有一个 `Button label=切换模式`；切换面板卡片 disabled / checked 状态正确。
+  - **TalkBack 未做**：redroid 镜像没有装 TalkBack（`list_apps` 无 talkback），heading / paneTitle / stateDescription
+    只由 Robolectric 语义测试覆盖；所用设备工具也不显示 heading 属性。
+  - 崩溃列表无本次新增。
+- 未验证：TalkBack 实机朗读；真机 USB（ST-LINK / RS485、授权回调、拔插、模式间 USB 交接）、前后台、`FlashService` 通知回原实例
+  （评审 P2-8，本轮不做）；真机浅色 / 强调色观感。
+- 待主人决定：上位机侧“Corn Modbus”署名是否也统一为 Corn Bench；`feature-modbus/src/test/screenshots/` 里 24 张历史跟踪的非基线截图是否删除。
+
+## 2026-10-28 P2 追加 · 主人拍板的两项
+
+- [x] 上位机署名改为 Corn Bench：`Authorship.APP = "Corn Bench"`、`REPO_URL` → `github.com/xingyingyuzhui/corn-bench`
+  （设置页最后一行“Corn Bench · by xingyingyuzhui”、点击打开新仓库、导出 ZIP 注释、manifest `modbus.repo` meta-data、
+  BuildConfig `APP_REPO`、`author_signature` / 模块内 `app_name` 字符串同步）。`MinePageTest` 断言署名含 Corn Bench 并打开新仓库，
+  `ProjectArchiveTest` 断言 ZIP 注释全文。注释里写历史来源的“Corn Modbus”保留。
+- [x] 删除 `feature-modbus/src/test/screenshots/` 下 24 张历史跟踪的非基线截图；仓库里截图只剩 `baseline/` 的 5 张（`.gitignore` 不变）。

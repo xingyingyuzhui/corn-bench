@@ -25,5 +25,7 @@ __pycache__/
 *.pyc
 .venv/
 
-# Roborazzi 录制出来的基线 PNG 只留本地 / CI artifact，不进仓库
-**/src/test/screenshots/
+# Roborazzi 录制出来的“能渲染”截图只留本地 / CI artifact，不进仓库；
+# 例外：baseline/ 下是像素基线，入库，CI 逐像素比对（docs/screenshots.md）。
+**/src/test/screenshots/*
+!**/src/test/screenshots/baseline/

@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -166,7 +168,8 @@ fun TopBar(title: String, sub: String, right: @Composable RowScope.() -> Unit = 
         // 只有模式根页用 TopBar：在 Corn Bench 外壳里这里是模式切换器（玉米 + ▾，48dp 热区），否则是原来的图标。
         val switcher = dev.corn.ui.mode.LocalModeSwitcher.current
         if (switcher != null) dev.corn.ui.mode.BrandSwitcher(switcher) else AppIcon()
-        Column(Modifier.weight(1f)) {
+        // 标题 + 副标题合成一个 heading 节点（读屏念“烧录，离线烧录 · …”）；左边图标没有外壳时只是装饰。
+        Column(Modifier.weight(1f).semantics(mergeDescendants = true) { heading() }) {
             T(title, size = 19.sp, weight = FontWeight.Bold, maxLines = 1)
             T(sub, CornColors.Dim, 11.5.sp, maxLines = 1)
         }
