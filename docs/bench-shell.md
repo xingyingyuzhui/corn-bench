@@ -100,11 +100,21 @@
 - 两个模式共用外壳外观（默认跟随系统，redroid 为浅色，两边都是浅色）。
 - 桌面图标为无角标纯玉米（adaptive，深色底 `#1A1A1A`），启动画面同。
 - 观察到评审 P2 的已知限制：面板打开期间批次在后台自动暂停，卡片文案仍是打开时的“批量烧录进行中”，关掉重开才更新（不会切错）。
+  **P2 已修复并在 redroid 复验**（见下）。
+
+### P2（2026-10-28，`deed20d`）
+
+- 本机单测：`:app` 39、`:feature-flashing` 42、`:feature-modbus` 962、`:ui-common` 3，全过；CI push run success（含像素基线 verify）。
+- 像素基线 5 张（上位机连接页 / 烧录工作台，浅色 × 玉米 / 蓝），约定见 `docs/screenshots.md`。
+- redroid：面板开着时批次后台自动暂停，卡片文案即时从“批量烧录进行中”变成“批次已暂停但未结束”；结束后可切。
+  上位机选蓝后连接页确为蓝（修复前恒为玉米）。烧录页头标题“烧录”、引导“允许 Corn Bench 访问”。
+- 无障碍：页头标题 heading；面板 `paneTitle` + 标题 heading；模式卡 `stateDescription`（当前模式 / 现在不能切换）。
+  没有外壳时左上角玉米标是装饰，页头靠标题 heading 提供 label。redroid 没有 TalkBack，只核对了无障碍树（各页头一个“切换模式”按钮）。
 
 ### 未验证（需要真机 / 硬件）
 
 - 真实 ST-LINK 烧录与 USB-RS485 收发、USB 授权弹窗与回调（烧录侧 `FLAG_IMMUTABLE` 回调尤其要确认）、拔插、两种模式间的 USB 交接。
 - 真机前后台切换、`FlashService` 通知点击回到原实例。
-- 浅色 / 强调色在真机上的观感与对比度；TalkBack 实走 ModePicker 与切换面板。
+- 浅色 / 强调色在真机上的观感与对比度；TalkBack 实走 ModePicker 与切换面板（redroid 无 TalkBack）。
 - “选了与系统相反主题”时冷启动的窗口底色（Compose 之前）仍跟系统，未在设备上量过闪烁时长。
 

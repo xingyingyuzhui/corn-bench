@@ -174,3 +174,22 @@
   - 切换面板：`paneTitle = "切换模式"`（出现时读屏播报窗格）+ 标题 heading；卡片 `stateDescription`：当前卡“当前模式”、
     被拦截卡“现在不能切换”（原因文字本来就合并在卡片节点里）。确认框 `paneTitle` = 标题 + 标题 heading。选择页两个标题 heading。
   - `BenchShellTest` +2：面板 / 卡片语义（页头只一个切换按钮、窗格名、当前 / 拦截卡状态与原因、Role.Button）、选择页 heading。
+- [x] CI：`808a674`（基线入库）push run 40619061297 **success**，日志确认带 `-Pcorn.baseline=verify`、CJK 字体就绪
+  （“Require CJK font” 跳过）——本机录的 5 张基线在 runner 上比对通过，无需用 CI 图替换。`deed20d` push run 40619093684 success。
+- 本地单测（`deed20d`）：`:app` 39、`:feature-flashing` 42、`:feature-modbus` 962（全量 960 + 之后新增 `PageHeaderA11yTest` 2，
+  后者与 `ShellScreenshotTest` 单独重跑）、`:ui-common` 3，全过；`:modbus-core` 58、`:flashing-core` 164 未改动（CI 全量跑过）。
+  本轮新增 26 个用例。本机内存不足（他进程占 12G），一次性全量 + lint 的 Gradle 守护进程被 OOM 杀过一次，之后按模块拆跑；lint / assemble 以 CI 为准。
+- [x] redroid 验收（`deed20d` + 临时分支 `tmp/redroid-p2` 只多一行 skipNative，云构建 d40754af44be481f，验收后已删除）
+  - 旧验收包签名不同（换了构建机 debug key），先卸载 redroid 上的 `dev.corn.bench` 再装。
+  - **响应式置灰实机通过**：烧录模拟批次“等待下一块板”时打开切换面板，上位机卡写“批量烧录进行中”；面板不关，
+    批次在后台因模拟新板配置不一致自动暂停，约 20 秒内卡片文案自动变成“批次已暂停但未结束”（上次 redroid 记录的已知限制消除）。
+    结束批次后重开面板卡片可点，切到上位机成功。
+  - 改名：烧录单路 / 批量页头标题“烧录”，引导“允许 Corn Bench 访问”。
+  - 上位机强调色修复：外观页选蓝 → 连接页设备卡、波特率胶囊、主按钮均为蓝；切回烧录也是蓝。
+  - a11y：两个模式页头无障碍树里各只有一个 `Button label=切换模式`；切换面板卡片 disabled / checked 状态正确。
+  - **TalkBack 未做**：redroid 镜像没有装 TalkBack（`list_apps` 无 talkback），heading / paneTitle / stateDescription
+    只由 Robolectric 语义测试覆盖；所用设备工具也不显示 heading 属性。
+  - 崩溃列表无本次新增。
+- 未验证：TalkBack 实机朗读；真机 USB（ST-LINK / RS485、授权回调、拔插、模式间 USB 交接）、前后台、`FlashService` 通知回原实例
+  （评审 P2-8，本轮不做）；真机浅色 / 强调色观感。
+- 待主人决定：上位机侧“Corn Modbus”署名是否也统一为 Corn Bench；`feature-modbus/src/test/screenshots/` 里 24 张历史跟踪的非基线截图是否删除。
