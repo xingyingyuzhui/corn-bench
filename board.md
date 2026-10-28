@@ -201,3 +201,18 @@
   BuildConfig `APP_REPO`、`author_signature` / 模块内 `app_name` 字符串同步）。`MinePageTest` 断言署名含 Corn Bench 并打开新仓库，
   `ProjectArchiveTest` 断言 ZIP 注释全文。注释里写历史来源的“Corn Modbus”保留。
 - [x] 删除 `feature-modbus/src/test/screenshots/` 下 24 张历史跟踪的非基线截图；仓库里截图只剩 `baseline/` 的 5 张（`.gitignore` 不变）。
+
+## 2026-10-28 发版 · Corn Bench 0.2.0
+
+- PR #2 已由主人合进 main（merge commit `169e433`），本版即 `main@169e433`；tag `v0.2.0`（annotated，指向 `169e433`）。
+- Release：https://github.com/xingyingyuzhui/corn-bench/releases/tag/v0.2.0
+- 构建：本机 `./gradlew :app:assembleDebug`，**未设 skipNative**（NDK 27.2.12479018 + CMake 3.22.1），versionName 0.2.0 / versionCode 1 未改。
+  - 签名沿用本机 debug keystore（`CN=Android Debug`，证书 SHA-256 `cd8e8bc250efdd822724cdfa4bfd8374f39ce3d8a64d58183cb5d8644522af94`）。
+  - 核对：`libcorn_usbfs_diag.so` 四个 ABI 都在包里；权限无 INTERNET；`apksigner verify` 通过。
+- 产物：`dist/Corn-Bench-0.2.0.apk`（43,985,656 字节）+ `.sha256`，不入库（`dist/` 已在 `.gitignore`）。
+  SHA-256 `c202d049cad1d1403c2d50c0831c760d9dc5cb8f648ee1e6254ea4bc43de4efe`（与 GitHub 资产摘要一致）。
+- 发版前验证：`169e433` 的 CI 结果沿用 PR #2 最后一次 check（`ad96b18`，全量单测 + lint + 像素基线 verify，pass）；
+  本次只在本机重新出包，没有在设备上装这个 APK。
+- 未验证：这个正式包的设备安装与启动（redroid 验收用的是 skipNative 的云构建包，签名也不同）；
+  真机 USB（ST-LINK / RS485、授权回调、拔插、模式间 USB 交接）、前后台、`FlashService` 通知回原实例；
+  真机浅色 / 强调色观感；TalkBack。
