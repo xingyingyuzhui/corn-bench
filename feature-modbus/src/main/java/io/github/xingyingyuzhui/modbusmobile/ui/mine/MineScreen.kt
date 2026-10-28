@@ -51,8 +51,6 @@ import io.github.xingyingyuzhui.modbusmobile.ui.components.AppearanceIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.ColorSwatchRow
 import io.github.xingyingyuzhui.modbusmobile.ui.components.CommIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.DisplayFormatIcon
-import io.github.xingyingyuzhui.modbusmobile.ui.components.GearIcon
-import io.github.xingyingyuzhui.modbusmobile.ui.components.HeaderIconButton
 import io.github.xingyingyuzhui.modbusmobile.ui.components.InfoIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.LockIcon
 import io.github.xingyingyuzhui.modbusmobile.ui.components.NumberInput
@@ -84,7 +82,7 @@ import io.github.xingyingyuzhui.modbusmobile.ui.theme.LocalSpacing
 import kotlinx.coroutines.launch
 
 /** 「我的」里的页面。HOME 是入口；SETTINGS 是把所有分组按顺序排在一页的完整设置页（稿面 b3-2）。 */
-enum class MinePage { HOME, SETTINGS, APPEARANCE, DISPLAY, SECURITY, COMM, ABOUT, HISTORY, STORAGE }
+enum class MinePage { HOME, APPEARANCE, DISPLAY, SECURITY, COMM, ABOUT, HISTORY, STORAGE }
 
 private val GroupPages = listOf(MinePage.APPEARANCE, MinePage.DISPLAY, MinePage.SECURITY, MinePage.COMM, MinePage.ABOUT)
 
@@ -168,14 +166,10 @@ private fun MinePortrait(
     onDelete: (HistorySession) -> Unit,
 ) {
     val spacing = LocalSpacing.current
-    val colors = LocalModbusColors.current
     Column(Modifier.screenFrame()) {
         if (page == MinePage.HOME) {
-            PageHeader(stringResource(R.string.title_mine)) {
-                HeaderIconButton(stringResource(R.string.cd_open_settings), { go(MinePage.SETTINGS) }, Modifier.testTag("mine-settings")) {
-                    GearIcon(colors.muted, size = 18.dp)
-                }
-            }
+            // 页头不再放 ⚙：下面的分组列表就是设置入口，两个入口进的是同一批设置（E-20261028-ux1 C2）。
+            PageHeader(stringResource(R.string.title_mine))
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
                 verticalArrangement = Arrangement.spacedBy(spacing.s),
@@ -191,18 +185,7 @@ private fun MinePortrait(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = dockClearance()),
                 verticalArrangement = Arrangement.spacedBy(spacing.group),
             ) {
-                if (page == MinePage.SETTINGS) {
-                    // 完整设置页：外观 / 显示与格式 / 安全 / 通信默认值 / 存储，各带一个小标题
-                    listOf(MinePage.APPEARANCE, MinePage.DISPLAY, MinePage.SECURITY, MinePage.COMM).forEach { group ->
-                        SectionLabel(pageTitle(group))
-                        GroupContent(group, model, settings, overview, recording, onDelete)
-                    }
-                    SectionLabel(stringResource(R.string.mine_storage_title))
-                    StorageSettings(model, settings)
-                    AuthorCredit()
-                } else {
-                    GroupContent(page, model, settings, overview, recording, onDelete)
-                }
+                GroupContent(page, model, settings, overview, recording, onDelete)
             }
         }
     }
@@ -285,7 +268,6 @@ private fun GroupIcon(group: MinePage, tint: androidx.compose.ui.graphics.Color)
 private fun pageTitle(page: MinePage): String = stringResource(
     when (page) {
         MinePage.HOME -> R.string.title_mine
-        MinePage.SETTINGS -> R.string.mine_settings_title
         MinePage.APPEARANCE -> R.string.mine_group_appearance
         MinePage.DISPLAY -> R.string.mine_group_display
         MinePage.SECURITY -> R.string.mine_group_security

@@ -125,6 +125,18 @@ class WorkbenchScreenshotTest {
         compose.onNodeWithText("清空").assertTouchHeightIsEqualTo(48.dp).assertHeightIsAtLeast(48.dp)
     }
 
+    /** 「最近写入」标题行只占一行字高：标题 → 卡片 8dp（卡内文字再有 16 内边距），不再被「清空」的 48dp 热区撑开。 */
+    @Test
+    fun recentWritesTitleSitsCloseToItsCard() {
+        show(ThemeMode.LIGHT, ShotSession())
+        compose.onNodeWithText("写入").performClick()
+        compose.waitForIdle()
+        val title = compose.onNodeWithText("最近写入").getBoundsInRoot()
+        val empty = compose.onNodeWithText("还没有写入记录。").getBoundsInRoot()
+        assertEquals("标题底 → 空态文字顶 = 8 + 卡内 16", 24f, (empty.top - title.bottom).value, 2f)
+        compose.onNodeWithText("清空").assertTouchHeightIsEqualTo(48.dp)
+    }
+
     /** 「格式」是下拉格：点一下只弹菜单，不悄悄切换；选十六进制后已填的值跟着换算。 */
     @Test
     fun writeFormatIsPickedFromAMenu() {

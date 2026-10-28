@@ -276,6 +276,16 @@ private fun Modifier.touchPad(pad: TouchPad, min: Dp = MinTouch): Modifier = lay
 }
 
 /**
+ * 只占 [visible] 的布局高、内容（含 ≥48dp 的触控热区）上下居中溢出：给行内文字链接用，
+ * 让「最近写入 · 清空」这类标题行和普通小标题一样矮，热区照旧 48dp。
+ */
+fun Modifier.overhangHeight(visible: Dp): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
+    val height = visible.roundToPx()
+    layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
+}
+
+/**
  * [xs] = 稿面 xs 档：高 25、字 12、内边距 3/8。
  * [design] = 稿面普通 chip：高 33、字 12.5、内边距 9（G#1，只在显式开启的页面生效，全局默认仍是 48dp）。
  * [description] 给只有符号的 chip 补读屏文字。
