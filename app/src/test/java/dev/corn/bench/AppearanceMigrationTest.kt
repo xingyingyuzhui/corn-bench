@@ -179,10 +179,16 @@ class AppearanceMigrationTest {
         awaitLoaded(first)
         first.setThemeMode(BenchThemeMode.LIGHT)
         first.setAccent(BenchAccent.TEAL)
+        // 轮询新快照，不挂一个长期的 `data.first { }` 等：两次 edit 还在写时开始收集，DataStore 1.1.x
+        // 的无锁首读可能读到旧文件却带上新版本号，随后把同版本号的真实更新 dropWhile 掉，收集者永远停在旧值
+        // （CI 偶发 10s 超时）。每次 `data.first()` 都重新首读，写完后必然读到盘上的最终值。
         withTimeout(10_000) {
-            store.data.first {
-                it[BenchAppearanceStore.KEY_ACCENT] == BenchAccent.TEAL.name &&
-                    it[BenchAppearanceStore.KEY_THEME] == BenchThemeMode.LIGHT.name
+            while (true) {
+                val prefs = store.snapshot()
+                if (prefs[BenchAppearanceStore.KEY_ACCENT] == BenchAccent.TEAL.name &&
+                    prefs[BenchAppearanceStore.KEY_THEME] == BenchThemeMode.LIGHT.name
+                ) break
+                delay(10)
             }
         }
 
